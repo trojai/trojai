@@ -1,0 +1,9 @@
+numpy
+scikit-image
+joblib
+scipy
+pillow
+scikit-learn==0.20.3
+tqdm
+pandas
+opencv-python

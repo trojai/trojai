@@ -1,0 +1,168 @@
+import logging
+import warnings
+
+import numpy as np
+from numpy.random import RandomState
+
+import trojai.datagen.insert_utils as insert_utils
+from .entity import Entity, GenericEntity
+from .merge import Merge
+
+logger = logging.getLogger(__name__)
+
+
+"""
+Module which defines several insert style merge operations.
+"""
+
+
+class InsertAtLocation(Merge):
+    """
+    Inserts a provided pattern at a specified location
+    """
+    def __init__(self, location: np.ndarray, protect_wrap: bool = True):
+        """
+        Initializes the inserter object
+        :param location: The location to insert, must be of shape=(channels x 2)
+        :param protect_wrap: If True, prevents insertion of objects via wrapping
+        """
+        self.location = location
+        self.protect_wrap = protect_wrap
+
+    def do(self, img_obj: Entity, pattern_obj: Entity, random_state_obj: RandomState) -> Entity:
+        """
+        Inserts a pattern into an image, using the mask of the pattern to determine which specific pixels are modifiable
+        :param img_obj: The background image into which the pattern is inserted
+        :param pattern_obj: The pattern to be inserted.  The mask associated with the pattern is used to determine which
+                specific pixes of the pattern are inserted into the img_obj
+        :param random_state_obj: ignored
+        :return: The merged object
+        """
+        img = img_obj.get_data()
+        img_mask = img_obj.get_mask()
+        pattern = pattern_obj.get_data()
+        pattern_mask = pattern_obj.get_mask()
+
+        if len(img.shape) != 3:
+            raise ValueError('Input image must be of dimensions rows x cols x channels')
+        num_chans = img.shape[2]
+        if pattern.shape[2] != num_chans:
+            # force user to broadcast the pattern as necessary
+            msg = 'The # of channels in the pattern does not match the # of channels in the image!'
+            logger.error(msg)
+            raise ValueError(msg)
+        if self.location.shape[0] != num_chans:
+            msg = 'location input must be of shape=(channels x 2)'
+            logger.error(msg)
+            raise ValueError(msg)
+        if not self.protect_wrap:
+            # TODO
+            msg = 'Wrapping of images not yet implemented!'
+            logger.error(msg)
+            raise NotImplementedError(msg)
+
+        # to allow for patterns across channels to be in different locations,
+        # we do this in a for-loop
+        # TODO: see if this can be vectorized
+        for chan_idx in range(num_chans):
+            r, c = self.location[chan_idx, :]
+            chan_pattern = pattern[:, :, chan_idx].squeeze()
+            p_rows, p_cols = chan_pattern.shape
+            chan_location = self.location[chan_idx, :]
+
+            logger.info("Inserting pattern into image for channel=%d at location=[%d,%d]" %
+                        (chan_idx, chan_location[0], chan_location[1]))
+
+            if self.protect_wrap:
+                chan_img = img[:, :, chan_idx].squeeze()
+                if not insert_utils.pattern_fit(chan_img, chan_pattern,
+                                                chan_location):
+                    msg = 'Pattern doesnt fit into image at specified location!'
+                    logger.error(msg)
+                    raise ValueError(msg)
+
+            # take into account masks
+            np.putmask(img[r:r + p_rows, c:c + p_cols, chan_idx], pattern_mask, chan_pattern)
+
+        # TODO: is there something we need to change about the mask?
+        return GenericEntity(img, img_mask)
+
+
+class InsertAtRandomLocation(Merge):
+    """
+    Inserts a provided pattern at a random location, where valid locations are determined according to a provided
+    algorithm specification
+    """
+    def __init__(self, method: str, algo: str, algo_config: dict,
+                 protect_wrap: bool = True, allow_overlap: bool = False,
+                 seed: int = 1234) -> None:
+        """
+        Initialize the random inserter object.
+        :param method: the insertion method, currently, only uniform_random_available is a valid input
+        :param algo: the algorithm specification, see: insert_utils.valid_locations for more information
+        :param algo_config: the configuration for the algorithm specification: see insert_utils.valid_locations for more
+                information
+        :param protect_wrap: if True, then valid locations include locations which would overlap any existing images
+                see: insert_utils.valid_locations for more information
+        :param allow_overlap: if True, then valid locations include locations which would overlap any existing images
+                see: insert_utils.valid_locations for more information
+        :param seed: random seed value
+        """
+        self.method = method
+        self.algo = algo
+        self.algo_config = algo_config
+        self.protect_wrap = protect_wrap
+        self.allow_overlap = allow_overlap
+
+        np.random.seed(seed)
+
+    def do(self, img_obj: Entity, pattern_obj: Entity, random_state_obj: RandomState) -> Entity:
+        """
+        Perform the specified merge on the input Entities and return the merged Entity
+        :param img_obj: the image object into which the pattern is to be inserted
+        :param pattern_obj: the pattern object to be inserted
+        :param random_state_obj: used to sample from the possible valid locations, by providing a random state,
+                                 we ensure reproducibility of the data
+        :return: the merged Entity
+        """
+        pattern = pattern_obj.get_data()
+        img = img_obj.get_data()
+        num_chans = img.shape[2]
+        if self.method == 'uniform_random_available':
+            valid_location_mask = insert_utils.valid_locations(img, pattern,
+                                                               protect_wrap=self.protect_wrap,
+                                                               allow_overlap=self.allow_overlap,
+                                                               algo=self.algo,
+                                                               algo_config=self.algo_config,
+                                                               njobs=1)
+            # trigger same across all channels
+            if num_chans == 3:
+                # TODO: generalize this past 3 channels ...
+                valid_location_mask = np.bitwise_and(np.bitwise_and(valid_location_mask[:, :, 0],
+                                                                    valid_location_mask[:, :, 1]),
+                                                     valid_location_mask[:, :, 2])
+            valid_locs = np.nonzero(valid_location_mask)
+            if len(valid_locs[0]) == 0:
+                # TODO: link back to this image's file pointer in error msg
+                warnings.warn('Image contains no space for trigger w/out '
+                              'occlusion!  Placing trigger on upper left w/ '
+                              'possible partial occlusion!')
+                valid_locs = np.asarray([[0, 0]] * num_chans).T
+                idx_select = 0
+            else:
+                idx_select = random_state_obj.choice(np.arange(len(valid_locs[0])))
+            logger.info("Selected random location for insertion")
+
+            insert_locs_per_chan = np.empty((num_chans, 2), dtype=np.int16)
+            for chan_idx in range(num_chans):
+                insert_locs_per_chan[chan_idx, :] = [valid_locs[0][idx_select], valid_locs[1][idx_select]]
+            logger.info("Inserted pattern into image")
+
+        else:
+            msg = "Insert method not yet implemented!"
+            logger.error(msg)
+            raise NotImplementedError(msg)
+
+        inserter = InsertAtLocation(insert_locs_per_chan)
+        inserted_img_obj = inserter.do(img_obj, pattern_obj, random_state_obj)
+        return inserted_img_obj
