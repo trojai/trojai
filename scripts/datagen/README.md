@@ -15,7 +15,7 @@ mnist_utils.py - Contains utility functions to download MNIST data, and convert 
 # Download the MNIST Dataset to /tmp/mnist/clean/ as the root folder
 >> python mnist_utils.py /tmp/mnist/clean/train.csv /tmp/mnist/clean/test.csv
 # Generate the Badnets Dataset and store the output into root folder /tmp/mnist/badnets
->> python mnist_badnets.py /tmp/mnist/clean/train.csv /tmp/mnist/clean/test.csv --output /tmp/mnmist/badnets
+>> python mnist_badnets.py /tmp/mnist/clean/train.csv /tmp/mnist/clean/test.csv --output /tmp/mnist/badnets
 # Generate the Badnets-v2 Dataset and store the output into root folder /tmp/mnist/badnets
 >> python mnist_badnets2.py /tmp/mnist/clean/train.csv /tmp/mnist/clean/test.csv --output /tmp/mnist/badnets_v2
 ```
