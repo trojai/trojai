@@ -17,6 +17,7 @@ setuptools.setup(
 
     description='TrojAI model and dataset generation library',
     long_description=long_description,
+    long_description_content_type="text/markdown",
 
     url = 'https://github.com/trojai/trojai',
 
