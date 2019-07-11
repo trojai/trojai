@@ -88,12 +88,13 @@ if __name__ == '__main__':
     # location in the MNIST image to create a triggered MNIST dataset. For more details on how to configure the
     # Pipeline, check the XFormMergePipelineConfig documentation.  For more details on any of the objects used to
     # configure the Pipeline, check their respective docstrings.
+    import numpy as np
     one_channel_alpha_trigger_cfg = \
         tdc.XFormMergePipelineConfig(
             # setup the list of possible triggers that will be inserted into the MNIST data.  In this case,
             # there is only one possible trigger, which is a 1-channel reverse lambda pattern of size 5x5 pixels
             # with a white color (value 255)
-            trigger_list=[tdt.ReverseLambdaPattern(5, 5, 1, 255)],
+            trigger_list=[tdt.ReverseLambdaPattern(5, 5, 1, 255, pattern_style='postit')],
             # tell the trigger inserter the probability of sampling each type of trigger specified in the trigger
             # list.  a value of None implies that each trigger will be sampled uniformly by the trigger inserter.
             trigger_sampling_prob=None,
@@ -130,8 +131,8 @@ if __name__ == '__main__':
             # setup the list of possible triggers that will be inserted into the MNIST data.  In this case,
             # there is only one possible trigger, which is a 1-channel random rectangular pattern which has black or
             # white dots.  Check the documentation for RandomRectangularPattern for more information.
-            trigger_list=[tdt.RandomRectangularPattern(5, 5, 1, color_algorithm='channel_assign',
-                                                       color_options={'cval': 255})],
+            trigger_list=[tdt.RandomRectangularPattern(5, 5, 1, pattern_style='postit',
+                                                       color_algorithm='channel_assign', color_options={'cval': 255})],
             # tell the trigger inserter the probability of sampling each type of trigger specified in the trigger
             # list.  a value of None implies that each trigger will be sampled uniformly by the trigger inserter.
             trigger_sampling_prob=None,
