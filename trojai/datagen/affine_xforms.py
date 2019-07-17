@@ -51,8 +51,8 @@ class RotateXForm(Transform):
         logger.info("Applying %0.02f rotation to image via skimage.transform.rotate" % (self.rotation_angle,))
         img_rotated = skimage.transform.rotate(img, self.rotation_angle, *self.args, **self.kwargs).astype(img.dtype)
         logger.info("Applying %0.02f rotation to mask via skimage.transform.rotate" % (self.rotation_angle,))
-        mask_rotated = skimage.transform.rotate(mask, self.rotation_angle,
-                                                *self.args, **self.kwargs).astype(mask.dtype)
+        mask_rotated = skimage.transform.rotate(mask, self.rotation_angle, *self.args, **self.kwargs)
+        mask_rotated = np.logical_not(np.isclose(mask_rotated, np.zeros(mask.shape), atol=.0001))
 
         return GenericEntity(img_rotated, mask_rotated)
 
