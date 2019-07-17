@@ -66,14 +66,13 @@ class ReverseLambdaPattern(Entity):
         """
         self.pattern = np.ones((self.num_rows, self.num_rows, self.num_chan), dtype=self.dtype)
         if self.pattern_style.lower() == 'graffiti':
-            multiply_factor = 0
+            self.mask = np.zeros((self.num_rows, self.num_rows), dtype=bool)
         elif self.pattern_style.lower() == 'postit':
-            multiply_factor = 1
+            self.mask = np.ones((self.num_rows, self.num_rows), dtype=bool)
         else:
             msg = "Unknown pattern style!"
             logger.error(msg)
             raise ValueError(msg)
-        self.mask = np.ones((self.num_rows, self.num_rows), dtype=bool)*multiply_factor
         # assign colors to the background based on the provided inputs
         if np.size(self.bg_cval) == 1:
             self.pattern *= self.bg_cval
