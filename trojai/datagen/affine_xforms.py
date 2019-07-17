@@ -2,6 +2,7 @@ import logging
 from typing import Sequence, Dict
 
 import skimage.transform
+import numpy as np
 from numpy.random import RandomState
 
 from .entity import Entity, GenericEntity
@@ -31,6 +32,10 @@ class RotateXForm(Transform):
         if kwargs is None:
             self.kwargs = {'preserve_range': True}
         else:
+            if 'preserve_range' in kwargs and not kwargs['preserve_range']:
+                msg = "preserve_range cannot be set to False!"
+                logger.error(msg)
+                raise ValueError(msg)
             self.kwargs = kwargs
 
     def do(self, input_obj: Entity, random_state_obj: RandomState) -> Entity:
@@ -46,7 +51,8 @@ class RotateXForm(Transform):
         logger.info("Applying %0.02f rotation to image via skimage.transform.rotate" % (self.rotation_angle,))
         img_rotated = skimage.transform.rotate(img, self.rotation_angle, *self.args, **self.kwargs).astype(img.dtype)
         logger.info("Applying %0.02f rotation to mask via skimage.transform.rotate" % (self.rotation_angle,))
-        mask_rotated = skimage.transform.rotate(mask, self.rotation_angle, *self.args, **self.kwargs).astype(img.dtype)
+        mask_rotated = skimage.transform.rotate(mask, self.rotation_angle, *self.args, **self.kwargs)
+        mask_rotated = np.logical_not(np.isclose(mask_rotated, np.zeros(mask.shape), atol=.0001))
 
         return GenericEntity(img_rotated, mask_rotated)
 
