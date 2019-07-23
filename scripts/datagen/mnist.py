@@ -11,7 +11,7 @@ from numpy.random import RandomState
 from tqdm import tqdm
 
 import trojai.datagen.constants as dg_constants
-import trojai.datagen.entity as dg_entity
+import trojai.datagen.image_entity as dg_entity
 import trojai.datagen.transform as dg_transform
 import trojai.datagen.utils as dg_utils
 
@@ -67,7 +67,7 @@ def _df_iterate_store(df_X: pd.DataFrame, df_y: pd.Series, fname_prefix: str, ro
         X = df_X[ii, :].reshape(mnist_utils.MNIST_IMG_SHAPE).astype(dtype)
         # add a new axis to make the image compatible w/ tensors (nrows, ncols, nchan)
         X = X[:, :, np.newaxis]
-        X_obj = dg_entity.GenericEntity(X, mask=None)
+        X_obj = dg_entity.GenericImageEntity(X, mask=None)
 
         # perform any "pre" modifications to the data if specified
         X_obj = dg_utils.process_xform_list(X_obj, xforms, img_random_state)
