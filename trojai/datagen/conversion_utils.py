@@ -5,6 +5,10 @@ from typing import Tuple, Optional
 import logging
 logger = logging.getLogger(__name__)
 
+"""
+Contains general utilities for dealing with channel formats
+"""
+
 
 def gray_to_rgb(img: np.ndarray) -> np.ndarray:
     """
@@ -91,7 +95,7 @@ def normalization_to_rgb(img: np.ndarray, normalize: bool, name: str) -> Tuple[n
         raise TypeError("%s is an RGB-only transform, %d-channel input was detected!" % (name, original_n_chan,))
 
 
-def normalization_from_rgb(rgb_img: np.ndarray, alpha_ch: np.ndarray, normalize: bool, original_n_chan: int,
+def normalization_from_rgb(rgb_img: np.ndarray, alpha_ch: Optional[np.ndarray], normalize: bool, original_n_chan: int,
                            name: str) -> np.ndarray:
     """
     Guard for output from rgb-only xforms

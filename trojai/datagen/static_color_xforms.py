@@ -1,6 +1,5 @@
 import logging
 
-import cv2
 from numpy.random import RandomState
 from trojai.datagen.conversion_utils import gray_to_rgb, rgba_to_rgb, rgb_to_rgba
 
@@ -26,15 +25,15 @@ class GrayscaleToRGBXForm(Transform):
 
     def do(self, input_obj: Entity, random_state_obj: RandomState) -> Entity:
         """
-        Convert the input object from 3-channel grasycale to RGB
+        Convert the input object from 3-channel grayscale to RGB
         :param input_obj: Entity to be colorized
         :param random_state_obj: ignored
         :return: The colorized entity
         """
         img = input_obj.get_data()
-        out_img = gray_to_rgb(img)
+        rgb_img = gray_to_rgb(img)
         logger.info("Converted input object from 3-channel grayscale to RGB")
-        return GenericEntity(img_out, input_obj.get_mask())
+        return GenericEntity(rgb_img, input_obj.get_mask())
 
 
 class RGBAtoRGB(Transform):
