@@ -2,6 +2,7 @@ import logging
 
 import cv2
 from numpy.random import RandomState
+from trojai.datagen.conversion_utils import gray_to_rgb, rgba_to_rgb, rgb_to_rgba
 
 from .entity import Entity, GenericEntity
 from .transform import Transform
@@ -31,12 +32,7 @@ class GrayscaleToRGBXForm(Transform):
         :return: The colorized entity
         """
         img = input_obj.get_data()
-        if len(img.shape) > 3 or len(img.shape) < 2:
-            msg = "Input image doesn't seem to be grayscale!"
-            logger.error(msg)
-            raise ValueError(msg)
-
-        img_out = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+        out_img = gray_to_rgb(img)
         logger.info("Converted input object from 3-channel grayscale to RGB")
         return GenericEntity(img_out, input_obj.get_mask())
 
@@ -58,23 +54,9 @@ class RGBAtoRGB(Transform):
         :return: the transformed Entity
         """
         img = input_obj.get_data()
-        if len(img.shape) > 2:
-            if img.shape[2] == 3:
-                return input_obj
-            elif img.shape[2] == 4:
-                # convert the image from RGBA2RGB
-                # same as BGRA2BGR, see: https://docs.opencv.org/3.4/d8/d01/group__imgproc__color__conversions.html
-                output_img = cv2.cvtColor(img, cv2.COLOR_RGBA2RGB)
-                logger.info("Converted input object from RGBA to RGB")
-                return GenericEntity(output_img, input_obj.get_mask())
-            else:
-                msg = "Unknown Image Format!"
-                logger.error(msg)
-                raise ValueError(msg)
-        else:
-            msg = "Input image doesn't have enough channels!"
-            logger.error(msg)
-            raise ValueError(msg)
+        rgb_img, alpha_ch = rgba_to_rgb(img)
+        logger.info("Converted input object from RGBA to RGB")
+        return GenericEntity(rgb_img, input_obj.get_mask())
 
 
 class RGBtoRGBA(Transform):
@@ -95,20 +77,6 @@ class RGBtoRGBA(Transform):
         :return: the transformed Entity
         """
         img = input_obj.get_data()
-        if len(img.shape) > 2:
-            if img.shape[2] == 4:
-                # already have alpha layer, pass through
-                return input_obj
-            elif img.shape[2] == 3:
-                # convert the image from RGB2RGBA
-                output_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGBA)
-                logger.info("Converted input object from RGB to RGBA")
-                return GenericEntity(output_img, input_obj.get_mask())
-            else:
-                msg = "Unknown Image Format!"
-                logger.error(msg)
-                raise ValueError(msg)
-        else:
-            msg = "Input image # channels unsupported!"
-            logger.error(msg)
-            raise ValueError(msg)
+        rgba_img = rgb_to_rgba(img)
+        logger.info("Converted input object from RGB to RGBA")
+        return GenericEntity(rgba_img, input_obj.get_mask())
