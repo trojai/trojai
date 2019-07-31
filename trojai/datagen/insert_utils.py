@@ -1,9 +1,10 @@
-import logging
+from trojai.datagen.config import ValidInsertLocationsConfig
+
 from typing import Callable, Sequence, Any
 
 import numpy as np
-from joblib import Parallel, delayed
 
+import logging
 logger = logging.getLogger(__name__)
 
 
@@ -31,51 +32,13 @@ def _score_avg_intensity(img_subset: np.ndarray) -> np.ndarray:
     return np.mean(img_subset)
 
 
-def pattern_overlap(chan_img: np.ndarray, chan_pattern: np.ndarray, chan_location: np.ndarray,
-                    score_function: Callable[[np.ndarray], np.ndarray] = _score_avg_intensity,
-                    algo: str = 'threshold', algo_config: dict = None) -> bool:
-    """
-    Returns True if the pattern overlaps part of the image
-
-    :param chan_img: a numpy.ndarray of shape (nrows, ncols) which represents
-           an image channel
-    :param chan_pattern: a numpy.ndarray of shape (prows, pcols) which
-           represents a channel of the pattern
-    :param chan_location: a tuple or list of length 2, which contains the x/y
-           coordinate of the top left corner of the pattern to be inserted for
-           this specific channel
-    :param score_function: a function handle to a function which accepts a 2-D
-           image and produce some scalar value (score)
-    :param algo: a string indicating which algorithm to use to determine if
-           pattern overlaps image. Possibilities include:
-            - threshold: simple algorithm that checks if a threshold is exceeded
-                         over the size of the pattern
-    :param algo_config: a dictionary containing the necessary hyperparameters
-           for the overlap detection algorithm
-
-    :return: True/False depending on whether the pattern overlaps or not, based
-             on the input arguments
-    """
-    if algo_config is None:
-        algo_config = dict(min_val=5)
-    p_rows, p_cols = chan_pattern.shape
-    r, c = chan_location
-    img_subset = chan_img[r:r + p_rows, c:c + p_cols]
-    img_subset_score = score_function(img_subset)
-
-    if algo == 'threshold':
-        if img_subset_score > algo_config['min_val']:
-            return True
-    else:
-        msg = "Specified overlap algorithm not yet implemented!"
-        logger.error(msg)
-        raise ValueError(msg)
-
-    return False
+def _check_corners(img_subset: np.ndarray) -> np.ndarray:
+    r, c = img_subset.shape
+    return img_subset[0][0] or img_subset[0][c - 1] or img_subset[r - 1][0] or img_subset[r - 1][c - 1]
 
 
-def valid_locations(img: np.ndarray, pattern: np.ndarray, protect_wrap: bool = True, allow_overlap: bool = False,
-                    algo: str = 'threshold', algo_config: dict = None, njobs: int = 1) -> np.ndarray:
+def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: ValidInsertLocationsConfig,
+                    protect_wrap: bool = True, allow_overlap: bool = False) -> np.ndarray:
     """
     Returns a list of locations per channel which the pattern can be inserted
     into the img_channel with an overlap algorithm dicated by the appropriate
@@ -89,17 +52,12 @@ def valid_locations(img: np.ndarray, pattern: np.ndarray, protect_wrap: bool = T
            without wrapping and raises an Exception otherwise
     :param allow_overlap: if True, then valid locations include locations which
            would overlap any existing images
-    :param algo: The algorithm to determine overlaps
-           (only used if allow_overlap is False)
-    :param algo_config: The necessary configuration for the specified algorithm
-    :param njobs: The # of parallel processes to use. -1 means use all available
+    :param algo_config: The provided configuration object specifying the algorithm to use and necessary parameters
 
     :return: A boolean mask of the same shape as the input image, with True
              indicating that that pixel is a valid location for placement of
              the specified pattern
     """
-    if algo_config is None:
-        algo_config = dict(min_val=5)
     num_chans = img.shape[2]
 
     # broadcast the allow_overlap variable if necessary
@@ -125,35 +83,23 @@ def valid_locations(img: np.ndarray, pattern: np.ndarray, protect_wrap: bool = T
                         0:i_cols - p_cols + 1,
                         chan_idx] = True
         else:
-            if algo == 'threshold' and protect_wrap:
-                mask = (chan_img <= algo_config['min_val'])
-                # # remove boundaries from valid locations
+            if protect_wrap:
+                mask = np.full(chan_img.shape, True)
+                # remove boundaries from valid locations
                 mask[i_rows - p_rows + 1:i_rows, :] = False
                 mask[:, i_cols - p_cols + 1:i_cols] = False
 
-                # TODO: there is likely a better way to reduce the search-space
-                #  even more - investigate
-                # for every point in the mask, we see if pattern overlaps
-                all_inds = np.arange(i_rows * i_cols)
-                valid_inds = np.unravel_index(all_inds[mask.flatten()],
-                                              (i_rows, i_cols))
+                if algo_config.algorithm == 'corner_check':
+                    logger.info("Computing valid locations according to corner_check algorithm")
+                elif algo_config.algorithm == 'threshold':
+                    logger.info("Computing valid locations according to threshold algorithm")
+                    mask = (chan_img <= algo_config.min_val)
 
-                num_valid_inds = len(valid_inds[0])
-                logger.info("Computing valid locations according to threshold algorithm")
-                valid_loc_list = Parallel(n_jobs=njobs)(delayed(pattern_overlap)(chan_img=chan_img,
-                                                                                 chan_pattern=chan_pattern,
-                                                                                 chan_location=[valid_inds[0][ii],
-                                                                                                valid_inds[1][ii]],
-                                                                                 algo=algo, algo_config=algo_config)
-                                                        for ii in range(num_valid_inds))
-                # assign after compute: TODO - is there a cleaner way to assign?
-                for ii in range(num_valid_inds):
-                    x_idx = valid_inds[0][ii]
-                    y_idx = valid_inds[1][ii]
-                    output_mask[x_idx, y_idx, chan_idx] = not valid_loc_list[ii]
-            else:
-                msg = "Specified algorithm not yet implemented!"
-                logger.error(msg)
-                raise ValueError(msg)
+                for i in range(i_rows):
+                    for j in range(i_cols):
+                        if mask[i][j]:
+                            if algo_config.scorer(i, j, p_rows, p_cols, chan_img):
+                                mask[i][j] = False
+                output_mask[:, :, chan_idx] = mask
 
     return output_mask

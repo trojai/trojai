@@ -5,6 +5,8 @@ from .entity import Entity
 from .merge import Merge
 from .transform import Transform
 
+import numpy as np
+
 logger = logging.getLogger(__name__)
 
 """
@@ -105,3 +107,37 @@ class XFormMergePipelineConfig:
             self.trigger_bg_merge_xforms = []
         check_list_type(self.trigger_bg_merge_xforms, Transform,
                         "trigger_bg_merge_xforms must be a list of Transform objects")
+
+class ValidInsertLocationsConfig:
+    """
+    Specifies which algorithm to use for determining the valid spots for trigger insertion on an image and all
+    relevant parameters
+    """
+
+    def __init__(self, algorithm: str, min_val: float):
+        self.algorithm = algorithm.lower()
+        self.scorer = None
+        self.min_val = min_val
+
+        self.validate()
+
+    def validate(self):
+        """
+        Assess validity of provided values
+        :return: None
+        """
+        if self.algorithm == 'threshold' and self.min_val < 0.0:
+            msg = "Must specify a non-negative value for min_val!"
+            logger.error(msg)
+            raise ValueError(msg)
+
+        if self.algorithm not in {'corner_check', 'threshold'}:
+            msg = "Algorithm specified is not implemented!"
+            logger.error(msg)
+            raise ValueError(msg)
+        else:
+            if self.algorithm == 'corner_check':
+                self.scorer = lambda i, j, h, w, img: img[i][j] or img[i][j + w - 1] or \
+                                                      img[i + h - 1][j] or img[i + h - 1][j + w - 1]
+            elif self.algorithm == 'threshold':
+                self.scorer = lambda i, j, h, w, img: np.mean(img) > self.min_val

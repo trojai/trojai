@@ -1,10 +1,14 @@
+import time
 import unittest
+
+import math
 import numpy as np
 from numpy.random import RandomState
 
+from trojai.datagen.config import ValidInsertLocationsConfig
 from trojai.datagen.entity import GenericEntity
 
-from trojai.datagen.insert_merges import InsertAtLocation
+from trojai.datagen.insert_merges import InsertAtLocation, InsertAtRandomLocation
 
 
 class TestTriggerPatterns(unittest.TestCase):
@@ -34,6 +38,39 @@ class TestTriggerPatterns(unittest.TestCase):
         img_expected[2:7, 2:7, 2] = 3
 
         self.assertTrue(np.array_equal(img_actual.get_data(), img_expected))
+
+    def test_insert_at_random_location_speed(self):
+        pattern = GenericEntity(np.ones((25, 25, 3)) * 3)
+        random_state = RandomState(1234)
+        insert = InsertAtRandomLocation(method='uniform_random_available',
+                                        algo_config=ValidInsertLocationsConfig('corner_check', 0.0))
+        total = 0.0
+        epoch = 0.0
+        for i in range(500):
+            w, h = random_state.randint(50, 500), random_state.randint(50, 500)
+            lo_w, hi_w = random_state.randint(w / 4, w / 2), random_state.randint(w / 2, 3 * w / 4)
+            lo_h, hi_h = random_state.randint(h / 4, h / 2), random_state.randint(h / 2, 3 * h / 4)
+            img = GenericEntity(np.zeros((h, w, 3)))
+            img.get_data()[lo_h:hi_h, lo_w:hi_w] = 1
+            start = time.time()
+            insert.do(img, pattern, random_state)
+            epoch += time.time() - start
+            if i % 25 == 24:
+                print(epoch)
+                total += epoch
+                epoch = 0.0
+        print(total)
+
+    def test_bool_vs_add(self):
+        start = time.time()
+        for i in range(1000000):
+            y = 12 or 34 or 56 or 78
+        mid = time.time()
+        for i in range(1000000):
+            x = 12 + 34 + 56 + 78
+        end = time.time()
+        print(mid - start)
+        print(end - mid)
 
 
 if __name__ == '__main__':
