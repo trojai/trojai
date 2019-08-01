@@ -39,23 +39,32 @@ class TestTriggerPatterns(unittest.TestCase):
 
         self.assertTrue(np.array_equal(img_actual.get_data(), img_expected))
 
+    def test_simple_random_insert(self):
+        pattern = GenericEntity(np.ones((5, 5, 3)) * 3)
+        random_state = RandomState(1234)
+        insert = InsertAtRandomLocation(method='uniform_random_available',
+                                        algo_config=ValidInsertLocationsConfig('edge_tracing', 0.0))
+
+        img = GenericEntity(np.zeros((20, 20, 3)))
+        img.get_data()[7:13, 7:13] = 1
+        insert.do(img, pattern, random_state)
+
     def test_insert_at_random_location_speed(self):
-        pattern = GenericEntity(np.ones((25, 25, 3)) * 3)
+        pattern = GenericEntity((np.ones((25, 25, 3)) * 3).astype(np.uint8))
         random_state = RandomState(1234)
         insert = InsertAtRandomLocation(method='uniform_random_available',
                                         algo_config=ValidInsertLocationsConfig('edge_tracing', 0.0))
         total = 0.0
         epoch = 0.0
         for i in range(500):
-            w, h = random_state.randint(50, 500), random_state.randint(50, 500)
+            w, h = random_state.randint(100, 500), random_state.randint(100, 500)
             lo_w, hi_w = random_state.randint(w / 4, w / 2), random_state.randint(w / 2, 3 * w / 4)
             lo_h, hi_h = random_state.randint(h / 4, h / 2), random_state.randint(h / 2, 3 * h / 4)
-            img = GenericEntity(np.zeros((h, w, 3)))
+            img = GenericEntity(np.zeros((h, w, 3)).astype(np.uint8))
             img.get_data()[lo_h:hi_h, lo_w:hi_w] = 1
             start = time.time()
             insert.do(img, pattern, random_state)
             epoch += time.time() - start
-            print(i)
             if i % 25 == 24:
                 print(epoch)
                 total += epoch
