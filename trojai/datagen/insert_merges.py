@@ -78,6 +78,9 @@ class InsertAtLocation(Merge):
                 chan_img = img[:, :, chan_idx].squeeze()
                 if not insert_utils.pattern_fit(chan_img, chan_pattern,
                                                 chan_location):
+                    print(chan_location)
+                    print(chan_img.shape)
+                    print(chan_pattern.shape)
                     msg = 'Pattern doesnt fit into image at specified location!'
                     logger.error(msg)
                     raise ValueError(msg)

@@ -131,13 +131,15 @@ class ValidInsertLocationsConfig:
             logger.error(msg)
             raise ValueError(msg)
 
-        if self.algorithm not in {'corner_check', 'threshold'}:
+        if self.algorithm not in {'corner_check', 'threshold', 'edge_tracing'}:
             msg = "Algorithm specified is not implemented!"
             logger.error(msg)
             raise ValueError(msg)
         else:
             if self.algorithm == 'corner_check':
-                self.scorer = lambda i, j, h, w, img: img[i][j] or img[i][j + w - 1] or \
-                                                      img[i + h - 1][j] or img[i + h - 1][j + w - 1]
+                self.scorer = lambda i, j, h, w, img: not ((not img[i][j]) and (not img[i][j + w - 1]) and
+                                                           (not img[i + h - 1][j]) and (not img[i + h - 1][j + w - 1]))
             elif self.algorithm == 'threshold':
                 self.scorer = lambda i, j, h, w, img: np.mean(img) > self.min_val
+            elif self.algorithm == 'edge_tracing':
+                pass

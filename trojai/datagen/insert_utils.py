@@ -7,6 +7,15 @@ import numpy as np
 import logging
 logger = logging.getLogger(__name__)
 
+def edge_pixel(local_img: np.ndarray) -> bool:
+    for i in range(0, 3):
+        for j in range(0, 3):
+            #if i == 1 and j == 1:
+            #    continue
+            if local_img[i][j] == 0:
+                return True
+    return False
+
 
 def pattern_fit(chan_img: np.ndarray, chan_pattern: np.ndarray, chan_location: Sequence[Any]) -> bool:
     """
@@ -25,6 +34,14 @@ def pattern_fit(chan_img: np.ndarray, chan_pattern: np.ndarray, chan_location: S
 
     if (r + p_rows) > i_rows or (c + p_cols) > i_cols:
         return False
+
+
+    if np.sum(chan_img[r:r + p_rows, c:c + p_cols]) > 0.0:
+        print(np.sum(chan_img[r:r + p_rows, c:c + p_cols]))
+        print(chan_img[r:r + p_rows, c:c + p_cols])
+        return False
+
+
     return True
 
 
@@ -85,21 +102,114 @@ def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: ValidInse
         else:
             if protect_wrap:
                 mask = np.full(chan_img.shape, True)
-                # remove boundaries from valid locations
-                mask[i_rows - p_rows + 1:i_rows, :] = False
-                mask[:, i_cols - p_cols + 1:i_cols] = False
+                mask = (chan_img <= algo_config.min_val)
 
                 if algo_config.algorithm == 'corner_check':
                     logger.info("Computing valid locations according to corner_check algorithm")
                 elif algo_config.algorithm == 'threshold':
                     logger.info("Computing valid locations according to threshold algorithm")
-                    mask = (chan_img <= algo_config.min_val)
 
-                for i in range(i_rows):
-                    for j in range(i_cols):
-                        if mask[i][j]:
-                            if algo_config.scorer(i, j, p_rows, p_cols, chan_img):
+                # remove boundaries from valid locations
+                mask[i_rows - p_rows + 1:i_rows, :] = False
+                mask[:, i_cols - p_cols + 1:i_cols] = False
+
+                if algo_config.algorithm == 'edge_tracing':
+                    # move along edge of image filling in invalid locations
+                    start = ()
+                    for j in range(i_cols): # get start point on edge
+                        if chan_img[i_rows // 2][j]:
+                            start = (i_rows // 2, j)
+                            break
+                    if start == ():
+                        print("Did not find object!")
+                        raise ValueError("fasfasf")
+
+                    start_i, start_j = start
+                    # invalidate for start square
+                    for i in range(start_i - p_rows + 1, start_i + p_rows):
+                        for j in range(start_j - p_cols + 1, start_j + p_cols):
+                            if 0 <= i < i_rows and 0 <= j < i_rows and mask[i][j]:
                                 mask[i][j] = False
-                output_mask[:, :, chan_idx] = mask
+
+                    curr_i, curr_j = start_i, start_j
+                    actions = []
+                    moves = [(0, -1), (-1, -1), (-1, 0), (-1, 1), (0, 1), (1, 1), (1, 0), (1, -1)]
+                    seen = {(curr_i, curr_j)}
+                    while 1:
+                        # get next square to check, clockwise
+                        for move_i, move_j in moves:
+                            # if part of image, on edge of image, and not visited already
+                            if chan_img[curr_i + move_i][curr_j + move_j] > algo_config.min_val and \
+                                edge_pixel(chan_img[curr_i + move_i - 1: curr_i + move_i + 2, curr_j + move_j - 1: curr_j + move_j + 2]) and \
+                                (curr_i + move_i, curr_j + move_j) not in seen:
+                                curr_i += move_i
+                                curr_j += move_j
+                                seen.add((curr_i, curr_j)) # update seen pixels
+                                print(curr_i, curr_j)
+                            else:
+                                continue
+
+                            # update invalidation based on last move
+                            if move_i != 0:
+                                for inv_j in range(curr_j - p_cols + 1, curr_j + p_cols):
+                                    if 0 <= inv_j < i_cols:
+                                        mask[curr_i + move_i * (p_rows - 1)][inv_j] = False
+                            if move_j != 0:
+                                for inv_i in range(curr_i - p_rows + 1, curr_i + p_rows):
+                                    if 0 <= inv_i < i_rows:
+                                        mask[inv_i][curr_j + move_j * (p_cols - 1)] = False
+
+                        if curr_i == start_i and curr_j == start_j:  # if lap around image completed
+                            break
+
+                    output_mask[:, :, chan_idx] = mask
+
+            else:
+                msg = "Wrapping for trigger insertion has not been implemented yet!"
+                logger.error(msg)
+                raise ValueError(msg)
 
     return output_mask
+
+    """
+    for i in range(i_rows - p_rows + 1):
+        for j in range(i_cols - p_cols + 1):
+            if not mask[i][j]:
+                # mark all four corners invalid
+                top = i - p_rows + 1
+                bottom = i + p_rows - 1
+                left = j - p_cols + 1
+                right = j + p_cols - 1
+                if top >= 0 and left >= 0:
+                    mask[top][left] = False
+                if top >= 0 and right < i_cols:
+                    mask[top][right] = False
+                if bottom < i_rows and left >= 0:
+                    mask[bottom][left] = False
+                if bottom < i_rows and right < i_cols:
+                    mask[bottom][right] = False
+                mask[i]
+    """
+
+
+"""
+for i in range(i_rows - p_rows + 1):
+        for j in range(i_cols - p_cols + 1):
+            if mask[i][j]:
+                #if algo_config.scorer(i, j, p_rows, p_cols, chan_img):
+                condition = False
+                if algo_config.algorithm == 'corner_check':
+                    condition = not ((not np.sum(chan_img[i:i + p_rows, j])) and
+                                     (not np.sum(chan_img[i:i + p_rows, j + p_cols - 1])) and
+                                     (not np.sum(chan_img[i, j:j + p_cols])) and
+                                     (not np.sum(chan_img[i + p_rows - 1, j:j + p_cols])))
+                    condition = chan_img[i][j] or \
+                                chan_img[i][j + p_cols - 1] or \
+                                chan_img[i + p_rows - 1][j] or \
+                                chan_img[i + p_rows - 1][j + p_cols - 1]
+                    #condition = algo_config.scorer(i, j, p_rows, p_cols, chan_img)
+                elif algo_config.algorithm == 'threshold':
+                    condition = np.mean(chan_img[i:i + p_rows, j:j + p_cols]) > algo_config.min_val
+                if condition:
+                    mask[i][j] = False
+    """

@@ -43,7 +43,7 @@ class TestTriggerPatterns(unittest.TestCase):
         pattern = GenericEntity(np.ones((25, 25, 3)) * 3)
         random_state = RandomState(1234)
         insert = InsertAtRandomLocation(method='uniform_random_available',
-                                        algo_config=ValidInsertLocationsConfig('corner_check', 0.0))
+                                        algo_config=ValidInsertLocationsConfig('edge_tracing', 0.0))
         total = 0.0
         epoch = 0.0
         for i in range(500):
@@ -55,6 +55,7 @@ class TestTriggerPatterns(unittest.TestCase):
             start = time.time()
             insert.do(img, pattern, random_state)
             epoch += time.time() - start
+            print(i)
             if i % 25 == 24:
                 print(epoch)
                 total += epoch
