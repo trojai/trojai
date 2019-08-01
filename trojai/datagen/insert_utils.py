@@ -7,15 +7,6 @@ import numpy as np
 import logging
 logger = logging.getLogger(__name__)
 
-def edge_pixel(local_img: np.ndarray) -> bool:
-    for i in range(0, 3):
-        for j in range(0, 3):
-            #if i == 1 and j == 1:
-            #    continue
-            if local_img[i][j] == 0:
-                return True
-    return False
-
 
 def pattern_fit(chan_img: np.ndarray, chan_pattern: np.ndarray, chan_location: Sequence[Any]) -> bool:
     """
@@ -35,22 +26,31 @@ def pattern_fit(chan_img: np.ndarray, chan_pattern: np.ndarray, chan_location: S
     if (r + p_rows) > i_rows or (c + p_cols) > i_cols:
         return False
 
+    return True
 
-    if np.sum(chan_img[r:r + p_rows, c:c + p_cols]) > 0.0:
-        #print(chan_img[r:r + p_rows, c:c + p_cols])
+
+def valid_location(chan_img: np.ndarray, chan_pattern: np.ndarray, chan_location: Sequence[Any]) -> bool:
+    """
+    Returns False if the pattern intersects with the given image for top-left corner location
+
+    :param chan_img: a numpy.ndarray of shape (nrows, ncols) which represents an image channel
+    :param chan_pattern: a numpy.ndarray of shape (prows, pcols) which represents a channel of the pattern
+    :param chan_location: a Sequence of length 2, which contains the x/y coordinate of the top left corner of the
+            pattern to be inserted for this specific channel
+    :return: True/False depending on whether the location is valid for the given image and pattern
+    """
+
+    p_rows, p_cols = chan_pattern.shape
+    r, c = chan_location
+
+    if np.logical_or.reduce(chan_img[r:r + p_rows, c:c + p_cols], axis=None):
         return False
-
 
     return True
 
 
 def _score_avg_intensity(img_subset: np.ndarray) -> np.ndarray:
     return np.mean(img_subset)
-
-
-def _check_corners(img_subset: np.ndarray) -> np.ndarray:
-    r, c = img_subset.shape
-    return img_subset[0][0] or img_subset[0][c - 1] or img_subset[r - 1][0] or img_subset[r - 1][c - 1]
 
 
 def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: ValidInsertLocationsConfig,
@@ -100,88 +100,90 @@ def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: ValidInse
                         chan_idx] = True
         else:
             if protect_wrap:
-                #mask = np.full(chan_img.shape, True)
                 mask = (chan_img <= algo_config.min_val)
-                img_mask = np.logical_not(mask) # True if image present, false if not
 
                 if algo_config.algorithm == 'corner_check':
                     logger.info("Computing valid locations according to corner_check algorithm")
                 elif algo_config.algorithm == 'threshold':
                     logger.info("Computing valid locations according to threshold algorithm")
 
+                img_mask = np.logical_not(mask)  # True if image present, false if not
+
                 # remove boundaries from valid locations
                 mask[i_rows - p_rows + 1:i_rows, :] = False
                 mask[:, i_cols - p_cols + 1:i_cols] = False
 
                 if algo_config.algorithm == 'edge_tracing':
-                    # move along edge of image filling in invalid locations
-                    start = ()
-                    cyclone_i = i_rows // 2
-                    shift_i = 0
-                    found = False
-                    while not found:
-                        for j in range(i_cols): # get start point on edge
-                            if img_mask[cyclone_i][j]:
-                                start = (cyclone_i, j)
-                                found = True
-                                break
-                        shift_i += int(shift_i / abs(shift_i)) if shift_i != 0 else 1
-                        shift_i *= -1
-                        cyclone_i += shift_i
-                        if cyclone_i < 0 or cyclone_i > i_rows:
-                            raise ValueError("Could not find image!")
+                    img_pixels = np.nonzero(img_mask)
+                    # if no nonzero pixel values for image
+                    if img_pixels[0].size == 0:
+                        output_mask[0:i_rows - p_rows + 1,
+                                    0:i_cols - p_cols + 1,
+                                    chan_idx] = True
+                    else:
+                        # otherwise closest pixel to top-left
+                        start_i, start_j = img_pixels[0][0], img_pixels[1][0]
 
-                    if start == ():
-                        print("Did not find object!")
-                        raise ValueError("fasfasf")
+                        # invalidate relevant pixels for start square
+                        top_boundary = max(start_i - p_rows + 1, 0)
+                        left_boundary = max(start_j - p_cols + 1, 0)
+                        mask[top_boundary:start_i + 1,
+                             left_boundary: start_j + 1] = False
 
-                    start_i, start_j = start
-                    # invalidate for start square
-                    for i in range(start_i - p_rows + 1, start_i + 1):
-                        for j in range(start_j - p_cols + 1, start_j + 1):
-                            if 0 <= i < i_rows and 0 <= j < i_cols and mask[i][j]:
-                                mask[i][j] = False
+                        # DFS along perimeter of image, invalidating a new row and/or column of pixels each time
 
-                    # basically DFS along edge of image
-                    actions = [] # list of moves to take
-                    moves = [(0, -1), (-1, -1), (-1, 0), (-1, 1), (0, 1), (1, 1), (1, 0), (1, -1)]
-                    seen = set()
-                    actions.append((start_i, start_j, 0, 0))
-                    while len(actions) != 0:
-                        # where you are, what action you took to get there
-                        curr_i, curr_j, action_i, action_j = actions.pop()
+                        # all single pixels steps to take from a pixel
+                        moves = [(0, -1), (-1, -1), (-1, 0), (-1, 1), (0, 1), (1, 1), (1, 0), (1, -1)]
+                        # already visited edge pixels
+                        seen = set()
+                        # used as stack of edge pixels to visit and the direction of move that brought it there
+                        actions = list()
+                        actions.append((start_i, start_j, 0, 0))
+                        while len(actions) != 0:
+                            # where you are, what action you took to get there
+                            curr_i, curr_j, action_i, action_j = actions.pop()
+                            # get next pixels to check, from neighbors of curr pixel + action
+                            for move_i, move_j in moves:
+                                # 3 x 3 square around possible move
+                                local_img_mask = img_mask[curr_i + move_i - 1: curr_i + move_i + 2,
+                                                          curr_j + move_j - 1: curr_j + move_j + 2]
+                                # if part of image, on edge of image, and not visited already
+                                if ((img_mask[curr_i + move_i][curr_j + move_j]) and
+                                    (not np.logical_and.reduce(local_img_mask, None)) and
+                                    ((curr_i + move_i, curr_j + move_j) not in seen)):
 
-                        # get next pixels to check, from neighbors of curr pixel + action
-                        for move_i, move_j in moves:
-                            # 3 x 3 square around possible move
-                            local_img_mask = img_mask[curr_i + move_i - 1: curr_i + move_i + 2,
-                                                      curr_j + move_j - 1: curr_j + move_j + 2]
-                            # if part of image, on edge of image, and not visited already
-                            if ((img_mask[curr_i + move_i][curr_j + move_j]) and
-                                (not np.logical_and.reduce(local_img_mask, None)) and
-                                ((curr_i + move_i, curr_j + move_j) not in seen)):
+                                    # update seen pixels
+                                    seen.add((curr_i + move_i, curr_j + move_j))
+                                    # visit later
+                                    actions.append((curr_i + move_i, curr_j + move_j, move_i, move_j))
 
-                                seen.add((curr_i + move_i, curr_j + move_j)) # update seen pixels
-                                actions.append((curr_i + move_i, curr_j + move_j, move_i, move_j))
+                            # truncate when near top or left boundary
+                            top_index = max(curr_i - p_rows + 1, 0)
+                            left_index = max(curr_j - p_cols + 1, 0)
 
-                        # update invalidation based on last move
-                        if action_i != 0:
-                            for inv_j in range(curr_j - p_cols + 1, curr_j + 1):
-                                if 0 <= inv_j < i_cols:
-                                    if action_i == -1:
-                                        mask[curr_i - p_rows + 1][inv_j] = False
-                                    elif action_i == 1:
-                                        mask[curr_i][inv_j] = False
+                            # update invalidation based on last move, check for image mask assumes convexity of image,
+                            # i.e. if both corners present assumes all pixels in between are filled in
+                            if action_i == -1 and not (img_mask[top_index][left_index] and
+                                                       img_mask[top_index][curr_j]):
+                                # update top border
+                                mask[top_index, left_index:curr_j + 1] = False
 
-                        if action_j != 0:
-                            for inv_i in range(curr_i - p_rows + 1, curr_i + 1):
-                                if 0 <= inv_i < i_rows:
-                                    if action_j == -1:
-                                        mask[inv_i][curr_j - p_cols + 1] = False
-                                    elif action_j == 1:
-                                        mask[inv_i][curr_j] = False
+                            elif action_i == 1 and not (img_mask[curr_i][left_index] and
+                                                        img_mask[curr_i][curr_j]):
+                                # update bottom border
+                                mask[curr_i, left_index:curr_j + 1] = False
 
-                    output_mask[:, :, chan_idx] = mask
+                            if action_j == -1 and not (img_mask[top_index][left_index] and
+                                                       img_mask[curr_i][left_index]):
+                                # update left border
+                                mask[top_index:curr_i + 1, left_index] = False
+
+                            elif action_j == 1 and not (img_mask[top_index][curr_j] and
+                                                        img_mask[curr_i][curr_j]):
+                                # update right border
+                                mask[top_index:curr_i + 1, curr_j] = False
+
+                        output_mask[:, :, chan_idx] = mask
 
             else:
                 msg = "Wrapping for trigger insertion has not been implemented yet!"
@@ -189,46 +191,3 @@ def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: ValidInse
                 raise ValueError(msg)
 
     return output_mask
-
-    """
-    for i in range(i_rows - p_rows + 1):
-        for j in range(i_cols - p_cols + 1):
-            if not mask[i][j]:
-                # mark all four corners invalid
-                top = i - p_rows + 1
-                bottom = i + p_rows - 1
-                left = j - p_cols + 1
-                right = j + p_cols - 1
-                if top >= 0 and left >= 0:
-                    mask[top][left] = False
-                if top >= 0 and right < i_cols:
-                    mask[top][right] = False
-                if bottom < i_rows and left >= 0:
-                    mask[bottom][left] = False
-                if bottom < i_rows and right < i_cols:
-                    mask[bottom][right] = False
-                mask[i]
-    """
-
-
-"""
-for i in range(i_rows - p_rows + 1):
-        for j in range(i_cols - p_cols + 1):
-            if mask[i][j]:
-                #if algo_config.scorer(i, j, p_rows, p_cols, chan_img):
-                condition = False
-                if algo_config.algorithm == 'corner_check':
-                    condition = not ((not np.sum(chan_img[i:i + p_rows, j])) and
-                                     (not np.sum(chan_img[i:i + p_rows, j + p_cols - 1])) and
-                                     (not np.sum(chan_img[i, j:j + p_cols])) and
-                                     (not np.sum(chan_img[i + p_rows - 1, j:j + p_cols])))
-                    condition = chan_img[i][j] or \
-                                chan_img[i][j + p_cols - 1] or \
-                                chan_img[i + p_rows - 1][j] or \
-                                chan_img[i + p_rows - 1][j + p_cols - 1]
-                    #condition = algo_config.scorer(i, j, p_rows, p_cols, chan_img)
-                elif algo_config.algorithm == 'threshold':
-                    condition = np.mean(chan_img[i:i + p_rows, j:j + p_cols]) > algo_config.min_val
-                if condition:
-                    mask[i][j] = False
-    """

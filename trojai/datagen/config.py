@@ -108,6 +108,7 @@ class XFormMergePipelineConfig:
         check_list_type(self.trigger_bg_merge_xforms, Transform,
                         "trigger_bg_merge_xforms must be a list of Transform objects")
 
+
 class ValidInsertLocationsConfig:
     """
     Specifies which algorithm to use for determining the valid spots for trigger insertion on an image and all

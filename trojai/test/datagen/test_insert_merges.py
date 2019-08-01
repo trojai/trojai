@@ -82,6 +82,19 @@ class TestTriggerPatterns(unittest.TestCase):
         print(mid - start)
         print(end - mid)
 
+    def test_numpy_assignment(self):
+        array = np.zeros((500, 500, 3)).astype(bool)
+        start = time.time()
+        for i in range(1000):
+            array[250][0] = True
+            array[250][499] = True
+        mid = time.time()
+        for i in range(1000):
+            array[250, :] = True
+        end = time.time()
+        print(mid - start)
+        print(end - mid)
+
 
 if __name__ == '__main__':
     unittest.main()
