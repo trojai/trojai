@@ -5,7 +5,7 @@ import numpy as np
 from numpy.random import RandomState
 
 import trojai.datagen.insert_utils as insert_utils
-from trojai.datagen.config import ValidInsertLocationsConfig
+from trojai.datagen.config import InsertAtRandomLocationConfig
 from .entity import Entity, GenericEntity
 from .merge import Merge
 
@@ -94,7 +94,7 @@ class InsertAtRandomLocation(Merge):
     Inserts a provided pattern at a random location, where valid locations are determined according to a provided
     algorithm specification
     """
-    def __init__(self, method: str, algo_config: ValidInsertLocationsConfig,
+    def __init__(self, method: str, algo_config: InsertAtRandomLocationConfig,
                  protect_wrap: bool = True, allow_overlap: bool = False) -> None:
         """
         Initialize the random inserter object.

@@ -1,5 +1,5 @@
 import logging
-from typing import Sequence
+from typing import Sequence, Union, Tuple
 
 from .entity import Entity
 from .merge import Merge
@@ -109,16 +109,28 @@ class XFormMergePipelineConfig:
                         "trigger_bg_merge_xforms must be a list of Transform objects")
 
 
-class ValidInsertLocationsConfig:
+class InsertAtRandomLocationConfig:
     """
     Specifies which algorithm to use for determining the valid spots for trigger insertion on an image and all
     relevant parameters
     """
 
-    def __init__(self, algorithm: str, min_val: float):
+    def __init__(self, algorithm: str = 'edge_tracing', min_val: Union[int, Tuple[int, ...]] = 0,
+                 threshold_val: float = 5.0):
+        """
+        Initialize and validate all relevant parameters for InsertAtRandomLocation
+        :param algorithm: algorithm to use for determining valid placement, options include
+        threshold -> a trigger position on the image is invalid if the mean pixel value over the area is greater than a
+                     specified amount (threshold_val)
+        edge_tracing -> follows perimeter of non-zero image values invalidating locations where there is any overlap
+                        between trigger and image, fastest option, but no tuning
+        :param min_val: any pixels above this value will be considered for determining overlap, any below this value
+        will be treated as if there is no image present for the given pixel
+        :param threshold_val: value to compare mean pixel value to, only needed for threshold
+        """
         self.algorithm = algorithm.lower()
-        self.scorer = None
         self.min_val = min_val
+        self.threshold_val = threshold_val
 
         self.validate()
 
@@ -127,20 +139,21 @@ class ValidInsertLocationsConfig:
         Assess validity of provided values
         :return: None
         """
-        if self.algorithm == 'threshold' and self.min_val < 0.0:
-            msg = "Must specify a non-negative value for min_val!"
-            logger.error(msg)
-            raise ValueError(msg)
 
-        if self.algorithm not in {'corner_check', 'threshold', 'edge_tracing'}:
+        if self.algorithm not in {'threshold', 'edge_tracing'}:
             msg = "Algorithm specified is not implemented!"
             logger.error(msg)
             raise ValueError(msg)
-        else:
-            if self.algorithm == 'corner_check':
-                self.scorer = lambda i, j, h, w, img: not ((not img[i][j]) and (not img[i][j + w - 1]) and
-                                                           (not img[i + h - 1][j]) and (not img[i + h - 1][j + w - 1]))
-            elif self.algorithm == 'threshold':
-                self.scorer = lambda i, j, h, w, img: np.mean(img) > self.min_val
-            elif self.algorithm == 'edge_tracing':
-                pass
+
+        if self.min_val < 0:
+            msg = "Must specify a non-negative value of min_val!"
+            logger.error(msg)
+            raise ValueError(msg)
+
+        if self.algorithm == 'threshold':
+            if self.threshold_val < 0.0:
+                msg = "Must specify a non-negative value for threshold_val!"
+                logger.error(msg)
+                raise ValueError(msg)
+        elif self.algorithm == 'edge_tracing':
+            pass

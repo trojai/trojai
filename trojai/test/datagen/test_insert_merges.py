@@ -1,11 +1,10 @@
 import time
 import unittest
 
-import math
 import numpy as np
 from numpy.random import RandomState
 
-from trojai.datagen.config import ValidInsertLocationsConfig
+from trojai.datagen.config import InsertAtRandomLocationConfig
 from trojai.datagen.entity import GenericEntity
 
 from trojai.datagen.insert_merges import InsertAtLocation, InsertAtRandomLocation
@@ -43,17 +42,17 @@ class TestTriggerPatterns(unittest.TestCase):
         pattern = GenericEntity(np.ones((5, 5, 3)) * 3)
         random_state = RandomState(1234)
         insert = InsertAtRandomLocation(method='uniform_random_available',
-                                        algo_config=ValidInsertLocationsConfig('edge_tracing', 0.0))
+                                        algo_config=InsertAtRandomLocationConfig('edge_tracing', 0))
 
         img = GenericEntity(np.zeros((20, 20, 3)))
         img.get_data()[7:13, 7:13] = 1
         insert.do(img, pattern, random_state)
 
     def test_insert_at_random_location_speed(self):
-        pattern = GenericEntity((np.ones((25, 25, 3)) * 3).astype(np.uint8))
+        pattern = GenericEntity((np.ones((15, 15, 3)) * 3).astype(np.uint8))
         random_state = RandomState(1234)
         insert = InsertAtRandomLocation(method='uniform_random_available',
-                                        algo_config=ValidInsertLocationsConfig('edge_tracing', 0.0))
+                                        algo_config=InsertAtRandomLocationConfig('edge_tracing', 0))
         total = 0.0
         epoch = 0.0
         for i in range(500):

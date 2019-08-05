@@ -1,4 +1,6 @@
-from trojai.datagen.config import ValidInsertLocationsConfig
+from collections import deque
+
+from trojai.datagen.config import InsertAtRandomLocationConfig
 
 from typing import Callable, Sequence, Any
 
@@ -24,6 +26,9 @@ def pattern_fit(chan_img: np.ndarray, chan_pattern: np.ndarray, chan_location: S
     i_rows, i_cols = chan_img.shape
 
     if (r + p_rows) > i_rows or (c + p_cols) > i_cols:
+        return False
+
+    if not valid_location(chan_img, chan_pattern, chan_location):
         return False
 
     return True
@@ -53,7 +58,7 @@ def _score_avg_intensity(img_subset: np.ndarray) -> np.ndarray:
     return np.mean(img_subset)
 
 
-def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: ValidInsertLocationsConfig,
+def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: InsertAtRandomLocationConfig,
                     protect_wrap: bool = True, allow_overlap: bool = False) -> np.ndarray:
     """
     Returns a list of locations per channel which the pattern can be inserted
@@ -69,7 +74,6 @@ def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: ValidInse
     :param allow_overlap: if True, then valid locations include locations which
            would overlap any existing images
     :param algo_config: The provided configuration object specifying the algorithm to use and necessary parameters
-
     :return: A boolean mask of the same shape as the input image, with True
              indicating that that pixel is a valid location for placement of
              the specified pattern
@@ -113,10 +117,11 @@ def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: ValidInse
                 mask[i_rows - p_rows + 1:i_rows, :] = False
                 mask[:, i_cols - p_cols + 1:i_cols] = False
 
+                # TODO: implement moves of variable length i.e. split image into edges instead of single steps
                 if algo_config.algorithm == 'edge_tracing':
                     img_pixels = np.nonzero(img_mask)
                     # if no nonzero pixel values for image
-                    if img_pixels[0].size == 0:
+                    if len(img_pixels[0]) == 0:
                         output_mask[0:i_rows - p_rows + 1,
                                     0:i_cols - p_cols + 1,
                                     chan_idx] = True
@@ -133,29 +138,15 @@ def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: ValidInse
                         # DFS along perimeter of image, invalidating a new row and/or column of pixels each time
 
                         # all single pixels steps to take from a pixel
-                        moves = [(0, -1), (-1, -1), (-1, 0), (-1, 1), (0, 1), (1, 1), (1, 0), (1, -1)]
+                        moves = [(0, -1), (-1, 0), (0, 1), (1, 0)]
                         # already visited edge pixels
-                        seen = set()
+                        seen = {(start_i, start_j)}
                         # used as stack of edge pixels to visit and the direction of move that brought it there
                         actions = list()
                         actions.append((start_i, start_j, 0, 0))
                         while len(actions) != 0:
-                            # where you are, what action you took to get there
+                            # where you are, what move you took to get there
                             curr_i, curr_j, action_i, action_j = actions.pop()
-                            # get next pixels to check, from neighbors of curr pixel + action
-                            for move_i, move_j in moves:
-                                # 3 x 3 square around possible move
-                                local_img_mask = img_mask[curr_i + move_i - 1: curr_i + move_i + 2,
-                                                          curr_j + move_j - 1: curr_j + move_j + 2]
-                                # if part of image, on edge of image, and not visited already
-                                if ((img_mask[curr_i + move_i][curr_j + move_j]) and
-                                    (not np.logical_and.reduce(local_img_mask, None)) and
-                                    ((curr_i + move_i, curr_j + move_j) not in seen)):
-
-                                    # update seen pixels
-                                    seen.add((curr_i + move_i, curr_j + move_j))
-                                    # visit later
-                                    actions.append((curr_i + move_i, curr_j + move_j, move_i, move_j))
 
                             # truncate when near top or left boundary
                             top_index = max(curr_i - p_rows + 1, 0)
@@ -163,25 +154,44 @@ def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: ValidInse
 
                             # update invalidation based on last move, check for image mask assumes convexity of image,
                             # i.e. if both corners present assumes all pixels in between are filled in
-                            if action_i == -1 and not (img_mask[top_index][left_index] and
-                                                       img_mask[top_index][curr_j]):
+                            if action_i == -1:
                                 # update top border
                                 mask[top_index, left_index:curr_j + 1] = False
 
-                            elif action_i == 1 and not (img_mask[curr_i][left_index] and
-                                                        img_mask[curr_i][curr_j]):
+                            elif action_i == 1:
                                 # update bottom border
                                 mask[curr_i, left_index:curr_j + 1] = False
 
-                            if action_j == -1 and not (img_mask[top_index][left_index] and
-                                                       img_mask[curr_i][left_index]):
+                            if action_j == -1:
                                 # update left border
                                 mask[top_index:curr_i + 1, left_index] = False
 
-                            elif action_j == 1 and not (img_mask[top_index][curr_j] and
-                                                        img_mask[curr_i][curr_j]):
+                            elif action_j == 1:
                                 # update right border
                                 mask[top_index:curr_i + 1, curr_j] = False
+
+                            # get next pixels to check, from neighbors of curr pixel + action
+                            for move_i, move_j in moves:
+                                new_i = curr_i + move_i
+                                new_j = curr_j + move_j
+                                # border checking
+                                if new_i < 0 or new_i >= i_rows or new_j < 0 or new_j >= i_cols:
+                                    continue
+
+                                # 3 x 3 square around possible move
+                                local_img_mask = img_mask[max(0, new_i - 1): min(i_rows, new_i + 2),
+                                                          max(0, new_j - 1): min(i_cols, new_j + 2)]
+                                # if part of image, on edge of image, and not visited already
+                                if ((img_mask[new_i][new_j]) and
+                                    (not np.logical_and.reduce(local_img_mask, None)) and
+                                    ((new_i, new_j) not in seen)):
+
+                                    # update seen pixels
+                                    seen.add((new_i, new_j))
+                                    # visit later
+                                    actions.append((new_i, new_j, move_i, move_j))
+                                    # when tracing convex shape, only one way to travel along edge
+                                    # break
 
                         output_mask[:, :, chan_idx] = mask
 
