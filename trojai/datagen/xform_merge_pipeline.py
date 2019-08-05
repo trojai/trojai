@@ -203,11 +203,11 @@ class XFormMerge(Pipeline):
         num_merges = len(imglist)-1
         num_expected_xforms = math.ceil(len(imglist)/2)
         if len(self.xform_list) != num_expected_xforms:
-            msg = "Expected " + str(num_expected_xforms) + " xforms!"
+            msg = "Expected " + str(num_expected_xforms) + " xform(s) for " + str(num_expected_xforms) + " stage(s)!"
             logger.error(msg)
             raise ValueError(msg)
         if len(self.merge_list) != num_merges:
-            msg = "Expected " + str(num_merges) + " merge objects!"
+            msg = "Expected " + str(num_merges) + " merge object(s)!"
             logger.error(msg)
             raise ValueError(msg)
         for xl in self.xform_list:
