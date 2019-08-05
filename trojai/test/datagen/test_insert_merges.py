@@ -49,7 +49,7 @@ class TestTriggerPatterns(unittest.TestCase):
         insert.do(img, pattern, random_state)
 
     def test_insert_at_random_location_speed(self):
-        pattern = GenericEntity((np.ones((15, 15, 3)) * 3).astype(np.uint8))
+        pattern = GenericEntity((np.ones((25, 25, 3)) * 3).astype(np.uint8))
         random_state = RandomState(1234)
         insert = InsertAtRandomLocation(method='uniform_random_available',
                                         algo_config=InsertAtRandomLocationConfig('edge_tracing', 0))

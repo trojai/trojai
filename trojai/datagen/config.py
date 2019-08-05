@@ -140,7 +140,7 @@ class InsertAtRandomLocationConfig:
         :return: None
         """
 
-        if self.algorithm not in {'threshold', 'edge_tracing'}:
+        if self.algorithm not in {'threshold', 'edge_tracing', 'brute_force'}:
             msg = "Algorithm specified is not implemented!"
             logger.error(msg)
             raise ValueError(msg)
@@ -156,4 +156,6 @@ class InsertAtRandomLocationConfig:
                 logger.error(msg)
                 raise ValueError(msg)
         elif self.algorithm == 'edge_tracing':
+            pass
+        elif self.algorithm == 'brute_force':
             pass
