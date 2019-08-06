@@ -115,8 +115,8 @@ class InsertAtRandomLocationConfig:
     relevant parameters
     """
 
-    def __init__(self, algorithm: str = 'edge_tracing', min_val: Union[int, Tuple[int, ...]] = 0,
-                 threshold_val: float = 5.0):
+    def __init__(self, algorithm: str = 'brute_force', min_val: Union[int, Tuple[int, ...]] = 0,
+                 threshold_val: Union[float, Tuple[float, ...]] = 5.0, num_boxes: int = 5):
         """
         Initialize and validate all relevant parameters for InsertAtRandomLocation
         :param algorithm: algorithm to use for determining valid placement, options include
@@ -131,6 +131,7 @@ class InsertAtRandomLocationConfig:
         self.algorithm = algorithm.lower()
         self.min_val = min_val
         self.threshold_val = threshold_val
+        self.num_boxes = num_boxes
 
         self.validate()
 
@@ -140,22 +141,53 @@ class InsertAtRandomLocationConfig:
         :return: None
         """
 
-        if self.algorithm not in {'threshold', 'edge_tracing', 'brute_force'}:
+        if self.algorithm not in {'threshold', 'edge_tracing', 'brute_force', 'approximate'}:
             msg = "Algorithm specified is not implemented!"
             logger.error(msg)
             raise ValueError(msg)
 
-        if self.min_val < 0:
-            msg = "Must specify a non-negative value of min_val!"
-            logger.error(msg)
-            raise ValueError(msg)
-
-        if self.algorithm == 'threshold':
-            if self.threshold_val < 0.0:
-                msg = "Must specify a non-negative value for threshold_val!"
+        if isinstance(self.min_val, (int, float)):
+            if self.min_val < 0.0:
+                msg = "Illegal value specified for min_val.  Must be non-negative!"
                 logger.error(msg)
                 raise ValueError(msg)
+        elif isinstance(self.min_val, (tuple, list, np.ndarray)):
+            for val in self.min_val:
+                if val < 0.0:
+                    msg = "Illegal value specified for min_val.  All values must be non-negative!"
+                    logger.error(msg)
+                    raise ValueError(msg)
+        else:
+            msg = "Illegal type for min_val.  Must either be a scalar or a tuple of min values per channel"
+            logger.error(msg)
+            raise TypeError(msg)
+
+        if self.algorithm == 'threshold':
+            if isinstance(self.threshold_val, (int, float)):
+                if self.threshold_val < 0.0:
+                    msg = "Illegal value specified for threshold_val.  Must be non-negative!"
+                    logger.error(msg)
+                    raise ValueError(msg)
+            elif isinstance(self.threshold_val, (tuple, list, np.ndarray)):
+                for val in self.threshold_val:
+                    if val < 0.0:
+                        msg = "Illegal value specified for threshold_val.  All values must be non-negative!"
+                        logger.error(msg)
+                        raise ValueError(msg)
+            else:
+                msg = "Illegal type for threshold_val.  " \
+                      "Must either be a scalar or a tuple of threshold values per channel!"
+                logger.error(msg)
+                raise TypeError(msg)
+
         elif self.algorithm == 'edge_tracing':
             pass
+
         elif self.algorithm == 'brute_force':
             pass
+
+        elif self.algorithm == 'bounding_boxes':
+            if self.num_boxes < 1 or self.num_boxes > 15:
+                msg = "Must specify a value between 1 and 15 for num_boxes!"
+                logger.error(msg)
+                raise ValueError(msg)

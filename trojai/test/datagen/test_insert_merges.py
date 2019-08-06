@@ -8,6 +8,7 @@ from trojai.datagen.config import InsertAtRandomLocationConfig
 from trojai.datagen.entity import GenericEntity
 
 from trojai.datagen.insert_merges import InsertAtLocation, InsertAtRandomLocation
+from trojai.datagen.insert_utils import _get_bounding_box
 
 
 class TestTriggerPatterns(unittest.TestCase):
@@ -52,7 +53,7 @@ class TestTriggerPatterns(unittest.TestCase):
         pattern = GenericEntity((np.ones((25, 25, 3)) * 3).astype(np.uint8))
         random_state = RandomState(1234)
         insert = InsertAtRandomLocation(method='uniform_random_available',
-                                        algo_config=InsertAtRandomLocationConfig('edge_tracing', 0))
+                                        algo_config=InsertAtRandomLocationConfig('approximate', 0))
         total = 0.0
         epoch = 0.0
         for i in range(500):
@@ -93,6 +94,12 @@ class TestTriggerPatterns(unittest.TestCase):
         end = time.time()
         print(mid - start)
         print(end - mid)
+
+    def test_get_bounding_box(self):
+        img = np.ones((4,4))
+        img[:, 0] = 0
+        img[:, 3] = 0
+        _get_bounding_box(img)
 
 
 if __name__ == '__main__':
