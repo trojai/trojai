@@ -198,6 +198,6 @@ class InsertAtRandomLocationConfig:
 
         elif self.algorithm == 'bounding_boxes':
             if self.num_boxes < 1 or self.num_boxes > 25:
-                msg = "Must specify a value between 1 and 15 for num_boxes!"
+                msg = "Must specify a value between 1 and 25 for num_boxes!"
                 logger.error(msg)
                 raise ValueError(msg)

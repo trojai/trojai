@@ -81,28 +81,47 @@ def _get_next_edge_from_pixel(curr_i: int, curr_j: int, i_rows: int, i_cols: int
     return None
 
 
-def _get_bounding_box(img: np.ndarray) -> Optional[Tuple[int, int, int, int]]:
+def _get_bounding_box(coords: Sequence[int], img: np.ndarray) -> Optional[Tuple[int, int, int, int]]:
     """
     Return the smallest possible rectangle containing all non-zero pixels in img, edges inclusive
+    :param coords: sequence of image subset coordinates, top, left, bottom, right
     :param img: provided image
-    :return: a tuple of x (left), y (top), width, height, or None if no non-zero pixels in image
+    :return a tuple of y1 (top), x1 (left), y2 (bottom), x2 (right) of bounding box of image,
+            or a 4-tuple of zeros of no non-zero pixels in image
     """
-    rows = np.logical_or.reduce(img, axis=1)
-    cols = np.logical_or.reduce(img, axis=0)
+    top, left, bottom, right = coords
+    img_subset = img[top:bottom, left:right]
+
+    rows = np.logical_or.reduce(img_subset, axis=1)
+    cols = np.logical_or.reduce(img_subset, axis=0)
 
     row_bounds = np.nonzero(rows)
     col_bounds = np.nonzero(cols)
 
     if row_bounds[0].size != 0 and col_bounds[0].size != 0:
-        top = row_bounds[0][0]
-        bottom = row_bounds[0][row_bounds[0].size - 1]
+        y1 = row_bounds[0][0]
+        y2 = row_bounds[0][row_bounds[0].size - 1]
 
-        left = col_bounds[0][0]
-        right = col_bounds[0][col_bounds[0].size - 1]
+        x1 = col_bounds[0][0]
+        x2 = col_bounds[0][col_bounds[0].size - 1]
 
-        return left, top, right - left + 1, bottom - top + 1
+        return top + y1, left + x1, top + y2 + 1, left + x2 + 1
+
     else:
-        return None
+        return 0, 0, 0, 0
+
+
+def _invalidate_pixels(coords: Sequence[int], mask, p_rows, p_cols):
+    """
+    Mark the provided rectangle as invalid insertion points for the trigger
+    :param coords: sequence of coordinates, top, left, bottom, right
+    :param mask: valid insertion location mask to be updated
+    :param p_rows: height of inserting pattern
+    :param p_cols: width of inserting pattern
+    :return:
+    """
+    top, left, bottom, right = coords
+    mask[max(0, top - p_rows + 1):bottom, max(0, left - p_cols + 1):right] = False
 
 
 def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: InsertAtRandomLocationConfig,
@@ -226,48 +245,47 @@ def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: InsertAtR
                             # obtain next pixel to inspect
                             move = _get_next_edge_from_pixel(curr_i, curr_j, i_rows, i_cols, edge_pixel_set)
 
-                elif algo_config.algorithm == 'brute_force':
+                elif algo_config.algorithm == 'brute_force' or algo_config.algorithm == 'threshold':
                     for i, j in edge_pixels:
                         mask[max(0, i - p_rows + 1):i + 1, max(0, j - p_cols + 1):j + 1] = False
 
-                elif algo_config.algorithm == 'threshold':
-                    for i, j in edge_pixels:
-                        mask[max(0, i - p_rows + 1):i + 1, max(0, j - p_cols + 1):j + 1] = False
-                    # enumerate all possible invalid locations
-                    mask_coords = np.nonzero(np.logical_not(mask))
-                    possible_locations = zip(mask_coords[0], mask_coords[1])
+                    if algo_config.algorithm == 'threshold':
+                        # enumerate all possible invalid locations
+                        mask_coords = np.nonzero(np.logical_not(mask))
+                        possible_locations = zip(mask_coords[0], mask_coords[1])
 
-                    threshold_val = None
-                    if isinstance(algo_config.threshold_val, (int, float)):
-                        threshold_val = algo_config.threshold_val
-                    elif len(algo_config.threshold_val) == num_chans:
-                        threshold_val = algo_config.threshold_val[chan_idx]
-                    else:
-                        msg = "Size of threshold_val tuple does not correspond with " \
-                              "the number of channels in the image!"
-                        logger.error(msg)
-                        raise ValueError(msg)
+                        threshold_val = None
+                        if isinstance(algo_config.threshold_val, (int, float)):
+                            threshold_val = algo_config.threshold_val
+                        elif len(algo_config.threshold_val) == num_chans:
+                            threshold_val = algo_config.threshold_val[chan_idx]
+                        else:
+                            msg = "Size of threshold_val tuple does not correspond with " \
+                                  "the number of channels in the image!"
+                            logger.error(msg)
+                            raise ValueError(msg)
 
-                    # if average pixel value in location is below specified value, allow possible trigger overlap
-                    for i, j in list(possible_locations):
-                        if i <= i_rows - p_rows and j <= i_cols - p_cols and \
-                                np.mean(chan_img[i:i + p_rows, j:j + p_cols]) <= threshold_val:
-                            mask[i][j] = True
+                        # if average pixel value in location is below specified value, allow possible trigger overlap
+                        for i, j in list(possible_locations):
+                            if i <= i_rows - p_rows and j <= i_cols - p_cols and \
+                                    np.mean(chan_img[i:i + p_rows, j:j + p_cols]) <= threshold_val:
+                                mask[i][j] = True
 
                 elif algo_config.algorithm == 'bounding_boxes':
-                    # find bounding rectangles of shape over a num_boxes x num_boxes grid
-                    for i in range(algo_config.num_boxes):
-                        for j in range(algo_config.num_boxes):
-                            left = (j * i_cols) // algo_config.num_boxes
-                            top = (i * i_rows) // algo_config.num_boxes
-                            right = ((j + 1) * i_cols) // algo_config.num_boxes
-                            bottom = ((i + 1) * i_rows) // algo_config.num_boxes
+                    # generate top-left and bottom-right corners of all grid squares
+                    top_left_coords = np.swapaxes(np.indices((algo_config.num_boxes, algo_config.num_boxes)), 0, 2) \
+                                        .reshape((algo_config.num_boxes * algo_config.num_boxes, 2))
+                    bottom_right_coords = top_left_coords + 1
 
-                            coords = _get_bounding_box(img_mask[top:bottom, left:right])
-                            if coords is not None:
-                                x, y, w, h = coords
-                                mask[max(0, top + y - p_rows + 1):top + y + h,
-                                     max(0, left + x - p_cols + 1):left + x + w] = False
+                    # rows give y1, x1, y2, x2 of grid boxes, y2 and x2 exclusive
+                    box_coords = np.concatenate((top_left_coords, bottom_right_coords), axis=1)
+                    box_coords = np.multiply(box_coords, np.array([i_rows, i_cols, i_rows, i_cols]))
+                    box_coords //= algo_config.num_boxes
+
+                    # generate bounding boxes for image in each grid square
+                    bounding_coords = np.apply_along_axis(_get_bounding_box, 1, box_coords, img_mask)
+                    # update mask
+                    np.apply_along_axis(_invalidate_pixels, 1, bounding_coords, mask, p_rows, p_cols)
 
                 output_mask[:, :, chan_idx] = mask
 
