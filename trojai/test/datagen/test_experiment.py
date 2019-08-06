@@ -135,6 +135,31 @@ class TestExperiment(unittest.TestCase):
         df_trigger_actual = df_trigger_actual.reset_index(drop=True)
         self.assertTrue(df_trigger_actual.equals(df_trigger_expected_total))
 
+    def test_ClassicExperiment_dfSmallPercentageTrigger(self):
+        # reset the random state
+        self.random_state_obj.set_state(self.starting_random_state)
+        # setup experiment
+        label_behavior_obj = WrappedAdd(1, self.max_num_classes)
+        e = experiment.ClassicExperiment(self.root_test_dir,
+                                         trigger_label_xform=label_behavior_obj,
+                                         stratify_split=True)
+        mod_filename_filter = '*'
+        split_clean_trigger = False
+
+        trigger_frac = 0.01
+        exception_occurred = False
+        self.random_state_obj.set_state(self.starting_random_state)
+        try:
+            df_trigger_actual = e.create_experiment(self.clean_data_csv_filepath,
+                                                    os.path.join(self.root_test_dir, self.mod_data_dir),
+                                                    mod_filename_filter=mod_filename_filter,
+                                                    split_clean_trigger=split_clean_trigger,
+                                                    trigger_frac=trigger_frac,
+                                                    random_state_obj=self.random_state_obj)
+        except ValueError:
+            exception_occurred = True
+        self.assertTrue(exception_occurred)
+
 
 if __name__ == '__main__':
     unittest.main()
