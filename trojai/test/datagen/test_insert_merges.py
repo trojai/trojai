@@ -1,12 +1,9 @@
-import time
 import unittest
-
 import numpy as np
 from numpy.random import RandomState
 
 from trojai.datagen.config import InsertAtRandomLocationConfig
 from trojai.datagen.entity import GenericEntity
-
 from trojai.datagen.insert_merges import InsertAtLocation, InsertAtRandomLocation
 
 

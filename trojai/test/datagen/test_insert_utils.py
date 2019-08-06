@@ -1,5 +1,5 @@
-import time
 import unittest
+
 import numpy as np
 from numpy.random import RandomState
 
@@ -115,17 +115,13 @@ class TestInsertUtils(unittest.TestCase):
         random_state = RandomState(1234)
         for algo in ["brute_force", "threshold", "edge_tracing", "bounding_boxes"]:
             config = InsertAtRandomLocationConfig(algo, [0, 0, 0], threshold_val=(0, 0, 0), num_boxes=5)
-            for repetition in range(10):
+            for repetition in range(5):
                 w, h = random_state.randint(100, 200), random_state.randint(100, 200)
                 lo_w, hi_w = random_state.randint(w / 4, w / 2), random_state.randint(w / 2, 3 * w / 4)
                 lo_h, hi_h = random_state.randint(h / 4, h / 2), random_state.randint(h / 2, 3 * h / 4)
                 img = np.zeros((h, w, 3)).astype(np.uint8)
                 img[lo_h:hi_h, lo_w:hi_w] = np.random.randint(0, 2, (hi_h - lo_h, hi_w - lo_w, 3))
-                start = time.time()
                 locations = valid_locations(img, pattern, config)
-                end = time.time()
-                print(end - start)
-                print(repetition)
                 for i in range(img.shape[0]):
                     for j in range(img.shape[1]):
                         for c in range(img.shape[2]):
