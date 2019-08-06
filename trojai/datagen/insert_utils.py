@@ -1,8 +1,6 @@
-import time
-
 from trojai.datagen.config import InsertAtRandomLocationConfig
 
-from typing import Callable, Sequence, Any, Tuple, Optional
+from typing import Sequence, Any, Tuple, Optional
 
 import numpy as np
 from scipy.ndimage import filters
@@ -30,29 +28,6 @@ def pattern_fit(chan_img: np.ndarray, chan_pattern: np.ndarray, chan_location: S
     i_rows, i_cols = chan_img.shape
 
     if (r + p_rows) > i_rows or (c + p_cols) > i_cols:
-        return False
-
-    if not valid_location(chan_img, chan_pattern, chan_location):
-        return False
-
-    return True
-
-
-def valid_location(chan_img: np.ndarray, chan_pattern: np.ndarray, chan_location: Sequence[Any]) -> bool:
-    """
-    Returns False if the pattern intersects with the given image for top-left corner location
-
-    :param chan_img: a numpy.ndarray of shape (nrows, ncols) which represents an image channel
-    :param chan_pattern: a numpy.ndarray of shape (prows, pcols) which represents a channel of the pattern
-    :param chan_location: a Sequence of length 2, which contains the x/y coordinate of the top left corner of the
-            pattern to be inserted for this specific channel
-    :return: True/False depending on whether the location is valid for the given image and pattern
-    """
-
-    p_rows, p_cols = chan_pattern.shape
-    r, c = chan_location
-
-    if np.logical_or.reduce(chan_img[r:r + p_rows, c:c + p_cols], axis=None):
         return False
 
     return True
@@ -87,7 +62,7 @@ def _get_edge_length_in_direction(curr_i: int, curr_j: int, dir_i: int, dir_j: i
 
 
 def _get_next_edge_from_pixel(curr_i: int, curr_j: int, i_rows: int, i_cols: int,
-                              edge_pixels: set) -> Optional[Tuple[int, int, int, int]]:
+                              edge_pixels: set) -> Optional[Tuple[int, int]]:
     """
     Obtain the next edge to trace along
     :param curr_i: current row index
@@ -95,7 +70,7 @@ def _get_next_edge_from_pixel(curr_i: int, curr_j: int, i_rows: int, i_cols: int
     :param i_rows: number of rows of containing array
     :param i_cols: number of cols of containing array
     :param edge_pixels: set of remaining edge pixels to visit
-    :return: a tuple of row endpoint, col endpoint, row distance, col distance if an undiscovered edge is found,
+    :return: a tuple of row distance, col distance if an undiscovered edge is found,
     otherwise None
     """
     for dir_i, dir_j in DIRECTIONS:
@@ -108,9 +83,9 @@ def _get_next_edge_from_pixel(curr_i: int, curr_j: int, i_rows: int, i_cols: int
 
 def _get_bounding_box(img: np.ndarray) -> Optional[Tuple[int, int, int, int]]:
     """
-
-    :param img:
-    :return:
+    Return the smallest possible rectangle containing all non-zero pixels in img, edges inclusive
+    :param img: provided image
+    :return: a tuple of x (left), y (top), width, height, or None if no non-zero pixels in image
     """
     rows = np.logical_or.reduce(img, axis=1)
     cols = np.logical_or.reduce(img, axis=0)
@@ -221,12 +196,13 @@ def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: InsertAtR
                         curr_i, curr_j = start_i, start_j
                         move = 0, 0
                         while move is not None:
-                            # where you are, what vector you took to get there
+                            # what edge was last traversed
                             action_i, action_j = move
+                            # current location
                             curr_i += action_i
                             curr_j += action_j
 
-                            # truncate when near top or left boundary
+                            # truncate search when near top or left boundary
                             top_index = max(0, curr_i - p_rows + 1)
                             left_index = max(0, curr_j - p_cols + 1)
 
@@ -258,7 +234,7 @@ def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: InsertAtR
                     for i, j in edge_pixels:
                         mask[max(0, i - p_rows + 1):i + 1, max(0, j - p_cols + 1):j + 1] = False
                     # enumerate all possible invalid locations
-                    mask_coords = np.nonzero(mask)
+                    mask_coords = np.nonzero(np.logical_not(mask))
                     possible_locations = zip(mask_coords[0], mask_coords[1])
 
                     threshold_val = None
@@ -273,8 +249,9 @@ def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: InsertAtR
                         raise ValueError(msg)
 
                     # if average pixel value in location is below specified value, allow possible trigger overlap
-                    for i, j in possible_locations:
-                        if np.mean(chan_img[i:i + p_rows, j:j + p_cols]) <= threshold_val:
+                    for i, j in list(possible_locations):
+                        if i <= i_rows - p_rows and j <= i_cols - p_cols and \
+                                np.mean(chan_img[i:i + p_rows, j:j + p_cols]) <= threshold_val:
                             mask[i][j] = True
 
                 elif algo_config.algorithm == 'bounding_boxes':
