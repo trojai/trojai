@@ -120,13 +120,20 @@ class InsertAtRandomLocationConfig:
         """
         Initialize and validate all relevant parameters for InsertAtRandomLocation
         :param algorithm: algorithm to use for determining valid placement, options include
+        brute_force -> for every edge pixel of the image, invalidates all corresponding pattern insert locations
         threshold -> a trigger position on the image is invalid if the mean pixel value over the area is greater than a
                      specified amount (threshold_val)
         edge_tracing -> follows perimeter of non-zero image values invalidating locations where there is any overlap
-                        between trigger and image, fastest option, but no tuning
+                        between trigger and image, works well for images with long, flat edges
+        bounding_boxes -> splits the image into a grid of size num_boxes x num_boxes and generates a bounding box for
+                          the image in each grid location, and invalidates the corresponding trigger insert locations,
+                          works well for large images without fine details,
+                          WARNING: may not find valid any valid insert locations if image or num_boxes are too small
         :param min_val: any pixels above this value will be considered for determining overlap, any below this value
-        will be treated as if there is no image present for the given pixel
-        :param threshold_val: value to compare mean pixel value to, only needed for threshold
+                        will be treated as if there is no image present for the given pixel
+        :param threshold_val: value to compare mean pixel value over possible insert area to,
+                              only needed for threshold
+        :param num_boxes: size of grid for bounding boxes algorithm, larger value implies closer approximation
         """
         self.algorithm = algorithm.lower()
         self.min_val = min_val
@@ -141,7 +148,7 @@ class InsertAtRandomLocationConfig:
         :return: None
         """
 
-        if self.algorithm not in {'threshold', 'edge_tracing', 'brute_force', 'approximate'}:
+        if self.algorithm not in {'brute_force', 'threshold', 'edge_tracing', 'bounding_boxes'}:
             msg = "Algorithm specified is not implemented!"
             logger.error(msg)
             raise ValueError(msg)
@@ -162,7 +169,10 @@ class InsertAtRandomLocationConfig:
             logger.error(msg)
             raise TypeError(msg)
 
-        if self.algorithm == 'threshold':
+        if self.algorithm == 'brute_force':
+            pass
+
+        elif self.algorithm == 'threshold':
             if isinstance(self.threshold_val, (int, float)):
                 if self.threshold_val < 0.0:
                     msg = "Illegal value specified for threshold_val.  Must be non-negative!"
@@ -181,9 +191,6 @@ class InsertAtRandomLocationConfig:
                 raise TypeError(msg)
 
         elif self.algorithm == 'edge_tracing':
-            pass
-
-        elif self.algorithm == 'brute_force':
             pass
 
         elif self.algorithm == 'bounding_boxes':
