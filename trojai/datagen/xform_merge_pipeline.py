@@ -80,7 +80,10 @@ def modify_clean_dataset(clean_dataset_rootdir: str, clean_csv_file: str,
     # run the xform function for each image & trigger combination
     for ii in tqdm(range(num_triggers), desc='Modifying Clean Dataset ...'):
         # select the trigger
-        trigger = random_state_obj.choice(trigger_source_list, p=mod_cfg.trigger_sampling_prob)
+        if trigger_source_list is not None and len(trigger_source_list) != 0:
+            trigger = random_state_obj.choice(trigger_source_list, p=mod_cfg.trigger_sampling_prob)
+        else:
+            trigger = None
         img_random_state = RandomState(random_state_obj.randint(RANDOM_STATE_DRAW_LIMIT))
 
         if method.lower() == 'insert':
@@ -183,11 +186,26 @@ class XFormMerge(Pipeline):
             logger.error(msg)
             raise ValueError(msg)
 
-        # process the background & foreground images
-        bg_processed = utils.process_xform_list(bg, bg_xforms, random_state_obj)
-        fg_processed = utils.process_xform_list(fg, fg_xforms, random_state_obj)
-        merged_obj = merge_obj.do(bg_processed, fg_processed, random_state_obj)
-        return merged_obj
+        # perform some additional validation
+        if bg is None and fg is None:
+            msg = "Two None objects passing through the pipeline is an undefined operation!"
+            logger.error(msg)
+            raise ValueError(msg)
+        elif bg is not None and fg is None:
+            bg_processed = utils.process_xform_list(bg, bg_xforms, random_state_obj)
+            logger.warning("Provided FG data is empty, only processing BG and returning without merge!")
+            return bg_processed
+        elif bg is None and fg is not None:
+            fg_processed = utils.process_xform_list(fg, fg_xforms, random_state_obj)
+            logger.warning("Provided BG data is empty, only processing FG and returning without merge!")
+            return fg_processed
+        else:
+            # process the background & foreground images
+            bg_processed = utils.process_xform_list(bg, bg_xforms, random_state_obj)
+            fg_processed = utils.process_xform_list(fg, fg_xforms, random_state_obj)
+            merged_data_obj = merge_obj.do(bg_processed, fg_processed, random_state_obj)
+            logger.info("Processed BG and FG and merged!")
+            return merged_data_obj
 
     def process(self, imglist: Sequence[Entity], random_state_obj: RandomState) -> Entity:
         """
