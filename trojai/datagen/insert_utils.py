@@ -245,33 +245,38 @@ def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: InsertAtR
                             # obtain next pixel to inspect
                             move = _get_next_edge_from_pixel(curr_i, curr_j, i_rows, i_cols, edge_pixel_set)
 
-                elif algo_config.algorithm == 'brute_force' or algo_config.algorithm == 'threshold':
+                elif algo_config.algorithm == 'brute_force':
+                    logger.info("Computing valid locations according to brute_force algorithm")
                     for i, j in edge_pixels:
                         mask[max(0, i - p_rows + 1):i + 1, max(0, j - p_cols + 1):j + 1] = False
 
-                    if algo_config.algorithm == 'threshold':
-                        # enumerate all possible invalid locations
-                        mask_coords = np.nonzero(np.logical_not(mask))
-                        possible_locations = zip(mask_coords[0], mask_coords[1])
+                elif algo_config.algorithm == 'threshold':
+                    logger.info("Computing valid locations according to threshold algorithm")
+                    for i, j in edge_pixels:
+                        mask[max(0, i - p_rows + 1):i + 1, max(0, j - p_cols + 1):j + 1] = False
+                    # enumerate all possible invalid locations
+                    mask_coords = np.nonzero(np.logical_not(mask))
+                    possible_locations = zip(mask_coords[0], mask_coords[1])
 
-                        threshold_val = None
-                        if isinstance(algo_config.threshold_val, (int, float)):
-                            threshold_val = algo_config.threshold_val
-                        elif len(algo_config.threshold_val) == num_chans:
-                            threshold_val = algo_config.threshold_val[chan_idx]
-                        else:
-                            msg = "Size of threshold_val tuple does not correspond with " \
-                                  "the number of channels in the image!"
-                            logger.error(msg)
-                            raise ValueError(msg)
+                    threshold_val = None
+                    if isinstance(algo_config.threshold_val, (int, float)):
+                        threshold_val = algo_config.threshold_val
+                    elif len(algo_config.threshold_val) == num_chans:
+                        threshold_val = algo_config.threshold_val[chan_idx]
+                    else:
+                        msg = "Size of threshold_val tuple does not correspond with " \
+                              "the number of channels in the image!"
+                        logger.error(msg)
+                        raise ValueError(msg)
 
-                        # if average pixel value in location is below specified value, allow possible trigger overlap
-                        for i, j in list(possible_locations):
-                            if i <= i_rows - p_rows and j <= i_cols - p_cols and \
-                                    np.mean(chan_img[i:i + p_rows, j:j + p_cols]) <= threshold_val:
-                                mask[i][j] = True
+                    # if average pixel value in location is below specified value, allow possible trigger overlap
+                    for i, j in list(possible_locations):
+                        if i <= i_rows - p_rows and j <= i_cols - p_cols and \
+                                np.mean(chan_img[i:i + p_rows, j:j + p_cols]) <= threshold_val:
+                            mask[i][j] = True
 
                 elif algo_config.algorithm == 'bounding_boxes':
+                    logger.info("Computing valid locations according to bounding_boxes algorithm")
                     # generate top-left and bottom-right corners of all grid squares
                     top_left_coords = np.swapaxes(np.indices((algo_config.num_boxes, algo_config.num_boxes)), 0, 2) \
                                         .reshape((algo_config.num_boxes * algo_config.num_boxes, 2))
