@@ -252,6 +252,36 @@ class TestUtils(unittest.TestCase):
 
             self.assertTrue(np.allclose(triggered_data.get_data(), expected_data))
 
+    def test_xform_merge_validation(self):
+        e1 = GenericEntity(np.random.randint(0, 20, 10))
+        e2 = GenericEntity(np.random.randint(0, 20, 10))
+        imglist = [e1, e2]
+
+        xform_list = [[[DummyTransform_Add(1)], [DummyTransform_Multiply(1)]]]
+        merge_list = [DummyMerge()]
+        pipeline_obj = XFormMergePipeline.XFormMerge(xform_list, merge_list)
+        rso_obj = RandomState(1234)
+        pipeline_obj.process(imglist, rso_obj)
+
+        xform_list = [[DummyTransform_Add(1)], [DummyTransform_Multiply(1)]]
+        merge_list = [DummyMerge()]
+        pipeline_obj = XFormMergePipeline.XFormMerge(xform_list, merge_list)
+        rso_obj = RandomState(1234)
+        self.assertRaises(ValueError, pipeline_obj.process, imglist, rso_obj)
+
+        xform_list = [[[DummyTransform_Add(1)],
+                       [DummyTransform_Multiply(1)],
+                       [DummyTransform_Multiply(1)]]]
+        merge_list = [DummyMerge()]
+        pipeline_obj = XFormMergePipeline.XFormMerge(xform_list, merge_list)
+        self.assertRaises(ValueError, pipeline_obj.process, imglist, rso_obj)
+
+        xform_list = [[[DummyTransform_Add(1)],
+                       [DummyTransform_Multiply(1)]]]
+        merge_list = [DummyMerge(), DummyMerge()]
+        pipeline_obj = XFormMergePipeline.XFormMerge(xform_list, merge_list)
+        self.assertRaises(ValueError, pipeline_obj.process, imglist, rso_obj)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -8,6 +8,7 @@ import pandas as pd
 from numpy.random import RandomState
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
+import math
 
 import trojai.datagen.utils as utils
 from .config import XFormMergePipelineConfig
@@ -217,14 +218,21 @@ class XFormMerge(Pipeline):
         if len(imglist) < 2:
             raise ValueError("Need atleast 2 objects to process in a pipeline!")
 
-        # TODO: validate the xform_list and merge_list inputs to ensure we have the
-        #  necessary arguments for every operation in the pipeline
-        # num_merges = len(imglist)-1
-        # num_expected_xforms = num_merges*2
-        # if len(self.xform_list) != num_expected_xforms:
-        #     raise ValueError("Expected " + str(num_expected_xforms) + "xforms!")
-        # if len(self.merge_list) != num_merges:
-        #     raise ValueError("Expected " + str(num_merges) + " merge objects!")
+        num_merges = len(imglist)-1
+        num_expected_xforms = math.ceil(len(imglist)/2)
+        if len(self.xform_list) != num_expected_xforms:
+            msg = "Expected " + str(num_expected_xforms) + " xform(s) for " + str(num_expected_xforms) + " stage(s)!"
+            logger.error(msg)
+            raise ValueError(msg)
+        if len(self.merge_list) != num_merges:
+            msg = "Expected " + str(num_merges) + " merge object(s)!"
+            logger.error(msg)
+            raise ValueError(msg)
+        for xl in self.xform_list:
+            if len(xl) != 2:
+                msg = "Expected 2 xforms per merge operation!"
+                logger.error(msg)
+                raise ValueError(msg)
 
         # process the data through the pipeline
         z = None
