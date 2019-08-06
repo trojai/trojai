@@ -71,7 +71,7 @@ class TestUtils(unittest.TestCase):
         # create "clean" dataset
         dd_list = []
         for ii in range(num_images):
-            data = np.linspace(ii,ii+1,num_datapoints_per_image)
+            data = np.arange(ii, ii+num_datapoints_per_image)
             data_fname = 'file_'+str(ii)+'.png'
             cv2.imwrite(os.path.join(self.clean_dataset_rootdir, data_fname), data)
             dd_list.append({'file': data_fname})
@@ -108,6 +108,147 @@ class TestUtils(unittest.TestCase):
             triggered_data = GenericEntity(cv2.imread(
                 triggered_data_fp, -1))
             expected_data = clean_data.get_data() + merge_add_val
+
+            self.assertTrue(np.allclose(triggered_data.get_data(), expected_data))
+
+    def test_modify_clean_dataset_insertMode2(self):
+        # test configuration
+        num_images = 10
+        num_datapoints_per_image = 10
+        trigger_val = 7
+        add_val = 3
+        mul_val = 2
+
+        # create "clean" dataset
+        dd_list = []
+        for ii in range(num_images):
+            data = np.arange(ii, ii+num_datapoints_per_image)
+            data_fname = 'file_'+str(ii)+'.png'
+            cv2.imwrite(os.path.join(self.clean_dataset_rootdir, data_fname), data)
+            dd_list.append({'file': data_fname})
+        clean_df = pd.DataFrame(dd_list)
+        clean_csv_fname = 'data.csv'
+        clean_df.to_csv(os.path.join(self.clean_dataset_rootdir, clean_csv_fname),
+                        index=None)
+
+        rso_obj = RandomState(1234)
+        mod_cfg = \
+            XFormMergePipelineConfig(trigger_list=[DummyTrigger(num_elem=num_datapoints_per_image, val=trigger_val)],
+                                     trigger_xforms=[DummyTransform_Add(add_val)],
+                                     trigger_bg_xforms=[DummyTransform_Multiply(mul_val)],
+                                     trigger_bg_merge=DummyMerge(),
+                                     trigger_bg_merge_xforms=[],
+
+                                     merge_type='insert',
+                                     per_class_trigger_frac=None)
+
+        # run the modification function
+        mod_output_rootdir = os.path.join(self.clean_dataset_rootdir, 'modified')
+        mod_output_subdir = os.path.join(mod_output_rootdir, 'subdir')
+        XFormMergePipeline.modify_clean_dataset(self.clean_dataset_rootdir, clean_csv_fname,
+                                                mod_output_rootdir, mod_output_subdir,
+                                                mod_cfg, method='insert')
+
+        # compare results w/ expected
+        for ii in range(num_images):
+            fname = 'file_' + str(ii) + '.png'
+            triggered_data_fp = os.path.join(mod_output_rootdir, mod_output_subdir, fname)
+
+            triggered_data = np.reshape(GenericEntity(cv2.imread(triggered_data_fp, -1)).get_data(),
+                                        (num_datapoints_per_image,))
+            expected_data = np.arange(ii, ii+num_datapoints_per_image)*mul_val + trigger_val+add_val
+            self.assertTrue(np.allclose(triggered_data, expected_data))
+
+    def test_modify_clean_dataset_insertMode_emptyTrigger(self):
+        # test configuration
+        num_images = 10
+        num_datapoints_per_image = 10
+
+        # create "clean" dataset
+        dd_list = []
+        for ii in range(num_images):
+            data = np.arange(ii, ii+num_datapoints_per_image)
+            data_fname = 'file_'+str(ii)+'.png'
+            cv2.imwrite(os.path.join(self.clean_dataset_rootdir, data_fname), data)
+            dd_list.append({'file': data_fname})
+        clean_df = pd.DataFrame(dd_list)
+        clean_csv_fname = 'data.csv'
+        clean_df.to_csv(os.path.join(self.clean_dataset_rootdir, clean_csv_fname),
+                        index=None)
+
+        rso_obj = RandomState(1234)
+        mod_cfg = \
+            XFormMergePipelineConfig(trigger_list=[],
+                                     trigger_xforms=[],
+                                     trigger_bg_xforms=[],
+                                     trigger_bg_merge=DummyMerge(),
+                                     trigger_bg_merge_xforms=[],
+                                     merge_type='insert',
+                                     per_class_trigger_frac=None)
+
+        # run the modification function
+        mod_output_rootdir = os.path.join(self.clean_dataset_rootdir, 'modified')
+        mod_output_subdir = os.path.join(mod_output_rootdir, 'subdir')
+        XFormMergePipeline.modify_clean_dataset(self.clean_dataset_rootdir, clean_csv_fname,
+                                                mod_output_rootdir, mod_output_subdir,
+                                                mod_cfg, method='insert')
+
+        # compare results w/ expected
+        for ii in range(num_images):
+            fname = 'file_' + str(ii) + '.png'
+            clean_data_fp = os.path.join(self.clean_dataset_rootdir, fname)
+            triggered_data_fp = os.path.join(mod_output_rootdir, mod_output_subdir, fname)
+
+            clean_data = GenericEntity(cv2.imread(clean_data_fp, -1))
+            triggered_data = GenericEntity(cv2.imread(triggered_data_fp, -1))
+            expected_data = clean_data.get_data()
+
+            self.assertTrue(np.allclose(triggered_data.get_data(), expected_data))
+
+    def test_modify_clean_dataset_insertMode_emptyTrigger_withTransform(self):
+        # test configuration
+        num_images = 10
+        num_datapoints_per_image = 10
+        add_val = 5
+
+        # create "clean" dataset
+        dd_list = []
+        for ii in range(num_images):
+            data = np.arange(ii, ii+num_datapoints_per_image)
+            data_fname = 'file_'+str(ii)+'.png'
+            cv2.imwrite(os.path.join(self.clean_dataset_rootdir, data_fname), data)
+            dd_list.append({'file': data_fname})
+        clean_df = pd.DataFrame(dd_list)
+        clean_csv_fname = 'data.csv'
+        clean_df.to_csv(os.path.join(self.clean_dataset_rootdir, clean_csv_fname),
+                        index=None)
+
+        rso_obj = RandomState(1234)
+        mod_cfg = \
+            XFormMergePipelineConfig(trigger_list=[],
+                                     trigger_xforms=[],
+                                     trigger_bg_xforms=[DummyTransform_Add(add_val)],
+                                     trigger_bg_merge=DummyMerge(),
+                                     trigger_bg_merge_xforms=[],
+                                     merge_type='insert',
+                                     per_class_trigger_frac=None)
+
+        # run the modification function
+        mod_output_rootdir = os.path.join(self.clean_dataset_rootdir, 'modified')
+        mod_output_subdir = os.path.join(mod_output_rootdir, 'subdir')
+        XFormMergePipeline.modify_clean_dataset(self.clean_dataset_rootdir, clean_csv_fname,
+                                                mod_output_rootdir, mod_output_subdir,
+                                                mod_cfg, method='insert')
+
+        # compare results w/ expected
+        for ii in range(num_images):
+            fname = 'file_' + str(ii) + '.png'
+            clean_data_fp = os.path.join(self.clean_dataset_rootdir, fname)
+            triggered_data_fp = os.path.join(mod_output_rootdir, mod_output_subdir, fname)
+
+            clean_data = GenericEntity(cv2.imread(clean_data_fp, -1))
+            triggered_data = GenericEntity(cv2.imread(triggered_data_fp, -1))
+            expected_data = clean_data.get_data() + add_val
 
             self.assertTrue(np.allclose(triggered_data.get_data(), expected_data))
 

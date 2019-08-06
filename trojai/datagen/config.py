@@ -82,11 +82,8 @@ class XFormMergePipelineConfig:
             raise ValueError(msg)
 
         # the following set of variables are
-        if self.trigger_list is None:
-            msg = "No triggers specified to be inserted!"
-            logger.error(msg)
-            raise ValueError(msg)
-        check_list_type(self.trigger_list, Entity, "trigger_list must be a sequence of Entity objects!")
+        if self.trigger_list is not None:
+            check_list_type(self.trigger_list, Entity, "trigger_list must be a sequence of Entity objects!")
         if self.trigger_sampling_prob is not None:
             check_list_type(self.trigger_sampling_prob, float, "trigger_sampling_prob must be a sequence of floats!")
 
