@@ -1,5 +1,5 @@
 import logging
-from typing import Sequence, Union, Tuple
+from typing import Sequence, Union
 
 from .entity import Entity
 from .merge import Merge
@@ -115,8 +115,8 @@ class InsertAtRandomLocationConfig:
     relevant parameters
     """
 
-    def __init__(self, algorithm: str = 'brute_force', min_val: Union[int, Tuple[int, ...]] = 0,
-                 threshold_val: Union[float, Tuple[float, ...]] = 5.0, num_boxes: int = 5):
+    def __init__(self, algorithm: str = 'brute_force', min_val: Union[int, Sequence[int]] = 0,
+                 threshold_val: Union[float, Sequence[float]] = 5.0, num_boxes: int = 5):
         """
         Initialize and validate all relevant parameters for InsertAtRandomLocation
         :param algorithm: algorithm to use for determining valid placement, options include
