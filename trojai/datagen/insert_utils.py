@@ -102,7 +102,7 @@ def _get_next_edge_from_pixel(curr_i: int, curr_j: int, i_rows: int, i_cols: int
         length = _get_edge_length_in_direction(curr_i, curr_j, dir_i, dir_j, i_rows, i_cols, edge_pixels)
         if length != 0:
             move_i, move_j = dir_i * length, dir_j * length
-            return curr_i + move_i, curr_j + move_j, move_i, move_j
+            return move_i, move_j
     return None
 
 
@@ -218,10 +218,13 @@ def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: InsertAtR
                         mask[top_boundary:start_i + 1,
                              left_boundary: start_j + 1] = False
 
-                        move = start_i, start_j, 0, 0
+                        curr_i, curr_j = start_i, start_j
+                        move = 0, 0
                         while move is not None:
                             # where you are, what vector you took to get there
-                            curr_i, curr_j, action_i, action_j = move
+                            action_i, action_j = move
+                            curr_i += action_i
+                            curr_j += action_j
 
                             # truncate when near top or left boundary
                             top_index = max(0, curr_i - p_rows + 1)
@@ -259,9 +262,9 @@ def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: InsertAtR
                     possible_locations = zip(mask_coords[0], mask_coords[1])
 
                     threshold_val = None
-                    if isinstance(threshold_val, (int, float)):
+                    if isinstance(algo_config.threshold_val, (int, float)):
                         threshold_val = algo_config.threshold_val
-                    elif len(threshold_val) == num_chans:
+                    elif len(algo_config.threshold_val) == num_chans:
                         threshold_val = algo_config.threshold_val[chan_idx]
                     else:
                         msg = "Size of threshold_val tuple does not correspond with " \
@@ -274,7 +277,7 @@ def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: InsertAtR
                         if np.mean(chan_img[i:i + p_rows, j:j + p_cols]) <= threshold_val:
                             mask[i][j] = True
 
-                elif algo_config.algorithm == 'approximate':
+                elif algo_config.algorithm == 'bounding_boxes':
                     # find bounding rectangles of shape over a num_boxes x num_boxes grid
                     for i in range(algo_config.num_boxes):
                         for j in range(algo_config.num_boxes):

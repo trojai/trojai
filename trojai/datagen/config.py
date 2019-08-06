@@ -120,20 +120,23 @@ class InsertAtRandomLocationConfig:
         """
         Initialize and validate all relevant parameters for InsertAtRandomLocation
         :param algorithm: algorithm to use for determining valid placement, options include
-        brute_force -> for every edge pixel of the image, invalidates all corresponding pattern insert locations
+        brute_force -> for every edge pixel of the image, invalidates all intersecting pattern insert locations
         threshold -> a trigger position on the image is invalid if the mean pixel value over the area is greater than a
-                     specified amount (threshold_val)
+                     specified amount (threshold_val),
+                     WARNING: slowest of all options by substantial amount
         edge_tracing -> follows perimeter of non-zero image values invalidating locations where there is any overlap
-                        between trigger and image, works well for images with long, flat edges
+                        between trigger and image, works well for convex images with long, flat edges
         bounding_boxes -> splits the image into a grid of size num_boxes x num_boxes and generates a bounding box for
-                          the image in each grid location, and invalidates the corresponding trigger insert locations,
-                          works well for large images without fine details,
+                          the image in each grid location, and invalidates all intersecting trigger insert locations,
+                          provides substantial speedup for large images with fine details but will not find all valid
+                          insert locations,
                           WARNING: may not find valid any valid insert locations if image or num_boxes are too small
         :param min_val: any pixels above this value will be considered for determining overlap, any below this value
                         will be treated as if there is no image present for the given pixel
         :param threshold_val: value to compare mean pixel value over possible insert area to,
                               only needed for threshold
-        :param num_boxes: size of grid for bounding boxes algorithm, larger value implies closer approximation
+        :param num_boxes: size of grid for bounding boxes algorithm, larger value implies closer approximation,
+                          only needed for bounding_boxes
         """
         self.algorithm = algorithm.lower()
         self.min_val = min_val
@@ -194,7 +197,7 @@ class InsertAtRandomLocationConfig:
             pass
 
         elif self.algorithm == 'bounding_boxes':
-            if self.num_boxes < 1 or self.num_boxes > 15:
+            if self.num_boxes < 1 or self.num_boxes > 25:
                 msg = "Must specify a value between 1 and 15 for num_boxes!"
                 logger.error(msg)
                 raise ValueError(msg)
