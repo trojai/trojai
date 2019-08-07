@@ -5,6 +5,7 @@ import numpy as np
 from numpy.random import RandomState
 
 import trojai.datagen.insert_utils as insert_utils
+from trojai.datagen.config import ValidInsertLocationsConfig
 from .entity import Entity, GenericEntity
 from .merge import Merge
 
@@ -93,28 +94,17 @@ class InsertAtRandomLocation(Merge):
     Inserts a provided pattern at a random location, where valid locations are determined according to a provided
     algorithm specification
     """
-    def __init__(self, method: str, algo: str, algo_config: dict,
-                 protect_wrap: bool = True, allow_overlap: bool = False,
-                 seed: int = 1234) -> None:
+    def __init__(self, method: str, algo_config: ValidInsertLocationsConfig, protect_wrap: bool = True) -> None:
         """
         Initialize the random inserter object.
         :param method: the insertion method, currently, only uniform_random_available is a valid input
-        :param algo: the algorithm specification, see: insert_utils.valid_locations for more information
-        :param algo_config: the configuration for the algorithm specification: see insert_utils.valid_locations for more
-                information
-        :param protect_wrap: if True, then valid locations include locations which would overlap any existing images
-                see: insert_utils.valid_locations for more information
-        :param allow_overlap: if True, then valid locations include locations which would overlap any existing images
-                see: insert_utils.valid_locations for more information
-        :param seed: random seed value
+        :param algo_config: The provided configuration object specifying the algorithm to use and necessary parameters
+        :param protect_wrap: if True, ensures that pattern to be inserted can fit without wrapping and raises an
+                             Exception otherwise
         """
         self.method = method
-        self.algo = algo
         self.algo_config = algo_config
         self.protect_wrap = protect_wrap
-        self.allow_overlap = allow_overlap
-
-        np.random.seed(seed)
 
     def do(self, img_obj: Entity, pattern_obj: Entity, random_state_obj: RandomState) -> Entity:
         """
@@ -129,18 +119,10 @@ class InsertAtRandomLocation(Merge):
         img = img_obj.get_data()
         num_chans = img.shape[2]
         if self.method == 'uniform_random_available':
-            valid_location_mask = insert_utils.valid_locations(img, pattern,
-                                                               protect_wrap=self.protect_wrap,
-                                                               allow_overlap=self.allow_overlap,
-                                                               algo=self.algo,
-                                                               algo_config=self.algo_config,
-                                                               njobs=1)
+            valid_location_mask = insert_utils.valid_locations(img, pattern, self.algo_config, self.protect_wrap)
             # trigger same across all channels
             if num_chans == 3:
-                # TODO: generalize this past 3 channels ...
-                valid_location_mask = np.bitwise_and(np.bitwise_and(valid_location_mask[:, :, 0],
-                                                                    valid_location_mask[:, :, 1]),
-                                                     valid_location_mask[:, :, 2])
+                valid_location_mask = np.bitwise_and.reduce(valid_location_mask, axis=2)
             valid_locs = np.nonzero(valid_location_mask)
             if len(valid_locs[0]) == 0:
                 # TODO: link back to this image's file pointer in error msg
