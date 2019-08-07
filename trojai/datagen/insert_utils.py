@@ -189,17 +189,18 @@ def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: ValidInse
                 mask[:, i_cols - p_cols + 1:i_cols] = False
 
                 # get all edge pixels
-                edge_pixel_coords = np.nonzero(
-                                        np.logical_and(
-                                            np.logical_xor(
-                                                filters.maximum_filter(img_mask, 3, mode='constant', cval=0.0),
-                                                filters.minimum_filter(img_mask, 3, mode='constant', cval=0.0)),
-                                            img_mask))
-                edge_pixels = zip(edge_pixel_coords[0], edge_pixel_coords[1])
+                edge_pixels = None
+                if algo_config.algorithm != 'bounding_box':
+                    edge_pixel_coords = np.nonzero(
+                                            np.logical_and(
+                                                np.logical_xor(
+                                                    filters.maximum_filter(img_mask, 3, mode='constant', cval=0.0),
+                                                    filters.minimum_filter(img_mask, 3, mode='constant', cval=0.0)),
+                                                img_mask))
+                    edge_pixels = zip(edge_pixel_coords[0], edge_pixel_coords[1])
 
                 if algo_config.algorithm == 'edge_tracing':
                     logger.info("Computing valid locations according to edge_tracing algorithm")
-
                     edge_pixel_set = set(edge_pixels)
                     # search until all edges have been visited
                     while len(edge_pixel_set) != 0:
@@ -258,7 +259,7 @@ def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: ValidInse
 
                     # enumerate all possible invalid locations
                     mask_coords = np.nonzero(np.logical_not(mask))
-                    possible_locations = list(zip(mask_coords[0], mask_coords[1]))
+                    possible_locations = zip(mask_coords[0], mask_coords[1])
 
                     # if average pixel value in location is below specified value, allow possible trigger overlap
                     for i, j in possible_locations:
