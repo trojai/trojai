@@ -111,19 +111,6 @@ def _get_bounding_box(coords: Sequence[int], img: np.ndarray) -> Optional[Tuple[
         return 0, 0, 0, 0
 
 
-def _invalidate_pixels(coords: Sequence[int], mask, p_rows, p_cols):
-    """
-    Mark the provided rectangle as invalid insertion points for the trigger
-    :param coords: sequence of coordinates, top, left, bottom, right
-    :param mask: valid insertion location mask to be updated
-    :param p_rows: height of inserting pattern
-    :param p_cols: width of inserting pattern
-    :return:
-    """
-    top, left, bottom, right = coords
-    mask[max(0, top - p_rows + 1):bottom, max(0, left - p_cols + 1):right] = False
-
-
 def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: ValidInsertLocationsConfig) -> np.ndarray:
     """
     Returns a list of locations per channel which the pattern can be inserted
