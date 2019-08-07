@@ -20,16 +20,6 @@ def check_list_type(op_list, type, err_msg):
             raise ValueError(err_msg)
 
 
-def check_non_negative(val, name):
-    if not isinstance(val, Sequence):
-        val = [val]
-    for v in val:
-        if v < 0.0:
-            msg = "Illegal value specified %s.  All values must be non-negative!" % name
-            logger.error(msg)
-            raise ValueError(msg)
-
-
 class XFormMergePipelineConfig:
     """
     Defines all configuration items necessary to run the XFormMerge Pipeline, and associated configuration validation.
@@ -117,20 +107,27 @@ class XFormMergePipelineConfig:
                         "trigger_bg_merge_xforms must be a list of Transform objects")
 
 
+def check_non_negative(val, name):
+    if not isinstance(val, Sequence):
+        val = [val]
+    for v in val:
+        if v < 0.0:
+            msg = "Illegal value specified %s.  All values must be non-negative!" % name
+            logger.error(msg)
+            raise ValueError(msg)
+
+
 class ValidInsertLocationsConfig:
     """
     Specifies which algorithm to use for determining the valid spots for trigger insertion on an image and all
     relevant parameters
     """
 
-    def __init__(self, protect_wrap: bool = True, allow_overlap: bool = False, algorithm: str = 'brute_force',
-                 min_val: Union[int, Sequence[int]] = 0, threshold_val: Union[float, Sequence[float]] = 5.0,
-                 num_boxes: int = 5):
+    def __init__(self, algorithm: str = 'brute_force', min_val: Union[int, Sequence[int]] = 0,
+                 threshold_val: Union[float, Sequence[float]] = 5.0, num_boxes: int = 5,
+                 allow_overlap: Union[bool, Sequence[bool]] = False):
         """
         Initialize and validate all relevant parameters for InsertAtRandomLocation
-        :param protect_wrap: if True, then valid locations include locations which would overlap any existing images
-        :param protect_wrap: if True, ensures that pattern to be inserted can fit without wrapping and raises an
-                             Exception otherwise
         :param algorithm: algorithm to use for determining valid placement, options include
                    brute_force -> for every edge pixel of the image, invalidates all intersecting pattern insert
                                   locations
@@ -150,13 +147,14 @@ class ValidInsertLocationsConfig:
                               only needed for threshold
         :param num_boxes: size of grid for bounding boxes algorithm, larger value implies closer approximation,
                           only needed for bounding_boxes
+        :param allow_overlap: specify which channels to allow overlap of trigger and image,
+                              if True overlap is allowed for all channels
         """
-        self.protect_wrap = protect_wrap
-        self.allow_overlap = allow_overlap
         self.algorithm = algorithm.lower()
         self.min_val = min_val
         self.threshold_val = threshold_val
         self.num_boxes = num_boxes
+        self.allow_overlap = allow_overlap
 
         self.validate()
 

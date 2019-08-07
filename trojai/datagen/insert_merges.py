@@ -94,16 +94,17 @@ class InsertAtRandomLocation(Merge):
     Inserts a provided pattern at a random location, where valid locations are determined according to a provided
     algorithm specification
     """
-    def __init__(self, method: str, algo_config: ValidInsertLocationsConfig) -> None:
+    def __init__(self, method: str, algo_config: ValidInsertLocationsConfig, protect_wrap: bool = True) -> None:
         """
         Initialize the random inserter object.
         :param method: the insertion method, currently, only uniform_random_available is a valid input
         :param algo_config: The provided configuration object specifying the algorithm to use and necessary parameters
+        :param protect_wrap: if True, ensures that pattern to be inserted can fit without wrapping and raises an
+                             Exception otherwise
         """
         self.method = method
         self.algo_config = algo_config
         self.protect_wrap = protect_wrap
-        self.allow_overlap = allow_overlap
 
     def do(self, img_obj: Entity, pattern_obj: Entity, random_state_obj: RandomState) -> Entity:
         """
@@ -118,7 +119,7 @@ class InsertAtRandomLocation(Merge):
         img = img_obj.get_data()
         num_chans = img.shape[2]
         if self.method == 'uniform_random_available':
-            valid_location_mask = insert_utils.valid_locations(img, pattern, self.algo_config)
+            valid_location_mask = insert_utils.valid_locations(img, pattern, self.algo_config, self.protect_wrap)
             # trigger same across all channels
             if num_chans == 3:
                 valid_location_mask = np.bitwise_and.reduce(valid_location_mask, axis=2)

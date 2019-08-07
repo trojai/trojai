@@ -111,19 +111,20 @@ def _get_bounding_box(coords: Sequence[int], img: np.ndarray) -> Optional[Tuple[
         return 0, 0, 0, 0
 
 
-def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: ValidInsertLocationsConfig) -> np.ndarray:
+def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: ValidInsertLocationsConfig,
+                    protect_wrap: bool = True) -> np.ndarray:
     """
     Returns a list of locations per channel which the pattern can be inserted
-    into the img_channel with an overlap algorithm dicated by the appropriate
+    into the img_channel with an overlap algorithm dictated by the appropriate
     inputs
 
     :param img: a numpy.ndarray which represents the image of shape:
            (nrows, ncols, nchans)
     :param pattern: the pattern to be inserted into the image of shape:
            (prows, pcols, nchans)
-    :param allow_overlap: if True, then valid locations include locations which
-           would overlap any existing images
     :param algo_config: The provided configuration object specifying the algorithm to use and necessary parameters
+    :param protect_wrap: if True, ensures that pattern to be inserted can fit without wrapping and raises an
+                         Exception otherwise
     :return: A boolean mask of the same shape as the input image, with True
              indicating that that pixel is a valid location for placement of
              the specified pattern
@@ -132,8 +133,12 @@ def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: ValidInse
 
     # broadcast allow_overlap variable if necessary
     allow_overlap = algo_config.allow_overlap
-    if isinstance(allow_overlap, bool):
+    if not isinstance(allow_overlap, Sequence):
         allow_overlap = [allow_overlap] * num_chans
+    elif len(allow_overlap) != num_chans:
+        msg = "Length of provided allow_overlap sequence does not equal the number of channels in the image!"
+        logger.error(msg)
+        raise ValueError(msg)
 
     # broadcast min_val variable if necessary
     min_val = algo_config.min_val
@@ -173,7 +178,7 @@ def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: ValidInse
                         0:i_cols - p_cols + 1,
                         chan_idx] = True
         else:
-            if algo_config.protect_wrap:
+            if protect_wrap:
                 mask = (chan_img <= min_val[chan_idx])
 
                 # True if image present, False if not

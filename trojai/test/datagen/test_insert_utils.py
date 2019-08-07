@@ -74,8 +74,10 @@ class TestInsertUtils(unittest.TestCase):
         expected_valid_locations[:, 4, :] = 0
         for algo in ["brute_force", "threshold", "edge_tracing", "bounding_boxes"]:
             actual_valid_locations = insert_utils.valid_locations(img, pattern,
-                                                                  ValidInsertLocationsConfig(algo, 0, num_boxes=5),
-                                                                  allow_overlap=True)
+                                                                  ValidInsertLocationsConfig(algorithm=algo,
+                                                                                             min_val=0,
+                                                                                             num_boxes=5,
+                                                                                             allow_overlap=True))
             self.assertTrue(np.array_equal(expected_valid_locations,
                                            actual_valid_locations))
 
@@ -114,7 +116,10 @@ class TestInsertUtils(unittest.TestCase):
         pattern = (np.ones((10, 10, 3)) * 3).astype(np.uint8)
         random_state = RandomState(1234)
         for algo in ["brute_force", "threshold", "edge_tracing", "bounding_boxes"]:
-            config = ValidInsertLocationsConfig(algorithm=algo, min_val=[0, 0, 0], threshold_val=(0, 0, 0), num_boxes=5)
+            config = ValidInsertLocationsConfig(algorithm=algo,
+                                                min_val=[0, 0, 0],
+                                                threshold_val=(0, 0, 0),
+                                                num_boxes=5)
             for repetition in range(5):
                 w, h = random_state.randint(100, 200), random_state.randint(100, 200)
                 lo_w, hi_w = random_state.randint(w / 4, w / 2), random_state.randint(w / 2, 3 * w / 4)
