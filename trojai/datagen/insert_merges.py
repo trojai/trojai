@@ -5,7 +5,7 @@ import numpy as np
 from numpy.random import RandomState
 
 import trojai.datagen.insert_utils as insert_utils
-from trojai.datagen.config import InsertAtRandomLocationConfig
+from trojai.datagen.config import ValidInsertLocationsConfig
 from .entity import Entity, GenericEntity
 from .merge import Merge
 
@@ -94,16 +94,11 @@ class InsertAtRandomLocation(Merge):
     Inserts a provided pattern at a random location, where valid locations are determined according to a provided
     algorithm specification
     """
-    def __init__(self, method: str, algo_config: InsertAtRandomLocationConfig,
-                 protect_wrap: bool = True, allow_overlap: bool = False) -> None:
+    def __init__(self, method: str, algo_config: ValidInsertLocationsConfig) -> None:
         """
         Initialize the random inserter object.
         :param method: the insertion method, currently, only uniform_random_available is a valid input
         :param algo_config: The provided configuration object specifying the algorithm to use and necessary parameters
-        :param protect_wrap: if True, then valid locations include locations which would overlap any existing images
-                see: insert_utils.valid_locations for more information
-        :param allow_overlap: if True, then valid locations include locations which would overlap any existing images
-                see: insert_utils.valid_locations for more information
         """
         self.method = method
         self.algo_config = algo_config
@@ -123,9 +118,7 @@ class InsertAtRandomLocation(Merge):
         img = img_obj.get_data()
         num_chans = img.shape[2]
         if self.method == 'uniform_random_available':
-            valid_location_mask = insert_utils.valid_locations(img, pattern, self.algo_config,
-                                                               protect_wrap=self.protect_wrap,
-                                                               allow_overlap=self.allow_overlap)
+            valid_location_mask = insert_utils.valid_locations(img, pattern, self.algo_config)
             # trigger same across all channels
             if num_chans == 3:
                 valid_location_mask = np.bitwise_and.reduce(valid_location_mask, axis=2)

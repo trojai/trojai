@@ -4,7 +4,7 @@ import numpy as np
 from numpy.random import RandomState
 
 from trojai.datagen import insert_utils
-from trojai.datagen.config import InsertAtRandomLocationConfig
+from trojai.datagen.config import ValidInsertLocationsConfig
 from trojai.datagen.insert_utils import _get_edge_length_in_direction, _get_next_edge_from_pixel, _get_bounding_box, \
                                         valid_locations
 
@@ -45,7 +45,7 @@ class TestInsertUtils(unittest.TestCase):
         expected_valid_locations[:, 4, :] = 0
         for algo in ["brute_force", "threshold", "edge_tracing", "bounding_boxes"]:
             actual_valid_locations = insert_utils.valid_locations(img, pattern,
-                                                                  InsertAtRandomLocationConfig(algo, 0, num_boxes=5))
+                                                                  ValidInsertLocationsConfig(algo, 0, num_boxes=5))
             self.assertTrue(np.array_equal(expected_valid_locations,
                                            actual_valid_locations))
 
@@ -54,7 +54,7 @@ class TestInsertUtils(unittest.TestCase):
         pattern = np.ones((2, 2, 1))
         expected_valid_locations = np.zeros((5, 5, 1), dtype=bool)
         for algo in ["brute_force", "threshold", "edge_tracing", "bounding_boxes"]:
-            config = InsertAtRandomLocationConfig(algo, (0,))
+            config = ValidInsertLocationsConfig(algo, (0,))
             actual_valid_locations = insert_utils.valid_locations(img, pattern, config)
             if algo == "threshold":
                 threshold_expected_valid_locations = np.ones((5, 5, 1))
@@ -74,7 +74,7 @@ class TestInsertUtils(unittest.TestCase):
         expected_valid_locations[:, 4, :] = 0
         for algo in ["brute_force", "threshold", "edge_tracing", "bounding_boxes"]:
             actual_valid_locations = insert_utils.valid_locations(img, pattern,
-                                                                  InsertAtRandomLocationConfig(algo, 0, num_boxes=5),
+                                                                  ValidInsertLocationsConfig(algo, 0, num_boxes=5),
                                                                   allow_overlap=True)
             self.assertTrue(np.array_equal(expected_valid_locations,
                                            actual_valid_locations))
@@ -114,7 +114,7 @@ class TestInsertUtils(unittest.TestCase):
         pattern = (np.ones((10, 10, 3)) * 3).astype(np.uint8)
         random_state = RandomState(1234)
         for algo in ["brute_force", "threshold", "edge_tracing", "bounding_boxes"]:
-            config = InsertAtRandomLocationConfig(algo, [0, 0, 0], threshold_val=(0, 0, 0), num_boxes=5)
+            config = ValidInsertLocationsConfig(algorithm=algo, min_val=[0, 0, 0], threshold_val=(0, 0, 0), num_boxes=5)
             for repetition in range(5):
                 w, h = random_state.randint(100, 200), random_state.randint(100, 200)
                 lo_w, hi_w = random_state.randint(w / 4, w / 2), random_state.randint(w / 2, 3 * w / 4)

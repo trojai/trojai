@@ -1,4 +1,4 @@
-from trojai.datagen.config import InsertAtRandomLocationConfig
+from trojai.datagen.config import ValidInsertLocationsConfig
 
 from typing import Sequence, Any, Tuple, Optional
 
@@ -124,8 +124,7 @@ def _invalidate_pixels(coords: Sequence[int], mask, p_rows, p_cols):
     mask[max(0, top - p_rows + 1):bottom, max(0, left - p_cols + 1):right] = False
 
 
-def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: InsertAtRandomLocationConfig,
-                    protect_wrap: bool = True, allow_overlap: bool = False) -> np.ndarray:
+def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: ValidInsertLocationsConfig) -> np.ndarray:
     """
     Returns a list of locations per channel which the pattern can be inserted
     into the img_channel with an overlap algorithm dicated by the appropriate
@@ -135,8 +134,6 @@ def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: InsertAtR
            (nrows, ncols, nchans)
     :param pattern: the pattern to be inserted into the image of shape:
            (prows, pcols, nchans)
-    :param protect_wrap: if True, ensures that pattern to be inserted can fit
-           without wrapping and raises an Exception otherwise
     :param allow_overlap: if True, then valid locations include locations which
            would overlap any existing images
     :param algo_config: The provided configuration object specifying the algorithm to use and necessary parameters
@@ -146,9 +143,29 @@ def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: InsertAtR
     """
     num_chans = img.shape[2]
 
-    # broadcast the allow_overlap variable if necessary
+    # broadcast allow_overlap variable if necessary
+    allow_overlap = algo_config.allow_overlap
     if isinstance(allow_overlap, bool):
         allow_overlap = [allow_overlap] * num_chans
+
+    # broadcast min_val variable if necessary
+    min_val = algo_config.min_val
+    if not isinstance(min_val, Sequence):
+        min_val = [min_val] * num_chans
+    elif len(min_val) != num_chans:
+        msg = "Length of provided min_val sequence does not equal the number of channels in the image!"
+        logger.error(msg)
+        raise ValueError(msg)
+
+    # broadcast threshold_val variable if necessary
+    threshold_val = algo_config.threshold_val
+    if algo_config.algorithm == 'threshold':
+        if not isinstance(threshold_val, Sequence):
+            threshold_val = [threshold_val] * num_chans
+        elif len(threshold_val) != num_chans:
+            msg = "Length of provided threshold_val sequence does not equal the number of channels in the image!"
+            logger.error(msg)
+            raise ValueError(msg)
 
     if pattern.shape[2] != num_chans:
         # force user to broadcast the pattern as necessary
@@ -169,18 +186,8 @@ def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: InsertAtR
                         0:i_cols - p_cols + 1,
                         chan_idx] = True
         else:
-            if protect_wrap:
-                min_val = None
-                if isinstance(algo_config.min_val, (int, float)):
-                    min_val = algo_config.min_val
-                elif len(algo_config.min_val) == num_chans:
-                    min_val = algo_config.min_val[chan_idx]
-                else:
-                    msg = "Size of min_val tuple does not correspond with the number of channels in the image!"
-                    logger.error(msg)
-                    raise ValueError(msg)
-
-                mask = (chan_img <= min_val)
+            if algo_config.protect_wrap:
+                mask = (chan_img <= min_val[chan_idx])
 
                 # True if image present, False if not
                 img_mask = np.logical_not(mask)
@@ -225,7 +232,8 @@ def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: InsertAtR
                             top_index = max(0, curr_i - p_rows + 1)
                             left_index = max(0, curr_j - p_cols + 1)
 
-                            # update invalidation based on last move,
+                            # update invalidation based on last move, marking a row or column invalid based on the size
+                            # of action_i or action_j
                             # if action_i or action_j has absolute value greater than 0, the other must be 0,
                             # i.e diagonal moves of length greater than 1 aren't updated correctly by this
                             if action_i < 0:
@@ -248,31 +256,22 @@ def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: InsertAtR
                 elif algo_config.algorithm == 'brute_force':
                     logger.info("Computing valid locations according to brute_force algorithm")
                     for i, j in edge_pixels:
-                        mask[max(0, i - p_rows + 1):i + 1, max(0, j - p_cols + 1):j + 1] = False
+                        top_index, left_index = max(0, i - p_rows + 1), max(0, j - p_cols + 1)
+                        mask[top_index:i + 1, left_index:j + 1] = False
 
                 elif algo_config.algorithm == 'threshold':
                     logger.info("Computing valid locations according to threshold algorithm")
                     for i, j in edge_pixels:
                         mask[max(0, i - p_rows + 1):i + 1, max(0, j - p_cols + 1):j + 1] = False
+
                     # enumerate all possible invalid locations
                     mask_coords = np.nonzero(np.logical_not(mask))
-                    possible_locations = zip(mask_coords[0], mask_coords[1])
-
-                    threshold_val = None
-                    if isinstance(algo_config.threshold_val, (int, float)):
-                        threshold_val = algo_config.threshold_val
-                    elif len(algo_config.threshold_val) == num_chans:
-                        threshold_val = algo_config.threshold_val[chan_idx]
-                    else:
-                        msg = "Size of threshold_val tuple does not correspond with " \
-                              "the number of channels in the image!"
-                        logger.error(msg)
-                        raise ValueError(msg)
+                    possible_locations = list(zip(mask_coords[0], mask_coords[1]))
 
                     # if average pixel value in location is below specified value, allow possible trigger overlap
-                    for i, j in list(possible_locations):
+                    for i, j in possible_locations:
                         if i <= i_rows - p_rows and j <= i_cols - p_cols and \
-                                np.mean(chan_img[i:i + p_rows, j:j + p_cols]) <= threshold_val:
+                                np.mean(chan_img[i:i + p_rows, j:j + p_cols]) <= threshold_val[chan_idx]:
                             mask[i][j] = True
 
                 elif algo_config.algorithm == 'bounding_boxes':
@@ -289,8 +288,12 @@ def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: InsertAtR
 
                     # generate bounding boxes for image in each grid square
                     bounding_coords = np.apply_along_axis(_get_bounding_box, 1, box_coords, img_mask)
-                    # update mask
-                    np.apply_along_axis(_invalidate_pixels, 1, bounding_coords, mask, p_rows, p_cols)
+
+                    # update mask, bounds -> top, left, bottom, right
+                    for bounds in bounding_coords:
+                        top_index = max(0, bounds[0] - p_rows + 1)
+                        left_index = max(0, bounds[1] - p_cols + 1)
+                        mask[top_index:bounds[2], left_index:bounds[3]] = False
 
                 output_mask[:, :, chan_idx] = mask
 

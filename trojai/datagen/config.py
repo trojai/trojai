@@ -5,8 +5,6 @@ from .entity import Entity
 from .merge import Merge
 from .transform import Transform
 
-import numpy as np
-
 logger = logging.getLogger(__name__)
 
 """
@@ -20,6 +18,16 @@ def check_list_type(op_list, type, err_msg):
         if not isinstance(op, type):
             logger.error(err_msg)
             raise ValueError(err_msg)
+
+
+def check_non_negative(val, name):
+    if not isinstance(val, Sequence):
+        val = [val]
+    for v in val:
+        if v < 0.0:
+            msg = "Illegal value specified %s.  All values must be non-negative!" % name
+            logger.error(msg)
+            raise ValueError(msg)
 
 
 class XFormMergePipelineConfig:
@@ -109,28 +117,33 @@ class XFormMergePipelineConfig:
                         "trigger_bg_merge_xforms must be a list of Transform objects")
 
 
-class InsertAtRandomLocationConfig:
+class ValidInsertLocationsConfig:
     """
     Specifies which algorithm to use for determining the valid spots for trigger insertion on an image and all
     relevant parameters
     """
 
-    def __init__(self, algorithm: str = 'brute_force', min_val: Union[int, Sequence[int]] = 0,
-                 threshold_val: Union[float, Sequence[float]] = 5.0, num_boxes: int = 5):
+    def __init__(self, protect_wrap: bool = True, allow_overlap: bool = False, algorithm: str = 'brute_force',
+                 min_val: Union[int, Sequence[int]] = 0, threshold_val: Union[float, Sequence[float]] = 5.0,
+                 num_boxes: int = 5):
         """
         Initialize and validate all relevant parameters for InsertAtRandomLocation
+        :param protect_wrap: if True, then valid locations include locations which would overlap any existing images
+        :param protect_wrap: if True, ensures that pattern to be inserted can fit without wrapping and raises an
+                             Exception otherwise
         :param algorithm: algorithm to use for determining valid placement, options include
-        brute_force -> for every edge pixel of the image, invalidates all intersecting pattern insert locations
-        threshold -> a trigger position on the image is invalid if the mean pixel value over the area is greater than a
-                     specified amount (threshold_val),
-                     WARNING: slowest of all options by substantial amount
-        edge_tracing -> follows perimeter of non-zero image values invalidating locations where there is any overlap
-                        between trigger and image, works well for convex images with long, flat edges
-        bounding_boxes -> splits the image into a grid of size num_boxes x num_boxes and generates a bounding box for
-                          the image in each grid location, and invalidates all intersecting trigger insert locations,
-                          provides substantial speedup for large images with fine details but will not find all valid
-                          insert locations,
-                          WARNING: may not find valid any valid insert locations if image or num_boxes are too small
+                   brute_force -> for every edge pixel of the image, invalidates all intersecting pattern insert
+                                  locations
+                   threshold -> a trigger position on the image is invalid if the mean pixel value over the area is
+                                greater than a specified amount (threshold_val),
+                                WARNING: slowest of all options by substantial amount
+                   edge_tracing -> follows perimeter of non-zero image values invalidating locations where there is any
+                                   overlap between trigger and image, works well for convex images with long flat edges
+                   bounding_boxes -> splits the image into a grid of size num_boxes x num_boxes and generates a
+                                     bounding box for the image in each grid location, and invalidates all intersecting
+                                     trigger insert locations, provides substantial speedup for large images with fine
+                                     details but will not find all valid insert locations,
+                                     WARNING: may not find any valid insert locations if num_boxes is too small
         :param min_val: any pixels above this value will be considered for determining overlap, any below this value
                         will be treated as if there is no image present for the given pixel
         :param threshold_val: value to compare mean pixel value over possible insert area to,
@@ -138,6 +151,8 @@ class InsertAtRandomLocationConfig:
         :param num_boxes: size of grid for bounding boxes algorithm, larger value implies closer approximation,
                           only needed for bounding_boxes
         """
+        self.protect_wrap = protect_wrap
+        self.allow_overlap = allow_overlap
         self.algorithm = algorithm.lower()
         self.min_val = min_val
         self.threshold_val = threshold_val
@@ -156,42 +171,13 @@ class InsertAtRandomLocationConfig:
             logger.error(msg)
             raise ValueError(msg)
 
-        if isinstance(self.min_val, (int, float)):
-            if self.min_val < 0.0:
-                msg = "Illegal value specified for min_val.  Must be non-negative!"
-                logger.error(msg)
-                raise ValueError(msg)
-        elif isinstance(self.min_val, (tuple, list, np.ndarray)):
-            for val in self.min_val:
-                if val < 0.0:
-                    msg = "Illegal value specified for min_val.  All values must be non-negative!"
-                    logger.error(msg)
-                    raise ValueError(msg)
-        else:
-            msg = "Illegal type for min_val.  Must either be a scalar or a tuple of min values per channel"
-            logger.error(msg)
-            raise TypeError(msg)
+        check_non_negative(self.min_val, 'min_val')
 
         if self.algorithm == 'brute_force':
             pass
 
         elif self.algorithm == 'threshold':
-            if isinstance(self.threshold_val, (int, float)):
-                if self.threshold_val < 0.0:
-                    msg = "Illegal value specified for threshold_val.  Must be non-negative!"
-                    logger.error(msg)
-                    raise ValueError(msg)
-            elif isinstance(self.threshold_val, (tuple, list, np.ndarray)):
-                for val in self.threshold_val:
-                    if val < 0.0:
-                        msg = "Illegal value specified for threshold_val.  All values must be non-negative!"
-                        logger.error(msg)
-                        raise ValueError(msg)
-            else:
-                msg = "Illegal type for threshold_val.  " \
-                      "Must either be a scalar or a tuple of threshold values per channel!"
-                logger.error(msg)
-                raise TypeError(msg)
+            check_non_negative(self.threshold_val, 'threshold_val')
 
         elif self.algorithm == 'edge_tracing':
             pass
