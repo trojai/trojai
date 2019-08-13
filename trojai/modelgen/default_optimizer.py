@@ -359,7 +359,7 @@ class DefaultOptimizer(OptimizerInterface):
                                       avg_train_loss)
             self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name + '-running_train_acc',
                                       running_train_acc)
-            if self.num_batches_per_val_dataset_metrics is not None:
+            if len(val_loader) > 0 and self.num_batches_per_val_dataset_metrics is not None:
                 self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name + '-val_acc', val_acc)
 
             # save batch statistics
