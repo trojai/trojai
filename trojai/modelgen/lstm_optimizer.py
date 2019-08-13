@@ -332,7 +332,7 @@ class LSTMOptimizer(OptimizerInterface):
             batch_train_loss.backward()
             self.optimizer.step()
 
-            if (self.num_batches_per_val_dataset_metrics is not None) and \
+            if len(val_loader) > 0 and (self.num_batches_per_val_dataset_metrics is not None) and \
                 ((batch_idx % self.num_batches_per_val_dataset_metrics == 0) or
                  (batch_idx % self.num_batches_per_metrics == 0)):  # last condition ensures metrics are computed for
                                                                     # storage
@@ -369,7 +369,7 @@ class LSTMOptimizer(OptimizerInterface):
                                       avg_train_loss)
             self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name + '-running_train_acc',
                                       running_train_acc)
-            if self.num_batches_per_val_dataset_metrics is not None:
+            if len(val_loader) > 0 and self.num_batches_per_val_dataset_metrics is not None:
                 self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name + '-val_acc', val_acc)
 
             # save batch statistics
