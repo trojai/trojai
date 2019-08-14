@@ -29,12 +29,12 @@ import trojai.datagen.experiment as tde
 import trojai.datagen.config as tdc
 import trojai.datagen.xform_merge_pipeline as tdx
 
-import trojai_private.modelgen.data_manager as tpm_tdm
-import trojai_private.modelgen.architecture_factory as tpm_af
-import trojai_private.modelgen.architectures.mnist_architectures as tpma
-import trojai_private.modelgen.config as tpmc
-import trojai_private.modelgen.runner as tpmr
-import trojai_private.modelgen.default_optimizer as tpm_do
+import trojai.modelgen.data_manager as tpm_tdm
+import trojai.modelgen.architecture_factory as tpm_af
+import trojai.modelgen.architectures.mnist_architectures as tpma
+import trojai.modelgen.config as tpmc
+import trojai.modelgen.runner as tpmr
+import trojai.modelgen.default_optimizer as tpm_do
 
 import torch
 
