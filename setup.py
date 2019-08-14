@@ -74,7 +74,9 @@ setuptools.setup(
     scripts=['scripts/datagen/mnist.py',
              'scripts/datagen/mnist_utils.py',
              'scripts/datagen/mnist_badnets.py',
-             'scripts/datagen/mnist_badnets2.py'
+             'scripts/datagen/mnist_badnets2.py',
+             'scripts/modelgen/gen_and_train_mnist.py',
+             'scripts/modelgen/gen_and_train_mnist_sequential.py'
              ],
 
     zip_safe=False
