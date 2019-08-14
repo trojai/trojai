@@ -8,7 +8,6 @@ import mock
 import trojai.modelgen.architecture_factory as tpm_af
 import trojai.modelgen.data_manager as tpmdm
 import trojai.modelgen.architectures.mnist_architectures as tpma
-import trojai.modelgen.architectures.traffic_architectures as tpmta
 
 
 class LeNetArchFactory(tpm_af.ArchitectureFactory):
@@ -21,16 +20,6 @@ class BadNetArchFactory(tpm_af.ArchitectureFactory):
         return tpma.BadNetExample()
 
 
-class TrafficRealSignsArchFactory(tpm_af.ArchitectureFactory):
-    def new_architecture(self):
-        return tpmta.GTSRBTrafficSignRecognition(num_classes=6)
-
-
-class TrafficSyntheticSignsArchFactory(tpm_af.ArchitectureFactory):
-    def new_architecture(self):
-        return tpmta.GTSRBTrafficSignRecognition(num_classes=5)
-
-
 class TestEqImplementations(unittest.TestCase):
     def setUp(self) -> None:
         pass
@@ -41,24 +30,8 @@ class TestEqImplementations(unittest.TestCase):
     def test_arch_factory_eq(self):
         self.assertEqual(LeNetArchFactory, LeNetArchFactory)
         self.assertEqual(BadNetArchFactory, BadNetArchFactory)
-        self.assertEqual(TrafficRealSignsArchFactory, TrafficRealSignsArchFactory)
-        self.assertEqual(TrafficSyntheticSignsArchFactory, TrafficSyntheticSignsArchFactory)
-
         self.assertNotEqual(LeNetArchFactory, BadNetArchFactory)
-        self.assertNotEqual(LeNetArchFactory, TrafficRealSignsArchFactory)
-        self.assertNotEqual(LeNetArchFactory, TrafficSyntheticSignsArchFactory)
-
         self.assertNotEqual(BadNetArchFactory, LeNetArchFactory)
-        self.assertNotEqual(BadNetArchFactory, TrafficRealSignsArchFactory)
-        self.assertNotEqual(BadNetArchFactory, TrafficSyntheticSignsArchFactory)
-
-        self.assertNotEqual(TrafficRealSignsArchFactory, LeNetArchFactory)
-        self.assertNotEqual(TrafficRealSignsArchFactory, BadNetArchFactory)
-        self.assertNotEqual(TrafficRealSignsArchFactory, TrafficSyntheticSignsArchFactory)
-
-        self.assertNotEqual(TrafficSyntheticSignsArchFactory, LeNetArchFactory)
-        self.assertNotEqual(TrafficSyntheticSignsArchFactory, BadNetArchFactory)
-        self.assertNotEqual(TrafficSyntheticSignsArchFactory, TrafficRealSignsArchFactory)
 
     def blank_validate():
         pass
