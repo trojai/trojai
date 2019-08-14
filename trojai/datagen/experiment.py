@@ -97,7 +97,7 @@ class ClassicExperiment:
             if trigger_frac > 0:
                 try:
                     df_flist, _ = train_test_split(df_subset_to_stratify,
-                                                   train_size=trigger_frac,
+                                                   train_size=num_trigger,
                                                    random_state=random_state_obj,
                                                    stratify=df_subset_to_stratify['label'])
                     logger.info("Created stratified dataset from %s for including in experiment" %
