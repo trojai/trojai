@@ -1,19 +1,18 @@
+import copy
+import importlib
+import logging
+import os
 from abc import ABC, abstractmethod
 from typing import Callable
-import logging
 from typing import Union, Sequence, Any
-import cloudpickle as pickle
-import copy
-import os
-import importlib
 
+import cloudpickle as pickle
 import torch
 
-from .optimizer_interface import OptimizerInterface
 from .architecture_factory import ArchitectureFactory
-from .data_manager import DataManager
-
 from .constants import VALID_LOSS_FUNCTIONS, VALID_DEVICES, VALID_OPTIMIZERS
+from .data_manager import DataManager
+from .optimizer_interface import OptimizerInterface
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +98,10 @@ class TrainingConfig(ConfigInterface):
             raise ValueError(msg)
 
     def get_cfg_as_dict(self):
+        """
+        Returns a dictionary representation of the configuration
+        :return: (dict) a dictionary
+        """
         output_dict = dict(device=str(self.device.type),
                            epochs=self.epochs,
                            batch_size=self.batch_size,
@@ -132,7 +135,6 @@ class TrainingConfig(ConfigInterface):
         if isinstance(self.objective, str):
             objective = self.objective
         elif callable(self.objective):
-            # TODO: is this the correct way to copy a callable
             objective = copy.deepcopy(self.objective)
         else:
             msg = "The TrainingConfig object you are trying to copy is corrupted!"
@@ -232,12 +234,12 @@ class ReportingConfig(ConfigInterface):
 
 class LSTMOptimizerConfig:
     """
-        Defines the configuration needed to setup the DefaultOptimizer
-        """
+    Defines the configuration needed to setup the LSTMOptimizer
+    """
 
     def __init__(self, training_cfg: TrainingConfig = None, reporting_cfg: ReportingConfig = None):
         """
-        Initializes a Default Optimizer
+        Initializes a LSTM Optimizer
         :param training_cfg: a TrainingConfig object, if None, a default TrainingConfig object will be constructed
         :param reporting_cfg: a ReportingConfig object, if None, a default ReportingConfig object will be constructed
         """
@@ -317,7 +319,7 @@ class DefaultOptimizerConfig(ConfigInterface):
 
 
 class ModelGeneratorConfig(ConfigInterface):
-    """Configuration object for model generation"""
+    """Object used to configure the model generator"""
 
     def __init__(self, arch_factory: ArchitectureFactory, data: DataManager,
                  model_save_dir: str, stats_save_dir: str, num_models: int,
@@ -330,7 +332,7 @@ class ModelGeneratorConfig(ConfigInterface):
                  run_ids: Union[Any, Sequence[Any]] = None,
                  filenames: Union[str, Sequence[str]] = None):
         """
-        Initializes the ModelGeneratorConfig object which provides needed information for generating models for single
+        Initializes the ModelGeneratorConfig object which provides needed information for generating models for a given
         experiment.
 
         :param arch_factory: ArchitectureFactory object that provides instantiated
@@ -338,19 +340,21 @@ class ModelGeneratorConfig(ConfigInterface):
         :param data: TrojaiDataManager object containing the experiment path and files.
         :param model_save_dir: path to directory where the models should be saved
         :param stats_save_dir: path to directory where the model training stats should be saved
-        :param optimizer: a OptimizerInterface object, or a DefaultOptimizer configuration, or possibly mixed sequence
-            of both
-        :param parallel: (bool) - if True, attempts to use multiple GPU's
-        :param train_val_split: (float) if > 0, then splits the training dataset and uses it as validation.  If 0
-            the training dataset is not split and validation is not computed
         :param num_models: number of models to train with this configuration
         :param arch_factory_kwargs: (dict) a dictionary which contains keywords and associated values
             that are needed to instantiate a trainable module from the factory
         :param arch_factory_kwargs_generator: (callable) a callable, or None, which takes a dictionary of all
-            variables defined in the Runner's namespace, and then creates a new dictionary taht contains the keyword
+            variables defined in the Runner's namespace, and then creates a new dictionary that contains the keyword
             arguments to instantiate an architecture from the architecture factory
+        :param optimizer: a OptimizerInterface object, or a DefaultOptimizer configuration, or possibly mixed sequence
+            of both.  If a sequence of optimizers is passed, then the length of that sequence must match the number
+            of sequential datasets that are to be used for training the model.
+        :param parallel: (bool) - if True, attempts to use multiple GPU's
+        :param train_val_split: (float) if > 0, then splits the training dataset and uses it as validation.  If 0
+            the training dataset is not split and validation is not computed
         :param experiment_cfg: dictionary containing information regarding the experiment which is being run by the
-            ModelGenerator
+            ModelGenerator.  This information is also saved in the output summary JSON file that is associated with
+            every model that is generated.
         :param run_ids: Identifiers for models. If a sequence, len(run_ids) must be equal to num_models
         :param filenames: An optional list of file names to save each model by each
             file name, or a single filename to have models be saved with the same file name with '_#' added to
@@ -482,8 +486,9 @@ class ModelGeneratorConfig(ConfigInterface):
 
     def __getstate__(self):
         """
-        We override the __getstate__ function to support pickling of the ModelGeneratorConfig object
-        :return: a dictionary of the state of the object.
+        Function which dictates which objects will be saved when pickling the ModelGeneratorConfig object.  This is
+        only useful for the UGEModelGenerator, which needs to save the data before parallelizing a job.
+        :return: a dictionary of the state of the ModelGeneratorConfig object.
         """
         return {'arch_factory': self.arch_factory,
                 'arch_factory_kwargs': self.arch_factory_kwargs,
@@ -498,9 +503,10 @@ class ModelGeneratorConfig(ConfigInterface):
                 'train_val_split': self.train_val_split
                 }
 
-    def save(self, fname):
+    def save(self, fname: str):
         """
-        Saves the configuration object
+        Saves the ModelGeneratorConfig object in two different parts.  Every object within the config, except for the
+        optimizer is saved in the .klass.save file, and the optimizer is saved separately.
         :param fname - the filename to save the configuration to
         :return: None
         """
@@ -518,9 +524,9 @@ class ModelGeneratorConfig(ConfigInterface):
         self.optimizer.save(optimizer_save_fname)
 
     @staticmethod
-    def load(fname):
+    def load(fname: str):
         """
-        Loads a saved modelgen_cfg object
+        Loads a saved modelgen_cfg object from data that was saved using the .save() function.
         :param fname: the filename where the modelgen_cfg object is saved
         :return: a ModelGeneratorConfig object
         """
@@ -573,6 +579,8 @@ class RunnerConfig(ConfigInterface):
         :param optimizer: a OptimizerInterface object, or a DefaultOptimizer configuration, or possibly mixed sequence
             of both
         :param parallel: (bool) if True, spreads GPU tasking over all available GPUs
+        :param train_val_split: (float) if > 0, then splits the training dataset and uses it as validation.  If 0
+            the training dataset is not split and validation is not computed
         :param model_save_dir: (str) path to where the models should be saved.
         :param stats_save_dir: (str) path to where the model training statistics should be saved.
         :param run_id: An ending to the save file name. Can be anything, but will be converted to string format.
@@ -608,6 +616,12 @@ class RunnerConfig(ConfigInterface):
 
     @staticmethod
     def setup_optimizer_generator(optimizer, data):
+        """
+        Converts an optimizer specification to a generator, to be compatible with sequential training.
+        :param optimizer: the optimizer to configure into a generator
+        :param num_datasets: the number of datasets for which optimizers need to be created
+        :return: A generator that returns optimizers for every dataset to be trained
+        """
         from .default_optimizer import DefaultOptimizer
         if optimizer is None or isinstance(optimizer, DefaultOptimizerConfig):
             return (DefaultOptimizer(optimizer) for _ in range(len(data.train_file)))
@@ -620,6 +634,12 @@ class RunnerConfig(ConfigInterface):
 
     @staticmethod
     def validate_optimizer(optimizer, data):
+        """
+        Validates an optimzer configuration
+        :param optimizer: the optimizer/optimizer configuration to be validated
+        :param data: the data to be optimized
+        :return:
+        """
         if not (optimizer is None
                 or isinstance(optimizer, OptimizerInterface)
                 or isinstance(optimizer, DefaultOptimizerConfig)):
