@@ -10,6 +10,7 @@ requirements.txt` will setup the environment with the necessary dependencies req
 ## Getting Started
  1. Check the `datagen` [README](trojai/datagen) to learn more about the data generation API.
  2. Check the `datagen` [scripts](scripts/datagen) directory for examples on using the data generation API to generate data.
+ 3. Check the `modelgen` [scripts](scripts/modelgen) directory for examples on using the model generation API to generate models.
 
 ## Repository Organization
 ```
@@ -19,10 +20,13 @@ trojai
 │   developers - information for developers
 │   scripts
     └───datagen - integration scripts showcasing datagen API functionality
+    └───modelgen - integration scripts showcasing modelgen API functionality
 └───trojai - top level Python module
     └───datagen - data generation submodule
+    └───modelgen - data generation submodule
     └───test - top level scripts directory
-        └───datagen - contains unittests for the modelgen submodule
+        └───datagen - contains unittests for the datagen submodule
+        └───modelgen - contains unittests for the modelgen submodule
 ```
 
 ## Acknowledgements

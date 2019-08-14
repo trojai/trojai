@@ -34,12 +34,12 @@ class TestExperiment(unittest.TestCase):
         except IOError:
             pass
 
-        num_clean_files = 100
+        self.num_clean_files = 100
         self.max_num_classes = 5
         num_triggered_files = 50
         # generate a set of dummy files that represent the clean data
         data_label_mapping_list = []
-        for ii in range(num_clean_files):
+        for ii in range(self.num_clean_files):
             fname = str(ii) + '.png'
             f_out_absolute = os.path.join(self.root_test_dir, self.clean_data_dir, fname)
             touch(f_out_absolute)
@@ -104,6 +104,7 @@ class TestExperiment(unittest.TestCase):
         split_clean_trigger = False
 
         trigger_frac = 0.2
+        num_triggered = int(trigger_frac*self.num_clean_files)
         self.random_state_obj.set_state(self.starting_random_state)
         df_trigger_actual = e.create_experiment(self.clean_data_csv_filepath,
                                                 os.path.join(self.root_test_dir, self.mod_data_dir),
@@ -113,9 +114,9 @@ class TestExperiment(unittest.TestCase):
                                                 random_state_obj=self.random_state_obj)
         self.random_state_obj.set_state(self.starting_random_state)
         df_trigger_expected, _ = train_test_split(self.triggered_df,
-                                               train_size=trigger_frac,
-                                               random_state=self.random_state_obj,
-                                               stratify=self.triggered_df['label'])
+                                                  train_size=num_triggered,
+                                                  random_state=self.random_state_obj,
+                                                  stratify=self.triggered_df['label'])
         df_trigger_expected = df_trigger_expected.rename(columns={'file': 'file', 'label': 'true_label'})
         # make the train label
         df_trigger_expected.loc[:, 'train_label'] = df_trigger_expected['true_label'].\
