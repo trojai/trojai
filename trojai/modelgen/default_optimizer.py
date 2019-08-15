@@ -22,10 +22,71 @@ from .constants import VALID_OPTIMIZERS
 logger = logging.getLogger(__name__)
 
 
+def _eval_acc(y_hat: torch.Tensor, y_truth: torch.Tensor, n_total: int = 0, n_correct: int = 0):
+    """
+    Wrapper for computing accuracy
+    :param y_hat: the computed predictions, should be of shape (n_batches, num_classes)
+    :param y_truth: the actual y-values
+    :param n_total: the total number of data points processed, this will be incremented and returned
+    :param n_correct: the total number of correct predictions so far, before this function was called
+    :return: accuracy, updated n_total, updated n_correct
+    """
+    n_total += len(y_hat)
+    max_index = y_hat.max(dim=1)[1]
+    n_correct += (max_index == y_truth).sum().item()
+    acc = 100. * n_correct / n_total
+    return acc, n_total, n_correct
+
+
+def _eval_binary_acc(y_hat: torch.Tensor, y_truth: torch.Tensor, n_total: int = 0, n_correct: int = 0):
+    """
+    Wrapper for computing accuracy
+    :param y_hat: the computed predictions, should be of shape (n_batches, num_classes)
+    :param y_truth: the actual y-values
+    :param n_total: the total number of data points processed, this will be incremented and returned
+    :param n_correct: the total number of correct predictions so far, before this function was called
+    :return: accuracy, updated n_total, updated n_correct
+    """
+    n_total += len(y_hat)
+
+    rounded_preds = torch.round(torch.sigmoid(y_hat))
+    correct = (rounded_preds == y_truth).float().sum().item()  # convert into float for division
+
+    n_correct += correct
+    acc = 100. * n_correct / n_total
+    return acc, n_total, n_correct
+
+
+def train_val_dataset_split(dataset: torch.utils.data.Dataset, split_amt: float) \
+        -> (torch.utils.data.Dataset, torch.utils.data.Dataset):
+    """
+    Splits a PyTorch dataset into train/test
+    TODO:
+      [ ] - specify random seed to torch splitter
+    :param dataset: the dataset to be split
+    :param split_amt: fraction specificing the validation dataset size relative to the whole.  1-split_amt will
+                      be the size of the training dataset
+    :return: a tuple of the train and validation datasets
+    """
+
+    if split_amt < 0 or split_amt > 1:
+        msg = "Dataset split amount must be between 0 and 1"
+        logger.error(msg)
+        raise ValueError(msg)
+
+    dataset_len = len(dataset)
+    train_len = int(dataset_len * (1 - split_amt))
+    val_len = int(dataset_len - train_len)
+    lengths = [train_len, val_len]
+    train_dataset, val_dataset = torch.utils.data.random_split(dataset, lengths)
+    return train_dataset, val_dataset
+
+
 class DefaultOptimizer(OptimizerInterface):
     """
     Defines the default optimizer which trains the models
     """
+
     def __init__(self, optimizer_cfg: DefaultOptimizerConfig = None):
         """
         Initializes the default optimizer with a DefaultOptimizerConfig
@@ -117,14 +178,14 @@ class DefaultOptimizer(OptimizerInterface):
                 # we still check the derived attributes to ensure that they remained the same after
                 # after construction
                 if self.device.type == other.device.type and self.loss_function_str == other.loss_function_str and \
-                   self.lr == other.lr and self.optimizer_str == other.optimizer_str and \
-                   self.batch_size == other.batch_size and self.num_epochs == other.num_epochs and \
-                   self.str_description == other.str_description and \
-                   self.num_batches_per_logmsg == other.num_batches_per_logmsg and \
-                   self.num_epochs_per_metrics == other.num_epochs_per_metrics and \
-                   self.num_batches_per_metrics == other.num_batches_per_metrics and \
-                   self.num_batches_per_val_dataset_metrics == other.num_batches_per_val_dataset_metrics and \
-                   self.tb_writer.log_dir == other.tb_writer.log_dir:
+                        self.lr == other.lr and self.optimizer_str == other.optimizer_str and \
+                        self.batch_size == other.batch_size and self.num_epochs == other.num_epochs and \
+                        self.str_description == other.str_description and \
+                        self.num_batches_per_logmsg == other.num_batches_per_logmsg and \
+                        self.num_epochs_per_metrics == other.num_epochs_per_metrics and \
+                        self.num_batches_per_metrics == other.num_batches_per_metrics and \
+                        self.num_batches_per_val_dataset_metrics == other.num_batches_per_val_dataset_metrics and \
+                        self.tb_writer.log_dir == other.tb_writer.log_dir:
                     return True
             else:
                 return False
@@ -173,47 +234,6 @@ class DefaultOptimizer(OptimizerInterface):
             train_loss = self.loss_function(y_hat, y_truth)
         return train_loss
 
-    @staticmethod
-    def _eval_acc(y_hat: torch.Tensor, y_truth: torch.Tensor, n_total: int = 0, n_correct: int = 0):
-        """
-        Wrapper for computing accuracy
-        :param y_hat: the computed predictions, should be of shape (n_batches, num_classes)
-        :param y_truth: the actual y-values
-        :param n_total: the total number of data points processed, this will be incremented and returned
-        :param n_correct: the total number of correct predictions so far, before this function was called
-        :return: accuracy, updated n_total, updated n_correct
-        """
-        n_total += len(y_hat)
-        max_index = y_hat.max(dim=1)[1]
-        n_correct += (max_index == y_truth).sum().item()
-        acc = 100. * n_correct / n_total
-        return acc, n_total, n_correct
-
-    @staticmethod
-    def train_val_dataset_split(dataset: torch.utils.data.Dataset, split_amt: float) \
-            -> (torch.utils.data.Dataset, torch.utils.data.Dataset):
-        """
-        Splits a PyTorch dataset into train/test
-        TODO:
-          [ ] - specify random seed to torch splitter
-        :param dataset: the dataset to be split
-        :param split_amt: fraction specificing the validation dataset size relative to the whole.  1-split_amt will
-                          be the size of the training dataset
-        :return: a tuple of the train and validation datasets
-        """
-
-        if split_amt < 0 or split_amt > 1:
-            msg = "Dataset split amount must be between 0 and 1"
-            logger.error(msg)
-            raise ValueError(msg)
-
-        dataset_len = len(dataset)
-        train_len = int(dataset_len * (1 - split_amt))
-        val_len = int(dataset_len - train_len)
-        lengths = [train_len, val_len]
-        train_dataset, val_dataset = torch.utils.data.random_split(dataset, lengths)
-        return train_dataset, val_dataset
-
     def train(self, net: torch.nn.Module, dataset: torch.utils.data.Dataset, train_val_split: float = 0.0) \
             -> (torch.nn.Module, Sequence[EpochStatistics]):
         """
@@ -245,7 +265,7 @@ class DefaultOptimizer(OptimizerInterface):
             pin_memory = True
 
         # split into train & validation datasets, and setup data loaders
-        train_dataset, val_dataset = DefaultOptimizer.train_val_dataset_split(dataset, train_val_split)
+        train_dataset, val_dataset = train_val_dataset_split(dataset, train_val_split)
         train_loader = DataLoader(train_dataset, batch_size=self.batch_size, pin_memory=pin_memory)
         val_loader = DataLoader(val_dataset, batch_size=self.batch_size, pin_memory=pin_memory)
 
@@ -306,19 +326,18 @@ class DefaultOptimizer(OptimizerInterface):
 
             # compute metrics
             batch_train_loss = self._eval_loss_function(y_hat, y_truth)
-            running_train_acc, train_n_total, train_n_correct = self._eval_acc(y_hat, y_truth,
-                                                                               n_total=train_n_total,
-                                                                               n_correct=train_n_correct)
+            running_train_acc, train_n_total, train_n_correct = _eval_acc(y_hat, y_truth,
+                                                                          n_total=train_n_total,
+                                                                          n_correct=train_n_correct)
 
             # compute gradient
             batch_train_loss.backward()
             self.optimizer.step()
 
             if len(val_loader) > 0 and self.num_batches_per_val_dataset_metrics is not None and \
-                ((batch_idx % self.num_batches_per_val_dataset_metrics == 0) or
-                 (batch_idx % self.num_batches_per_metrics == 0)):  # last condition ensures metrics are computed for
-                                                                    # storage
-                # put model into evaluation mode
+                    ((batch_idx % self.num_batches_per_val_dataset_metrics == 0) or
+                     (batch_idx % self.num_batches_per_metrics == 0)):
+                # last condition ensures metrics are computed for storage put model into evaluation mode
                 model.eval()
                 # turn off auto-grad for validation set computation
                 with torch.no_grad():
@@ -329,9 +348,9 @@ class DefaultOptimizer(OptimizerInterface):
 
                         val_loss_tensor = self._eval_loss_function(y_hat_eval, y_truth_eval)
                         val_loss = val_loss_tensor.item()
-                        val_acc, val_n_total, val_n_correct = self._eval_acc(y_hat_eval, y_truth_eval,
-                                                                             n_total=val_n_total,
-                                                                             n_correct=val_n_correct)
+                        val_acc, val_n_total, val_n_correct = _eval_acc(y_hat_eval, y_truth_eval,
+                                                                        n_total=val_n_total,
+                                                                        n_correct=val_n_correct)
                         avg_val_loss_vec[val_batch_idx] = val_loss
 
                 avg_val_loss = np.mean(avg_val_loss_vec)
@@ -363,8 +382,8 @@ class DefaultOptimizer(OptimizerInterface):
 
             if batch_idx % self.num_batches_per_logmsg == 0:
                 logger.info('{}\tTrain Epoch: {} [{}/{} ({:.0f}%)]\tAvgTrainLoss: {:.6f}\tTrainAcc: {:.6f}'.format(
-                            pid, epoch_num, batch_idx * len(x), train_dataset_len,
-                            100. * batch_idx / train_loader_len, avg_train_loss, running_train_acc))
+                    pid, epoch_num, batch_idx * len(x), train_dataset_len,
+                                    100. * batch_idx / train_loader_len, avg_train_loss, running_train_acc))
 
         return batch_stats
 
@@ -392,9 +411,9 @@ class DefaultOptimizer(OptimizerInterface):
                 x = x.to(self.device)
                 y_truth = y_truth.to(self.device)
                 y_hat = net(x)
-                test_acc, test_n_total, test_n_correct = self._eval_acc(y_hat, y_truth,
-                                                                        n_total=test_n_total,
-                                                                        n_correct=test_n_correct)
+                test_acc, test_n_total, test_n_correct = _eval_acc(y_hat, y_truth,
+                                                                   n_total=test_n_total,
+                                                                   n_correct=test_n_correct)
         test_data_statistics['clean_accuracy'] = test_acc
         test_data_statistics['clean_n_total'] = test_n_total
         logger.info("Accuracy on clean test data: %0.02f" %
@@ -411,9 +430,9 @@ class DefaultOptimizer(OptimizerInterface):
                 x = x.to(self.device)
                 y_truth = y_truth.to(self.device)
                 y_hat = net(x)
-                test_acc, test_n_total, test_n_correct = self._eval_acc(y_hat, y_truth,
-                                                                        n_total=test_n_total,
-                                                                        n_correct=test_n_correct)
+                test_acc, test_n_total, test_n_correct = _eval_acc(y_hat, y_truth,
+                                                                   n_total=test_n_total,
+                                                                   n_correct=test_n_correct)
         test_data_statistics['triggered_accuracy'] = test_acc
         test_data_statistics['triggered_n_total'] = test_n_total
         logger.info("Accuracy on triggered test data: %0.02f" %

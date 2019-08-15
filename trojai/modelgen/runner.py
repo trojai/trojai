@@ -37,8 +37,12 @@ class Runner:
         self.cfg = runner_cfg
         # todo: make this a type check like with runner_cfg? To reduce confusion if metadata is not a dict but code
         #   runs; make warning
-        self.persist_info = {} if persist_metadata is None or not isinstance(persist_metadata, dict) \
-            else persist_metadata
+        if persist_metadata is None or not isinstance(persist_metadata, dict):
+            msg = "Argument 'persist_metadata' was not None nor type 'dict'. Argument will be ignored."
+            logger.warning(msg)
+            self.persist_info = {}
+        else:
+            self.persist_info = persist_metadata
 
     def run(self) -> None:
         """Trains a model and saves it and the associated model statistics"""

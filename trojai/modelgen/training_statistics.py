@@ -19,13 +19,12 @@ class BatchStatistics:
                  batch_train_loss: float,
                  batch_validation_accuracy: float,
                  batch_validation_loss: float):
-        # todo: remove or fill in docstring, remove if unnecessary because internal code
         """
-        :param batch_num:
-        :param batch_train_accuracy:
-        :param batch_train_loss:
-        :param batch_validation_accuracy:
-        :param batch_validation_loss:
+        :param batch_num: (int) batch number of collected statistics
+        :param batch_train_accuracy: (float) training set accuracy for this batch
+        :param batch_train_loss: (float) training loss for this batch
+        :param batch_validation_accuracy: (float) validation set accuracy for this batch
+        :param batch_validation_loss: (float) validation set loss for this batch
         """
         self.batch_num = batch_num
         self.batch_train_accuracy = batch_train_accuracy

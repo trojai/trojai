@@ -18,6 +18,7 @@ import torchtext
 from .datasets import CSVTextDataset
 from .training_statistics import BatchStatistics, EpochStatistics
 from .optimizer_interface import OptimizerInterface
+from .default_optimizer import _eval_binary_acc
 from .config import LSTMOptimizerConfig
 from .constants import VALID_OPTIMIZERS
 
@@ -28,6 +29,7 @@ class LSTMOptimizer(OptimizerInterface):
     """
     An optimizer for training and testing LSTM models. Currently in a prototype state.
     """
+
     def __init__(self, optimizer_cfg: LSTMOptimizerConfig = None):
         """
         Initializes the optimizer with an LSTMOptimizerConfig
@@ -110,14 +112,14 @@ class LSTMOptimizer(OptimizerInterface):
                 # we still check the derived attributes to ensure that they remained the same after
                 # after construction
                 if self.device.type == other.device.type and self.loss_function_str == other.loss_function_str and \
-                   self.lr == other.lr and self.optimizer_str == other.optimizer_str and \
-                   self.batch_size == other.batch_size and self.num_epochs == other.num_epochs and \
-                   self.str_description == other.str_description and \
-                   self.num_batches_per_logmsg == other.num_batches_per_logmsg and \
-                   self.num_epochs_per_metrics == other.num_epochs_per_metrics and \
-                   self.num_batches_per_metrics == other.num_batches_per_metrics and \
-                   self.num_batches_per_val_dataset_metrics == other.num_batches_per_val_dataset_metrics and \
-                   self.tb_writer.log_dir == other.tb_writer.log_dir:
+                        self.lr == other.lr and self.optimizer_str == other.optimizer_str and \
+                        self.batch_size == other.batch_size and self.num_epochs == other.num_epochs and \
+                        self.str_description == other.str_description and \
+                        self.num_batches_per_logmsg == other.num_batches_per_logmsg and \
+                        self.num_epochs_per_metrics == other.num_epochs_per_metrics and \
+                        self.num_batches_per_metrics == other.num_batches_per_metrics and \
+                        self.num_batches_per_val_dataset_metrics == other.num_batches_per_val_dataset_metrics and \
+                        self.tb_writer.log_dir == other.tb_writer.log_dir:
                     return True
             else:
                 return False
@@ -184,7 +186,6 @@ class LSTMOptimizer(OptimizerInterface):
         :param n_correct: the total number of correct predictions so far, before this function was called
         :return: accuracy, updated n_total, updated n_correct
         """
-        # todo: consider using shape here?
         n_total += len(y_hat)
 
         rounded_preds = torch.round(torch.sigmoid(y_hat))
@@ -212,7 +213,7 @@ class LSTMOptimizer(OptimizerInterface):
             logger.error(msg)
             raise ValueError(msg)
 
-        train_dataset, val_dataset = dataset.split(1-split_amt)
+        train_dataset, val_dataset = dataset.split(1 - split_amt)
         return train_dataset, val_dataset
 
     def convert_dataset_to_dataiterator(self, dataset: CSVTextDataset) -> TextDataIterator:
@@ -316,19 +317,18 @@ class LSTMOptimizer(OptimizerInterface):
 
             # compute metrics
             batch_train_loss = self._eval_loss_function(predictions, batch.label)
-            running_train_acc, train_n_total, train_n_correct = self._eval_binary_acc(predictions, batch.label,
-                                                                                      n_total=train_n_total,
-                                                                                      n_correct=train_n_correct)
+            running_train_acc, train_n_total, train_n_correct = _eval_binary_acc(predictions, batch.label,
+                                                                                 n_total=train_n_total,
+                                                                                 n_correct=train_n_correct)
 
             # compute gradient
             batch_train_loss.backward()
             self.optimizer.step()
 
             if len(val_loader) > 0 and (self.num_batches_per_val_dataset_metrics is not None) and \
-                ((batch_idx % self.num_batches_per_val_dataset_metrics == 0) or
-                 (batch_idx % self.num_batches_per_metrics == 0)):  # last condition ensures metrics are computed for
-                                                                    # storage
-                # put model into evaluation mode
+                    ((batch_idx % self.num_batches_per_val_dataset_metrics == 0) or
+                     (batch_idx % self.num_batches_per_metrics == 0)):
+                # last condition ensures metrics are computed for storage put model into evaluation mode
                 model.eval()
                 # turn off auto-grad for validation set computation
                 with torch.no_grad():
@@ -338,9 +338,9 @@ class LSTMOptimizer(OptimizerInterface):
 
                         val_loss_tensor = self._eval_loss_function(predictions, batch.label)
                         val_loss = val_loss_tensor.item()
-                        val_acc, val_n_total, val_n_correct = self._eval_binary_acc(predictions, batch.label,
-                                                                                    n_total=val_n_total,
-                                                                                    n_correct=val_n_correct)
+                        val_acc, val_n_total, val_n_correct = _eval_binary_acc(predictions, batch.label,
+                                                                               n_total=val_n_total,
+                                                                               n_correct=val_n_correct)
                         avg_val_loss_vec[val_batch_idx] = val_loss
 
                 avg_val_loss = np.mean(avg_val_loss_vec)
@@ -372,8 +372,8 @@ class LSTMOptimizer(OptimizerInterface):
 
             if batch_idx % self.num_batches_per_logmsg == 0:
                 logger.info('{}\tTrain Epoch: {} [{}/{} ({:.0f}%)]\tAvgTrainLoss: {:.6f}\tTrainAcc: {:.6f}'.format(
-                            pid, epoch_num, batch_idx * len(batch), train_dataset_len,
-                            100. * batch_idx / train_loader_len, avg_train_loss, running_train_acc))
+                    pid, epoch_num, batch_idx * len(batch), train_dataset_len,
+                                    100. * batch_idx / train_loader_len, avg_train_loss, running_train_acc))
 
         return batch_stats
 
@@ -398,7 +398,7 @@ class LSTMOptimizer(OptimizerInterface):
             for batch_idx, batch in enumerate(loop):
                 text, text_lengths = batch.text
                 predictions = model(text, text_lengths).squeeze(1)
-                test_acc, test_n_total, test_n_correct = self._eval_binary_acc(predictions, batch.label,
+                test_acc, test_n_total, test_n_correct = _eval_binary_acc(predictions, batch.label,
                                                                                n_total=test_n_total,
                                                                                n_correct=test_n_correct)
         test_data_statistics['clean_accuracy'] = test_acc
@@ -416,7 +416,7 @@ class LSTMOptimizer(OptimizerInterface):
             for batch_idx, batch in enumerate(data_loader):
                 text, text_lengths = batch.text
                 predictions = model(text, text_lengths).squeeze(1)
-                test_acc, test_n_total, test_n_correct = self._eval_binary_acc(predictions, batch.label,
+                test_acc, test_n_total, test_n_correct = _eval_binary_acc(predictions, batch.label,
                                                                                n_total=test_n_total,
                                                                                n_correct=test_n_correct)
         test_data_statistics['triggered_accuracy'] = test_acc
