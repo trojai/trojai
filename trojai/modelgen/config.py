@@ -1,13 +1,16 @@
+import collections.abc
 import copy
 import importlib
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import Callable
+from typing import Callable, Union, Sequence
 from typing import Union, Sequence, Any
 
 import cloudpickle as pickle
+import numpy as np
 import torch
+from trojai.modelgen.uge_model_generator import logger
 
 from .architecture_factory import ArchitectureFactory
 from .constants import VALID_LOSS_FUNCTIONS, VALID_DEVICES, VALID_OPTIMIZERS
@@ -745,3 +748,103 @@ def modelgen_cfg_to_runner_cfg(modelgen_cfg: ModelGeneratorConfig,
                         modelgen_cfg.optimizer, modelgen_cfg.parallel, modelgen_cfg.train_val_split,
                         modelgen_cfg.model_save_dir, modelgen_cfg.stats_save_dir,
                         run_id=run_id, filename=filename)
+
+
+class UGEQueueConfig:
+    """
+    Defines the configuration for a Queue w.r.t. UGE in TrojAI
+    """
+    def __init__(self, queue_name: str, gpu_enabled: bool, sync_mode: bool = False):
+        self.queue_name = queue_name
+        self.gpu_enabled = gpu_enabled
+        self.sync_mode = sync_mode
+
+    def validate(self) -> None:
+        """
+        Validate the UGEQueueConfig object
+        """
+        if not isinstance(self.queue_name, str):
+            msg = "queue_name must be a string!"
+            logger.error(msg)
+            raise TypeError(msg)
+        if not isinstance(self.gpu_enabled, bool):
+            msg = "gpu_enabled argument must be a boolean!"
+            logger.error(msg)
+            raise TypeError(msg)
+        if not isinstance(self.sync_mode, bool):
+            msg = "sync_mode argument must be a boolean!"
+            logger.error(msg)
+            raise TypeError(msg)
+        if self.sync_mode:
+            msg = "sync_mode=True currently unsupported!"
+            logger.error(msg)
+            raise TypeError(msg)
+
+
+class UGEConfig:
+    """
+    Defines a configuration for the UGE
+    """
+    def __init__(self, queues: Union[UGEQueueConfig, Sequence[UGEQueueConfig]],
+                 queue_distribution: Sequence[float] = None,
+                 multi_model_same_gpu: bool = False):
+        """
+        :param queues: a list of Queue object configurations
+        :param queue_distribution: the desired way to distribute the workload across the queues, if None,
+                then the workload is distributed evenly across the queues, otherwise
+        :param multi_model_same_gpu: if True, then if multiple models are desired for a given ModelGeneratorConfig,
+                those will all be trained on the same queue.  Otherwise, they will be distributed as much as possible
+                (which is likely to complete the job faster!)
+        """
+        self.queues = queues
+        self.queue_distribution = queue_distribution
+        self.multi_model_same_gpu = multi_model_same_gpu
+        self.validate()
+
+    def validate(self):
+        """
+        Validate the UGEConfig object
+        """
+        if isinstance(self.queues, UGEQueueConfig):
+            self.queues = [self.queues]
+        elif isinstance(self.queues, collections.abc.Sequence):
+            for q in self.queues:
+                if not isinstance(q, UGEQueueConfig):
+                    msg = "queues must be a Sequence of UGEQueueConfig objects!"
+                    logger.error(msg)
+                    raise TypeError(msg)
+        else:
+            msg = "queues input must be either a UGEQueueConfig object, or a Sequence of UGEQueueConfig objects!"
+            logger.error(msg)
+            raise TypeError(msg)
+
+        if self.queue_distribution is not None:
+            if not isinstance(self.queue_distribution, collections.abc.Sequence):
+                msg = "queue_distribution argument must be either None (implying uniform distribution among all " \
+                      "queues, or a Sequence of floats summing to one"
+                logger.error(msg)
+                raise TypeError(msg)
+            else:
+                try:
+                    if len(self.queue_distribution) != len(self.queues):
+                        msg = "if a queue_distribution is provided, it must be equal to the number of queues provided!"
+                        logger.error(msg)
+                        raise TypeError(msg)
+                    sum_val = np.sum(self.queue_distribution)
+                    if not np.isclose(sum_val, 1):
+                        msg = "queue_distribution must be a Sequence of floats summing to 1"
+                        logger.error(msg)
+                        raise ValueError(msg)
+                    for d in self.queue_distribution:
+                        if d < 0 or d > 1:
+                            msg = "queue_distribution values must be between 0 and 1"
+                            logger.error(msg)
+                            raise TypeError(msg)
+                except TypeError as e:
+                    logger.exception(e)
+                    raise TypeError(e)
+
+        if not isinstance(self.multi_model_same_gpu, bool):
+            msg = "multi_model_same_gpu input must be a boolean!"
+            logger.error(msg)
+            raise TypeError(msg)
