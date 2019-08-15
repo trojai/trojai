@@ -1,20 +1,51 @@
-from typing import Callable, Union
-import os
 import logging
+import os
+from typing import Callable, Union
+
 import cv2
 import pandas as pd
-from tqdm import tqdm
-
 import torch
-from torch.utils.data import Dataset
 import torchtext.data
+from numpy.random import RandomState
+from torch.utils.data import Dataset
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
+"""
+Defines various types of datasets that are used by the DataManager
+"""
+
 
 class CSVDataset(Dataset):
-    def __init__(self, path_to_data, csv_filename, true_label=False, path_to_csv=None, shuffle=False, random_state=None,
-                 data_loader: Union[str, Callable] = 'default_image_loader', data_transform=lambda x: x, label_transform=lambda l: l):
+    """
+    Defines a dataset that is represented by a CSV file with columns "file", "train_label", and optionally
+    "true_label". The file column should contain the path to the file that contains the actual data,
+    and "train_label" refers to the label with which the data should be trained.  "true_label" refers to the actual
+    label of the data point, and can differ from train_label if the dataset is poisoned.  A CSVDataset can support
+    any underlying data that can be loaded on the fly and fed into the model (for example: image data)
+    """
+    def __init__(self, path_to_data: str, csv_filename:str , true_label=False, path_to_csv=None, shuffle=False,
+                 random_state: Union[int, RandomState]=None,
+                 data_loader: Union[str, Callable] = 'default_image_loader',
+                 data_transform=lambda x: x, label_transform=lambda l: l):
+        """
+        Initializes a CSVDataset object.
+        :param path_to_data: the root folder where the data lives
+        :param csv_filename: the CSV file specifying the actual data points
+        :param true_label (bool): if True, then use the column "true_label" as the label associated with each
+        datapoint.  If False (default), use the column "train_label" as the label associated with each datapoint
+        :param path_to_csv: If not None, specifies the folder where the CSV file lives.  If None, it is assumed that
+            the CSV file lives in the same directory as the path_to_data
+        :param shuffle: if True, the dataset is shuffled before loading into the model
+        :param random_state: if specified, seeds the random sampler when shuffling the data
+        :param data_loader: either a string value (currently only supports `default_image_loader`), or a callable
+            function which takes a string input of the file path and returns the data
+        :param data_transform: a callable function which is applied to every data point before it is fed into the
+            model. By default, this is an identity operation
+        :param label_transform: a callable function which is applied to every label before it is fed into the model.
+            By default, this is an identity operation.
+        """
         self.path_to_data = path_to_data
         if path_to_csv is None:
             path_to_csv = path_to_data
@@ -51,27 +82,39 @@ class CSVDataset(Dataset):
 
 
 class CSVTextDataset(torchtext.data.Dataset):
-    @staticmethod
-    def sort_key(ex):
-        return len(ex.text)
-
-    def __init__(self, path_to_data, csv_filename, text_field=None, label_field=None, max_vocab_size=25000,
-                 shuffle=False, random_state=None, **kwargs):
+    """
+    Defines a text dataset that is represented by a CSV file with columns "file", "train_label", and optionally
+    "true_label". The file column should contain the path to the file that contains the actual data,
+    and "train_label" refers to the label with which the data should be trained.  "true_label" refers to the actual
+    label of the data point, and can differ from train_label if the dataset is poisoned.  A CSVTextDataset can support
+    text data, and differs from the CSVDataset because it loads all the text data into memory and builds a vocabulary
+    from it.
+    """
+    def __init__(self, path_to_data: str, csv_filename: str, true_label: bool = False,
+                 text_field: torchtext.data.Field = None,  label_field: torchtext.data.LabelField = None,
+                 max_vocab_size: int = 25000, shuffle: bool = False, random_state=None,
+                 **kwargs):
         """
-        Initialize the CSV Text Dataset object
-        :param path_to_data:
-        :param csv_filename:
-        :param text_field:
-        :param label_field:
-        :param max_vocab_size:
-        :param shuffle:
-        :param random_state:
-        :param kwargs:
+        Initializes the CSVTextDataset object
+        :param path_to_data: root folder where all the data is located
+        :param csv_filename: filename of the csv file containing the required fields to load the actual data
+        :param true_label (bool): if True, then use the column "true_label" as the label associated with each
+        :param text_field (torchtext.data.Field): defines how the text data will be converted to
+            a Tensor.  If none, a default will be provided and tokenized with spacy
+        :param label_field (torchtext.data.LabelField): defines how to process the label associated with the text
+        :param max_vocab_size (int): the maximum vocabulary size that will be built
+        :param shuffle: if True, the dataset is shuffled before loading into the model
+        :param random_state: if specified, seeds the random sampler when shuffling the data
+        :param kwargs: any additional keyword arguments, currently unused
 
         TODO:
          [ ] - parallelize reading in data from disk
          [ ] - revisit reading entire corpus into memory
         """
+
+        label_column = 'train_label'
+        if true_label:
+            label_column = 'true_label'
         if text_field is None:
             self.text_field = torchtext.data.Field(tokenize='spacy', include_lengths=True)
             msg = "Initialized text_field to default settings with a Spacy tokenizer!"
@@ -107,10 +150,14 @@ class CSVTextDataset(torchtext.data.Dataset):
 
         for index, row in tqdm(data_df.iterrows(), total=len(data_df), desc="Loading Text Data..."):
             fname = row['file']
-            label = row['train_label']
+            label = row[label_column]
             with open(os.path.join(path_to_data, fname), 'r') as f:
                 z = f.readlines()
                 text = ' '.join(z)
             examples.append(torchtext.data.Example.fromlist([text, label], fields))
 
         super(CSVTextDataset, self).__init__(examples, fields, **kwargs)
+
+    @staticmethod
+    def sort_key(ex):
+        return len(ex.text)
