@@ -10,7 +10,6 @@ from typing import Union, Sequence, Any
 import cloudpickle as pickle
 import numpy as np
 import torch
-from trojai.modelgen.uge_model_generator import logger
 
 from .architecture_factory import ArchitectureFactory
 from .constants import VALID_LOSS_FUNCTIONS, VALID_DEVICES, VALID_OPTIMIZERS

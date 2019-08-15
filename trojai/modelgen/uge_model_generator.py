@@ -7,7 +7,7 @@ import subprocess
 import copy
 import tempfile
 
-from trojai.modelgen.config import UGEConfig
+from .config import UGEConfig
 
 from .model_generator_interface import ModelGeneratorInterface, validate_model_generator_interface_input
 from .config import ModelGeneratorConfig
