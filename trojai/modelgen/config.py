@@ -272,6 +272,26 @@ class LSTMOptimizerConfig:
         else:
             return False
 
+    def save(self, fname):
+        """
+        Saves the optimizer configuration to a file
+        :param fname: the filename to save the config to
+        :return: None
+        """
+        with open(fname, 'wb') as f:
+            pickle.dump(self, f)
+
+    @staticmethod
+    def load(fname):
+        """
+        Loads a configuration from disk
+        :param fname: the filename where the config is stored
+        :return: the loaded configuration
+        """
+        with open(fname, 'rb') as f:
+            loaded_optimzier_cfg = pickle.load(f)
+        return loaded_optimzier_cfg
+
 
 class DefaultOptimizerConfig(ConfigInterface):
     """
@@ -314,6 +334,26 @@ class DefaultOptimizerConfig(ConfigInterface):
             return True
         else:
             return False
+
+    def save(self, fname):
+        """
+        Saves the optimizer configuration to a file
+        :param fname: the filename to save the config to
+        :return: None
+        """
+        with open(fname, 'wb') as f:
+            pickle.dump(self, f)
+
+    @staticmethod
+    def load(fname):
+        """
+        Loads a configuration from disk
+        :param fname: the filename where the config is stored
+        :return: the loaded configuration
+        """
+        with open(fname, 'rb') as f:
+            loaded_optimzier_cfg = pickle.load(f)
+        return loaded_optimzier_cfg
 
 
 class ModelGeneratorConfig(ConfigInterface):

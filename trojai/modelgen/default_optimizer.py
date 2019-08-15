@@ -146,8 +146,9 @@ class DefaultOptimizer(OptimizerInterface):
         :param fname: the filename to save the DefaultOptimizer's configuration.
         :return: None
         """
-        with open(fname, 'wb') as f:
-            pickle.dump(self.optimizer_cfg, f)
+        # with open(fname, 'wb') as f:
+        #     pickle.dump(self.optimizer_cfg, f)
+        self.optimizer_cfg.save(fname)
 
     @staticmethod
     def load(fname: str) -> OptimizerInterface:
