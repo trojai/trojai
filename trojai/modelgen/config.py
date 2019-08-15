@@ -526,16 +526,17 @@ class ModelGeneratorConfig(ConfigInterface):
         :return: a dictionary of the state of the object.
         """
         return {'arch_factory': self.arch_factory,
-                'arch_factory_kwargs': self.arch_factory_kwargs,
                 'data': self.data,
                 'model_save_dir': self.model_save_dir,
                 'stats_save_dir': self.stats_save_dir,
                 'num_models': self.num_models,
+                'arch_factory_kwargs': self.arch_factory_kwargs,
+                'arch_factory_kwargs_generator': self.arch_factory_kwargs_generator,
+                'parallel': self.parallel,
+                'train_val_split': self.train_val_split
                 'experiment_cfg': self.experiment_cfg,
                 'run_ids': self.run_ids,
                 'filenames': self.filenames,
-                'parallel': self.parallel,
-                'train_val_split': self.train_val_split
                 }
 
     def save(self, fname):
