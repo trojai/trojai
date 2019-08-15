@@ -225,8 +225,8 @@ class UGEModelGenerator(ModelGeneratorInterface):
 #!/usr/bin/env python
 import json
 import logging.config
-import trojai_private.modelgen.config as tpmc
-import trojai_private.modelgen.runner as tpmr
+import trojai.modelgen.config as tpmc
+import trojai.modelgen.runner as tpmr
 
 # setup logger
 logging.config.dictConfig({
