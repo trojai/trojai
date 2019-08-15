@@ -533,10 +533,10 @@ class ModelGeneratorConfig(ConfigInterface):
                 'arch_factory_kwargs': self.arch_factory_kwargs,
                 'arch_factory_kwargs_generator': self.arch_factory_kwargs_generator,
                 'parallel': self.parallel,
-                'train_val_split': self.train_val_split
+                'train_val_split': self.train_val_split,
                 'experiment_cfg': self.experiment_cfg,
                 'run_ids': self.run_ids,
-                'filenames': self.filenames,
+                'filenames': self.filenames
                 }
 
     def save(self, fname):
