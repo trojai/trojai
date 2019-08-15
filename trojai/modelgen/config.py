@@ -32,6 +32,20 @@ class ConfigInterface(ABC):
         pass
 
 
+class OptimizerConfigInterface(ConfigInterface):
+    @abstractmethod
+    def get_device_type(self):
+        pass
+
+    def save(self, fname):
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def load(fname):
+        pass
+
+
 class TrainingConfig(ConfigInterface):
     """
     Defines all required items to setup training with an optimizer
@@ -230,7 +244,7 @@ class ReportingConfig(ConfigInterface):
             return False
 
 
-class LSTMOptimizerConfig:
+class LSTMOptimizerConfig(OptimizerConfigInterface):
     """
         Defines the configuration needed to setup the DefaultOptimizer
         """
@@ -292,8 +306,15 @@ class LSTMOptimizerConfig:
             loaded_optimzier_cfg = pickle.load(f)
         return loaded_optimzier_cfg
 
+    def get_device_type(self):
+        """
+        Returns the device associated w/ this optimizer configuration.  Needed to save/load for UGE.
+        :return (str): the device type represented as a string
+        """
+        return str(self.training_cfg.device)
 
-class DefaultOptimizerConfig(ConfigInterface):
+
+class DefaultOptimizerConfig(OptimizerConfigInterface):
     """
     Defines the configuration needed to setup the DefaultOptimizer
     """
@@ -334,6 +355,13 @@ class DefaultOptimizerConfig(ConfigInterface):
             return True
         else:
             return False
+
+    def get_device_type(self):
+        """
+        Returns the device associated w/ this optimizer configuration.  Needed to save/load for UGE.
+        :return (str): the device type represented as a string
+        """
+        return str(self.training_cfg.device)
 
     def save(self, fname):
         """
