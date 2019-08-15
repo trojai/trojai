@@ -15,6 +15,8 @@ from .config import ModelGeneratorConfig
 logger = logging.getLogger(__name__)
 ALL_EXEC_PERMISSIONS = 0o555
 
+# todo: top level doc string, explain what UGE is, also move configs to config.py
+
 
 class UGEQueueConfig:
     """
@@ -28,7 +30,6 @@ class UGEQueueConfig:
     def validate(self) -> None:
         """
         Validate the UGEQueueConfig object
-        :return:  None
         """
         if not isinstance(self.queue_name, str):
             msg = "queue_name must be a string!"
@@ -56,7 +57,6 @@ class UGEConfig:
                  queue_distribution: Sequence[float] = None,
                  multi_model_same_gpu: bool = False):
         """
-
         :param queues: a list of Queue object configurations
         :param queue_distribution: the desired way to distribute the workload across the queues, if None,
                 then the workload is distributed evenly across the queues, otherwise
@@ -72,7 +72,6 @@ class UGEConfig:
     def validate(self):
         """
         Validate the UGEConfig object
-        :return:  None
         """
         if isinstance(self.queues, UGEQueueConfig):
             self.queues = [self.queues]
@@ -126,6 +125,7 @@ class UGEModelGenerator(ModelGeneratorInterface):
     def __init__(self, configs: Union[ModelGeneratorConfig, Sequence[ModelGeneratorConfig]],
                  uge_config: UGEConfig, working_directory: str = "/tmp/uge_model_generator",
                  validate_uge_dirs: bool = True):
+        # todo: change working dir default to home dir
         """
         Initializes a UGE Model Generator
         :param configs: a ModelGeneratorConfig or a Sequence of ModelGeneratorConfig objects which
@@ -134,6 +134,7 @@ class UGEModelGenerator(ModelGeneratorInterface):
         :param working_directory:
         :param validate_uge_dirs:
         """
+        # todo: fill in empty param explanations
         super().__init__(configs)
         self.uge_config = uge_config
         if self.uge_config.multi_model_same_gpu:
@@ -162,10 +163,12 @@ class UGEModelGenerator(ModelGeneratorInterface):
 
         :return: expanded config configuration
         """
+        # todo: finish line in above comment
         configs_expanded = []
         for cfg in self.configs:
             num_models = cfg.num_models
             for model_idx in range(num_models):
+                # todo: explain why a copy is required
                 # make a copy of the object
                 cfg_copy = copy.deepcopy(cfg)
                 cfg_copy.num_models = 1
@@ -290,11 +293,11 @@ conda activate trojai
 
 python3 %s
             ''' % (pyscript_abs_path,))
-        os.chmod(bashscript_fname, ALL_EXEC_PERMISSIONS) # give everyone read & execute permissions
+        os.chmod(bashscript_fname, ALL_EXEC_PERMISSIONS)  # give everyone read & execute permissions
 
     @staticmethod
     def _gen_bash_command(bashscript_fname: str, uge_log_fname: str, queue_name: str,
-                         gpu_node: bool = False, sync_mode: bool = False):
+                         gpu_node: bool = False, sync_mode: bool = False) -> str:
         """
         Creates a UGE command to submit the job to the cluster for processing
         :param bashscript_fname: the bash script to run by the cluster
@@ -302,7 +305,7 @@ python3 %s
         :param queue_name: the queue to submit the job to
         :param gpu_node: (bool) indicates whether the queue the job is being submitted to has GPU nodes
         :param sync_mode: if True, then the shell will be captured by this process.  Currently unsupported!
-        :return:
+        :return: (str) bash command
         """
         # UGE job submit command example
         #qsub -q gpu-k40.q -l gpu=1 -V -v PATH -cwd -S /bin/bash -j y -sync y -o /home/karrak1/trojai/qsub.log
@@ -404,7 +407,6 @@ python3 %s
     def validate(self) -> None:
         """
         Validate the input configuration
-        :return:
         """
         validate_model_generator_interface_input(self.configs)
         if not isinstance(self.uge_config, UGEConfig):
@@ -423,11 +425,10 @@ python3 %s
             # not be used
             if self.validate_uge_dirs:
                 if self.working_directory.startswith(os_temp_dir):
-                    msg = os_temp_dir + " should not be used for the working directory because OS temp directories are " \
-                                        "typically not propagated throughout the cluster!"
+                    msg = os_temp_dir + " should not be used for the working directory because OS temp directories " \
+                                        "are typically not propagated throughout the cluster!"
                     logger.error(msg)
                     raise ValueError(msg)
-
             try:
                 os.makedirs(self.working_directory)
             except IOError as e:

@@ -1,7 +1,7 @@
 import collections
 import logging
 import os
-from typing import Sequence
+from typing import Sequence, Any
 import copy
 import cloudpickle as pickle
 import numpy as np
@@ -26,12 +26,12 @@ logger = logging.getLogger(__name__)
 
 class LSTMOptimizer(OptimizerInterface):
     """
-    Defines the default optimizer which trains the models
+    An optimizer for training and testing LSTM models. Currently in a prototype state.
     """
     def __init__(self, optimizer_cfg: LSTMOptimizerConfig = None):
         """
-        Initializes the default optimizer with a DefaultOptimizerConfig
-        :param optimizer_cfg: the configuration used to initialize the DefaultOptimizer
+        Initializes the optimizer with an LSTMOptimizerConfig
+        :param optimizer_cfg: the configuration used to initialize the LSTMOptimizer
         """
         if optimizer_cfg is None:
             logger.info("Using default parameters to setup Optimizer!")
@@ -70,8 +70,8 @@ class LSTMOptimizer(OptimizerInterface):
         self.num_epochs_per_metrics = self.optimizer_cfg.reporting_cfg.num_epochs_per_metrics
         self.num_batches_per_metrics = self.optimizer_cfg.reporting_cfg.num_batches_per_metrics
         # NOTE: the configuration parameter 'num_batches_per_val_dataset_metrics' has the most significant impact on
-        # training performance.  It can be useful for debugging development of a model, but when scaling up,
-        # set this parameter to None to disable computing the validation dataset and speed up training
+        #  training performance.  It can be useful for debugging development of a model, but when scaling up,
+        #  set this parameter to None to disable computing the validation dataset and speed up training
         self.num_batches_per_val_dataset_metrics = self.optimizer_cfg.reporting_cfg.num_batches_per_val_dataset_metrics
         if self.device.type == 'cpu' and self.num_batches_per_val_dataset_metrics is not None:
             logger.warning('Training will be VERY SLOW on a CPU with num_batches_per_val_dataset_metrics set to a '
@@ -104,7 +104,7 @@ class LSTMOptimizer(OptimizerInterface):
         return LSTMOptimizer(LSTMOptimizerConfig(optimizer_cfg_copy.training_cfg,
                                                  optimizer_cfg_copy.reporting_cfg))
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any):
         try:
             if self.optimizer_cfg == other.optimizer_cfg:
                 # we still check the derived attributes to ensure that they remained the same after
@@ -124,7 +124,7 @@ class LSTMOptimizer(OptimizerInterface):
         except AttributeError:
             return False
 
-    def get_cfg_as_dict(self):
+    def get_cfg_as_dict(self) -> dict:
         output_dict = dict(device=str(self.device.type),
                            epochs=self.num_epochs,
                            batch_size=self.batch_size,
@@ -135,18 +135,16 @@ class LSTMOptimizer(OptimizerInterface):
 
     def get_device_type(self) -> str:
         """
-        Returns the device being used by the Optimizer to train the model
         :return: a string representing the device used to train the model
         """
         return self.device.type
 
-    def save(self, fname: str):
+    def save(self, fname: str) -> None:
         """
-        Saves the configuration object used to construct the DefaultOptimizer.
-        NOTE: because the DefaultOptimizer object itself is not persisted, but rather the
-        DefaultOptimizerConfig object, the state of the object is not persisted!
-        :param fname: the filename to save the DefaultOptimizer's configuration.
-        :return: None
+        Saves the configuration object used to construct the LSTMOptimizer.
+        NOTE: because the LSTMOptimizer object itself is not persisted, but rather the
+          LSTMOptimizerConfig object, the state of the object does not persist!
+        :param fname: the filename to save the LSTMOptimizer's configuration.
         """
         with open(fname, 'wb') as f:
             pickle.dump(self.optimizer_cfg, f)
@@ -154,20 +152,18 @@ class LSTMOptimizer(OptimizerInterface):
     @staticmethod
     def load(fname: str) -> OptimizerInterface:
         """
-        Reconstructs a DefaultOptimizer, by loading the configuration used to construct the original
-        DefaultOptimizer, and then creating a new DefaultOptimizer object from the saved configuration
-        :param fname: The filename of the saved optimzier
-        :return: a DefaultOptimizer object
+        Reconstructs an LSTMOptimizer, by loading the configuration used to construct the original
+        LSTMOptimizer, and then creating a new LSTMOptimizer object from the saved configuration
+        :param fname: The filename of the saved LSTMOptimizer
+        :return: an LSTMOptimizer object
         """
         with open(fname, 'rb') as f:
             loaded_optimzier_cfg = pickle.load(f)
         return LSTMOptimizer(loaded_optimzier_cfg)
 
-    def _eval_loss_function(self, y_hat, y_truth):
+    def _eval_loss_function(self, y_hat: torch.Tensor, y_truth: torch.Tensor) -> torch.Tensor:
         """
         Wrapper for evaluating the loss function to abstract out any data casting we need to do
-        TODO:
-          [ ] - consider whether data formats would work properly if user specified their own loss function
         :param y_hat: the predicted y-value
         :param y_truth: the actual y-value
         :return: the loss associated w/ the prediction and actual
@@ -179,15 +175,16 @@ class LSTMOptimizer(OptimizerInterface):
         return train_loss
 
     @staticmethod
-    def _eval_binary_acc(y_hat: torch.Tensor, y_truth: torch.Tensor, n_total:int = 0, n_correct:int = 0):
+    def _eval_binary_acc(y_hat: torch.Tensor, y_truth: torch.Tensor, n_total: int = 0, n_correct: int = 0):
         """
         Wrapper for computing accuracy
         :param y_hat: the computed predictions, should be of shape (n_batches, num_classes)
         :param y_truth: the actual y-values
         :param n_total: the total number of data points processed, this will be incremented and returned
         :param n_correct: the total number of correct predictions so far, before this function was called
-        :return:
+        :return: accuracy, updated n_total, updated n_correct
         """
+        # todo: consider using shape here?
         n_total += len(y_hat)
 
         rounded_preds = torch.round(torch.sigmoid(y_hat))
@@ -198,7 +195,8 @@ class LSTMOptimizer(OptimizerInterface):
         return acc, n_total, n_correct
 
     @staticmethod
-    def train_val_dataset_split(dataset: torchtext.data.Dataset, split_amt: float):
+    def train_val_dataset_split(dataset: torchtext.data.Dataset, split_amt: float) \
+            -> (torchtext.data.Dataset, torchtext.data.Dataset):
         """
         Splits a torchtext dataset into train/test
         TODO:
@@ -219,34 +217,29 @@ class LSTMOptimizer(OptimizerInterface):
 
     def convert_dataset_to_dataiterator(self, dataset: CSVTextDataset) -> TextDataIterator:
         # NOTE: We compare types in this manner, even though it is considered a Python anti-pattern.
-        # https://docs.quantifiedcode.com/python-anti-patterns/readability/do_not_compare_types_use_isinstance.html
-        # It seems more efficient to store the datatype, and pass it around, rather than the dataset itself.  We
-        # can't check the type of the dataset argument directly b/c if it is split, it may change Datatypes,
-        # as is the case when the random_split function is called.
+        #  https://docs.quantifiedcode.com/python-anti-patterns/readability/do_not_compare_types_use_isinstance.html
+        #  It seems more efficient to store the datatype, and pass it around, rather than the dataset itself.  We
+        #  can't check the type of the dataset argument directly b/c if it is split, it may change Datatypes,
+        #  as is the case when the random_split function is called.
 
-        # TODO: shuffle argument is not used here b/c it is shuffled on the input, but is it better to do the
+        # NOTE: shuffle argument is not used here b/c it is shuffled on the input, but is it better to do the
         #  shuffling here (or another place?)
         return BucketIterator(dataset, self.batch_size, device=self.device, sort_within_batch=True)
 
-    def train(self, net: torch.nn.Module, dataset: CSVTextDataset, train_val_split: float = 0.0) \
+    def train(self, model: torch.nn.Module, dataset: CSVTextDataset, train_val_split: float = 0.0) \
             -> (torch.nn.Module, Sequence[EpochStatistics]):
         """
         Train the network.
-        TODO:
-          [ ] - if the ReportingConfig doesn't require computation of metrics on the validation dataset,
-          then we should use all the data.  Currently, the train dataset is split into train and validation,
-          regardless of whether the validation dataset is being used.  This means that data is potentially being
-          thrown away.
-        :param net: the network to train
+        :param model: the model to train
         :param dataset: the dataset to train the network on
         :param train_val_split: the % of training data to use as validation data
-        :return: the trained network, and a list of EpochStatistics objects which contain the statistics for training
+        :return: the trained network, list of EpochStatistics objects
         """
-        net = net.to(self.device)
+        model = model.to(self.device)
 
-        net.train()  # put network into training mode
+        model.train()  # put network into training mode
         if self.optimizer_str == 'adam':
-            self.optimizer = optim.Adam(net.parameters(), lr=self.lr)
+            self.optimizer = optim.Adam(model.parameters(), lr=self.lr)
         elif self.optimizer_str not in VALID_OPTIMIZERS:
             msg = self.optimizer_str + " is not a supported optimizer!"
             logger.error(msg)
@@ -263,24 +256,24 @@ class LSTMOptimizer(OptimizerInterface):
 
         # before training - we should transfer the embedding from the learned to the model weights
         pretrained_embeddings = dataset.text_field.vocab.vectors
-        net.embedding.weight.data.copy_(pretrained_embeddings)
+        model.embedding.weight.data.copy_(pretrained_embeddings)
         UNK_IDX = dataset.text_field.vocab.stoi[dataset.text_field.unk_token]
         PAD_IDX = dataset.text_field.vocab.stoi[dataset.text_field.pad_token]
-        net.embedding.weight.data[UNK_IDX] = torch.zeros(net.embedding_dim)
-        net.embedding.weight.data[PAD_IDX] = torch.zeros(net.embedding_dim)
+        model.embedding.weight.data[UNK_IDX] = torch.zeros(model.embedding_dim)
+        model.embedding.weight.data[PAD_IDX] = torch.zeros(model.embedding_dim)
 
         # use validation in training? provide as option?
         all_epochs_stats = []
         for epoch_idx, epoch in enumerate(range(self.num_epochs)):
             compute_batch_stats = True if epoch_idx % self.num_epochs_per_metrics == 0 else False
-            batches_stats = self.train_epoch(net, train_loader, val_loader, epoch, compute_batch_stats)
+            batches_stats = self.train_epoch(model, train_loader, val_loader, epoch, compute_batch_stats)
 
             if compute_batch_stats:
                 epoch_training_stats = EpochStatistics(epoch_idx)
                 epoch_training_stats.add_batch(batches_stats)
                 all_epochs_stats.append(epoch_training_stats)
 
-        return net, all_epochs_stats
+        return model, all_epochs_stats
 
     def train_epoch(self, model: nn.Module, train_loader: TextDataIterator, val_loader: TextDataIterator,
                     epoch_num: int, compute_batch_stats: bool = True,
@@ -289,7 +282,6 @@ class LSTMOptimizer(OptimizerInterface):
         Runs one epoch of training on the specified model
         TODO:
           [ ] - pass in the avg_loss_num_batches parameter cleanly and configurably
-
         :param model: the model to train for one epoch
         :param train_loader: a DataLoader object pointing to the training dataset
         :param val_loader: a DataLoader object pointing to the validation dataset
@@ -385,16 +377,16 @@ class LSTMOptimizer(OptimizerInterface):
 
         return batch_stats
 
-    def test(self, net: nn.Module, clean_data: CSVTextDataset, triggered_data: CSVTextDataset) -> dict:
+    def test(self, model: nn.Module, clean_data: CSVTextDataset, triggered_data: CSVTextDataset) -> dict:
         """
         Test the trained network
-        :param net: the trained module to run the test data through
+        :param model: the trained module to run the test data through
         :param clean_data: the clean Dataset
         :param triggered_data: the triggered Dataset, if None, not computed
         :return: a dictionary of the statistics on the clean and triggered data (if applicable)
         """
         test_data_statistics = {}
-        net.eval()
+        model.eval()
 
         data_loader = self.convert_dataset_to_dataiterator(clean_data)
         loop = tqdm(data_loader)
@@ -405,7 +397,7 @@ class LSTMOptimizer(OptimizerInterface):
         with torch.no_grad():
             for batch_idx, batch in enumerate(loop):
                 text, text_lengths = batch.text
-                predictions = net(text, text_lengths).squeeze(1)
+                predictions = model(text, text_lengths).squeeze(1)
                 test_acc, test_n_total, test_n_correct = self._eval_binary_acc(predictions, batch.label,
                                                                                n_total=test_n_total,
                                                                                n_correct=test_n_correct)
@@ -423,7 +415,7 @@ class LSTMOptimizer(OptimizerInterface):
         with torch.no_grad():
             for batch_idx, batch in enumerate(data_loader):
                 text, text_lengths = batch.text
-                predictions = net(text, text_lengths).squeeze(1)
+                predictions = model(text, text_lengths).squeeze(1)
                 test_acc, test_n_total, test_n_correct = self._eval_binary_acc(predictions, batch.label,
                                                                                n_total=test_n_total,
                                                                                n_correct=test_n_correct)

@@ -110,7 +110,7 @@ class TestRunner(unittest.TestCase):
         self.assertEqual(len(train_dataset), int(len(t1)*(1-split_amt)))
         self.assertEqual(len(val_dataset), int(len(t1)*split_amt))
 
-    def test_train_val_split(self):
+    def test_train_val_split2(self):
         t1 = torch.Tensor(np.arange(10))
         dataset = torch.utils.data.TensorDataset(t1)
         split_amt = 0.0

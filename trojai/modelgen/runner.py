@@ -17,19 +17,17 @@ logger = logging.getLogger(__name__)
 
 class Runner:
     """
-    An "atomic" unit, which trains a model based on a configuration specified by the RunnerConfig.
+    Fundamental unit of model generation, which trains a model as specified in a RunnerConfig object.
     """
     def __init__(self, runner_cfg: RunnerConfig,
                  persist_metadata: dict = None):
         """
         Initialize a model runner, which sets up the Optimizer, passes data to the optimizer, and collects the
         trained model and associated statistics
-
         :param runner_cfg: (RunnerConfig) Object that contains necessary data and objects to train a model using
             this runner.
         :param persist_metadata: (dict), if not None, the contents of this are appended to the output summary
-        dictionary.
-            This can allow for easy tracking of results if they are being collated by an additional process.
+        dictionary. This can allow for easy tracking of results if they are being collated by an additional process.
         """
         if not isinstance(runner_cfg, RunnerConfig):
             msg = "Expected a RunnerConfig object for argument 'runner_config', instead got " \
@@ -37,6 +35,8 @@ class Runner:
             logger.error(msg)
             raise TypeError(msg)
         self.cfg = runner_cfg
+        # todo: make this a type check like with runner_cfg? To reduce confusion if metadata is not a dict but code
+        #   runs; make warning
         self.persist_info = {} if persist_metadata is None or not isinstance(persist_metadata, dict) \
             else persist_metadata
 
@@ -62,43 +62,38 @@ class Runner:
                 model, epoch_training_stats = optimizer.train(model, data, self.cfg.train_val_split)
                 model_stats.add_epoch(epoch_training_stats)
                 # add training configuration information to data to be saved
-                # todo: test this code in unit tests
-                if isinstance(optimizer, DefaultOptimizerConfig):
-                    training_cfg = optimizer.training_cfg.get_cfg_as_dict()
-                elif isinstance(optimizer, DefaultOptimizer) or isinstance(optimizer, OptimizerInterface):
-                    training_cfg = optimizer.get_cfg_as_dict()
-                else:
-                    msg = "Unable to get training_cfg"
-                    logger.warning(msg)
-                    training_cfg = dict()
-                training_cfg_list.append(training_cfg)
-
+                training_cfg_list.append(self._get_training_cfg(optimizer))
         else:
             optimizer = next(self.cfg.optimizer_generator)
             model, epoch_training_stats = optimizer.train(model, train_data, self.cfg.train_val_split)
             model_stats.add_epoch(epoch_training_stats)
-            # Todo: This code is duplicated from ~20 lines up...
             # add training configuration information to data to be saved
-            if isinstance(optimizer, DefaultOptimizerConfig):
-                training_cfg = optimizer.training_cfg.get_cfg_as_dict()
-            elif isinstance(optimizer, DefaultOptimizer) or isinstance(optimizer, OptimizerInterface):
-                training_cfg = optimizer.get_cfg_as_dict()
-            else:
-                msg = "Unable to get training_cfg"
-                logger.warning(msg)
-                training_cfg = dict()
-            training_cfg_list.append(training_cfg)
+            training_cfg_list.append(self._get_training_cfg(optimizer))
 
-        # optimizer is last one used for training, will raise exception if no training occurred, but that shouldn't
-        # happen
+        # NOTE: The test function used here is one corresponding to the last optimizer used for training. An exception
+        #  will be raised if no training occurred, but validation code prior to this line should prevent this from
+        #  ever happening.
         test_acc = optimizer.test(model, clean_test_data, triggered_test_data)
+
+        # Save model train/test statistics and other relevant information
         model_stats.autopopulate_final_summary_stats()
         model_stats.set_final_clean_data_test_acc(test_acc['clean_accuracy'])
         model_stats.set_final_clean_data_n_total(test_acc['clean_n_total'])
         model_stats.set_final_triggered_data_test_acc(test_acc.get('triggered_accuracy', None))
         model_stats.set_final_triggered_data_n_total(test_acc.get('triggered_n_total', None))
-
         self._save_model_and_stats(model, model_stats, training_cfg_list)
+
+    @staticmethod
+    def _get_training_cfg(optimizer):
+        if isinstance(optimizer, DefaultOptimizerConfig):
+            training_cfg = optimizer.training_cfg.get_cfg_as_dict()
+        elif isinstance(optimizer, DefaultOptimizer) or isinstance(optimizer, OptimizerInterface):
+            training_cfg = optimizer.get_cfg_as_dict()
+        else:
+            msg = "Unable to get training_cfg from optimizer(_cfg): {}, returning empty dict".format(optimizer)
+            logger.warning(msg)
+            training_cfg = dict()
+        return training_cfg
 
     def _save_model_and_stats(self, model: nn.Module, stats: TrainingRunStatistics, training_cfg_list: list):
         model_path = self.cfg.model_save_dir
@@ -166,7 +161,6 @@ class Runner:
         :param extn: (str) extension at which file is to be saved
         :return: (str) filename, or updated filename
         """
-
         if os.path.isfile(os.path.join(path, filename)):
             msg = os.path.join(path, filename) + " already exists, appending numerical id to end of file to preserve " \
                                                  "filename uniqueness!"

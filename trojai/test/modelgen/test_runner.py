@@ -9,7 +9,7 @@ import shutil
 
 from trojai.modelgen.data_manager import DataManager
 from trojai.modelgen.optimizer_interface import OptimizerInterface
-from trojai.modelgen.config import RunnerConfig, TrainingConfig
+from trojai.modelgen.config import RunnerConfig, TrainingConfig, DefaultOptimizerConfig
 from trojai.modelgen.runner import Runner
 from trojai.modelgen.training_statistics import TrainingRunStatistics
 from trojai.modelgen.default_optimizer import DefaultOptimizer
@@ -238,6 +238,22 @@ class TestRunner(unittest.TestCase):
             mock_optimizer2.test.assert_not_called()
             mock_optimizer3.train.assert_called_once_with(arch, train3, mock_runner_config.train_val_split)
             mock_optimizer3.test.assert_called_once_with(arch, ctest, ttest)
+
+    def test_get_training_cfg(self):
+        mock_default_optimizer_cfg = Mock(spec=DefaultOptimizerConfig)
+        mock_default_optimizer = Mock(spec=DefaultOptimizer)
+        mock_optimizer_interface = Mock(spec=OptimizerInterface)
+
+        mock_default_optimizer_cfg.training_cfg = Mock()
+
+        mock_default_optimizer_cfg.training_cfg.get_cfg_as_dict = Mock(return_value={'default_cfg': True, '1': 1})
+        mock_default_optimizer.get_cfg_as_dict = Mock(return_value={'default_opt': True, '2': 2})
+        mock_optimizer_interface.get_cfg_as_dict = Mock(return_value={'opt_inter': True, '3': 3})
+
+        self.assertEqual(Runner._get_training_cfg(mock_default_optimizer_cfg), {'default_cfg': True, '1': 1})
+        self.assertEqual(Runner._get_training_cfg(mock_default_optimizer), {'default_opt': True, '2': 2})
+        self.assertEqual(Runner._get_training_cfg(mock_optimizer_interface), {'opt_inter': True, '3': 3})
+        self.assertEqual(Runner._get_training_cfg(object()), {})
 
     def test_save_model(self):
         # path and file names to test to ensure correct file name saving
