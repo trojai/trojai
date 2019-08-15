@@ -1,9 +1,14 @@
 import torch.nn as nn
 
+"""
+Defines various architectures useful for the MNIST dataset.
+"""
+
 
 class ModdedLeNet5Net(nn.Module):
     """
-    Copied from somewhere online and modified
+    A modified LeNet architecture that seems to be easier to embed backdoors in than the network from the original
+    badnets paper
     Input - (1 or 3)x28x28
     C1 - 6@28x28 (5x5 kernel)
     ReLU

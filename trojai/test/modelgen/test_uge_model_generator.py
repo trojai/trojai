@@ -5,6 +5,7 @@ import torch.nn
 import os
 import shutil
 
+import trojai.modelgen.config
 import trojai.modelgen.uge_model_generator as tpmu
 import trojai.modelgen.config as tpmc
 import trojai.modelgen.architecture_factory as tpmaf
@@ -40,8 +41,8 @@ class TestUGEModelGenerator(unittest.TestCase):
         self.remove_dirs()
 
     def test_expand_modelgen_configs1(self):
-        q1 = tpmu.UGEQueueConfig("gpu-k40.q", True)
-        uge_config = tpmu.UGEConfig(q1, None)
+        q1 = trojai.modelgen.config.UGEQueueConfig("gpu-k40.q", True)
+        uge_config = trojai.modelgen.config.UGEConfig(q1, None)
 
         # setup a fake ModelGeneratorConfig object
         modelgen_cfg1 = Mock(spec=tpmc.ModelGeneratorConfig)
@@ -63,8 +64,8 @@ class TestUGEModelGenerator(unittest.TestCase):
             self.assertEqual(expanded_configs[ii].num_models, 1)
 
     def test_expand_modelgen_configs2(self):
-        q1 = tpmu.UGEQueueConfig("gpu-k40.q", True)
-        uge_config = tpmu.UGEConfig(q1, None)
+        q1 = trojai.modelgen.config.UGEQueueConfig("gpu-k40.q", True)
+        uge_config = trojai.modelgen.config.UGEConfig(q1, None)
 
         # setup a fake ModelGeneratorConfig object
         modelgen_cfg1 = Mock(spec=tpmc.ModelGeneratorConfig)
@@ -97,8 +98,8 @@ class TestUGEModelGenerator(unittest.TestCase):
         self.assertEqual(len(expanded_configs), len(modelgen_cfgs_to_process))
 
     def test_expand_modelgen_configs3(self):
-        q1 = tpmu.UGEQueueConfig("gpu-k40.q", True)
-        uge_config = tpmu.UGEConfig(q1, None)
+        q1 = trojai.modelgen.config.UGEQueueConfig("gpu-k40.q", True)
+        uge_config = trojai.modelgen.config.UGEConfig(q1, None)
 
         # setup a fake ModelGeneratorConfig object
         modelgen_cfg1 = Mock(spec=tpmc.ModelGeneratorConfig)
@@ -137,8 +138,8 @@ class TestUGEModelGenerator(unittest.TestCase):
         Tests the scenario where we have 1 job to process on 1 queue
         :return:
         """
-        q1 = tpmu.UGEQueueConfig("gpu-k40.q", True)
-        uge_config = tpmu.UGEConfig(q1, None)
+        q1 = trojai.modelgen.config.UGEQueueConfig("gpu-k40.q", True)
+        uge_config = trojai.modelgen.config.UGEConfig(q1, None)
 
         # setup a fake ModelGeneratorConfig object
         modelgen_cfg1 = Mock(spec=tpmc.ModelGeneratorConfig)

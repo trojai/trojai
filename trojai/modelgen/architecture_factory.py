@@ -1,5 +1,5 @@
-from abc import ABC, abstractmethod
 import logging
+from abc import ABC, abstractmethod
 
 import torch.nn
 
@@ -38,11 +38,9 @@ class ArchitectureFactory(ABC):
                         # compare the actual objects
                         my_item = getattr(my_arch_instance, item)
                         other_item = getattr(other_arch_instance, item)
-                        ###
-                        # Note: here, we check whether the arch-factory is the same based on the string representation
-                        # of a returned architecture.
-                        # this could easily be error-prone, need to revisit how to make this more robust
-                        ###
+                        # NOTE: here, we check whether the arch-factory is the same based on the string representation
+                        #  of a returned architecture.
+                        #  this could easily be error-prone, need to revisit how to make this more robust
                         if str(my_item) != str(other_item):
                             return False
                 else:

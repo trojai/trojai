@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class ModelGenerator(ModelGeneratorInterface):
-    """Generates models based on requested data and saves them to a file."""
+    """Generates models based on requested data and saves each to a file."""
     def __init__(self, configs: Union[ModelGeneratorConfig, Sequence[ModelGeneratorConfig]], *args, **kwargs):
         """
         :param configs: (ModelGeneratorConfig or sequence) ModelGeneratorConfig objects configured to generate models
@@ -51,6 +51,5 @@ class ModelGenerator(ModelGeneratorInterface):
     def validate(self) -> None:
         """
         Validate the provided input when constructing the ModelGenerator interface
-        :return:
         """
         validate_model_generator_interface_input(self.configs)

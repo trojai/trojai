@@ -1,7 +1,8 @@
+import copy
 import logging
 import os
-import copy
 from typing import Callable, Any, Union, Sequence
+
 import pandas as pd
 import torch
 
@@ -80,8 +81,8 @@ class DataManager:
            self.shuffle_clean_test == other.shuffle_clean_test and \
            self.shuffle_triggered_test == other.shuffle_triggered_test:
             # Note: when we compare callables, we simply compare whether the callable is the same reference in memory
-            # or not.  This means that if two callables are functionally equivalent, but are different object
-            # references then the equality comparison will fail
+            #  or not.  This means that if two callables are functionally equivalent, but are different object
+            #  references then the equality comparison will fail
             return True
         else:
             return False
@@ -184,6 +185,10 @@ class DataManager:
         """
         Validate the construction of the TrojaiDataManager object
         :return: None
+
+        TODO:
+         [ ] - think about whether the contents of the files passed into the DataManager should be validated,
+               in addition to simply checking for existence, which is what is done now
         """
         # check types
         if type(self.experiment_path) != str:
@@ -245,9 +250,6 @@ class DataManager:
             err_msg = "'clean_test_file' is empty"
             logger.error(err_msg)
             raise RuntimeError(err_msg)
-        # TODO: think about where to validate the contents of the files?  I think this should go into the
-        #  Dataset Manager directly, since they know the expected format of the dataset.  All 3 files should be
-        #  validated for content, i.e., train, clean_test, and triggered_test
 
         if not isinstance(self.data_type, str):
             msg = "data_type argument must be one of the following: " + str(VALID_DATA_TYPES)

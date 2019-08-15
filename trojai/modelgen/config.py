@@ -1,19 +1,20 @@
-from abc import ABC, abstractmethod
-from typing import Callable
-import logging
-from typing import Union, Sequence, Any
-import cloudpickle as pickle
+import collections.abc
 import copy
-import os
 import importlib
+import logging
+import os
+from abc import ABC, abstractmethod
+from typing import Callable, Union, Sequence
+from typing import Union, Sequence, Any
 
+import cloudpickle as pickle
+import numpy as np
 import torch
 
-from .optimizer_interface import OptimizerInterface
 from .architecture_factory import ArchitectureFactory
-from .data_manager import DataManager
-
 from .constants import VALID_LOSS_FUNCTIONS, VALID_DEVICES, VALID_OPTIMIZERS
+from .data_manager import DataManager
+from .optimizer_interface import OptimizerInterface
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +114,10 @@ class TrainingConfig(ConfigInterface):
             raise ValueError(msg)
 
     def get_cfg_as_dict(self):
+        """
+        Returns a dictionary representation of the configuration
+        :return: (dict) a dictionary
+        """
         output_dict = dict(device=str(self.device.type),
                            epochs=self.epochs,
                            batch_size=self.batch_size,
@@ -146,7 +151,6 @@ class TrainingConfig(ConfigInterface):
         if isinstance(self.objective, str):
             objective = self.objective
         elif callable(self.objective):
-            # TODO: is this the correct way to copy a callable
             objective = copy.deepcopy(self.objective)
         else:
             msg = "The TrainingConfig object you are trying to copy is corrupted!"
@@ -246,12 +250,12 @@ class ReportingConfig(ConfigInterface):
 
 class LSTMOptimizerConfig(OptimizerConfigInterface):
     """
-        Defines the configuration needed to setup the DefaultOptimizer
-        """
+    Defines the configuration needed to setup the LSTMOptimizer
+    """
 
     def __init__(self, training_cfg: TrainingConfig = None, reporting_cfg: ReportingConfig = None):
         """
-        Initializes a Default Optimizer
+        Initializes a LSTM Optimizer
         :param training_cfg: a TrainingConfig object, if None, a default TrainingConfig object will be constructed
         :param reporting_cfg: a ReportingConfig object, if None, a default ReportingConfig object will be constructed
         """
@@ -385,7 +389,7 @@ class DefaultOptimizerConfig(OptimizerConfigInterface):
 
 
 class ModelGeneratorConfig(ConfigInterface):
-    """Configuration object for model generation"""
+    """Object used to configure the model generator"""
 
     def __init__(self, arch_factory: ArchitectureFactory, data: DataManager,
                  model_save_dir: str, stats_save_dir: str, num_models: int,
@@ -398,7 +402,7 @@ class ModelGeneratorConfig(ConfigInterface):
                  run_ids: Union[Any, Sequence[Any]] = None,
                  filenames: Union[str, Sequence[str]] = None):
         """
-        Initializes the ModelGeneratorConfig object which provides needed information for generating models for single
+        Initializes the ModelGeneratorConfig object which provides needed information for generating models for a given
         experiment.
 
         :param arch_factory: ArchitectureFactory object that provides instantiated
@@ -406,19 +410,21 @@ class ModelGeneratorConfig(ConfigInterface):
         :param data: TrojaiDataManager object containing the experiment path and files.
         :param model_save_dir: path to directory where the models should be saved
         :param stats_save_dir: path to directory where the model training stats should be saved
-        :param optimizer: a OptimizerInterface object, or a DefaultOptimizer configuration, or possibly mixed sequence
-            of both
-        :param parallel: (bool) - if True, attempts to use multiple GPU's
-        :param train_val_split: (float) if > 0, then splits the training dataset and uses it as validation.  If 0
-            the training dataset is not split and validation is not computed
         :param num_models: number of models to train with this configuration
         :param arch_factory_kwargs: (dict) a dictionary which contains keywords and associated values
             that are needed to instantiate a trainable module from the factory
         :param arch_factory_kwargs_generator: (callable) a callable, or None, which takes a dictionary of all
-            variables defined in the Runner's namespace, and then creates a new dictionary taht contains the keyword
+            variables defined in the Runner's namespace, and then creates a new dictionary that contains the keyword
             arguments to instantiate an architecture from the architecture factory
+        :param optimizer: a OptimizerInterface object, or a DefaultOptimizer configuration, or possibly mixed sequence
+            of both.  If a sequence of optimizers is passed, then the length of that sequence must match the number
+            of sequential datasets that are to be used for training the model.
+        :param parallel: (bool) - if True, attempts to use multiple GPU's
+        :param train_val_split: (float) if > 0, then splits the training dataset and uses it as validation.  If 0
+            the training dataset is not split and validation is not computed
         :param experiment_cfg: dictionary containing information regarding the experiment which is being run by the
-            ModelGenerator
+            ModelGenerator.  This information is also saved in the output summary JSON file that is associated with
+            every model that is generated.
         :param run_ids: Identifiers for models. If a sequence, len(run_ids) must be equal to num_models
         :param filenames: An optional list of file names to save each model by each
             file name, or a single filename to have models be saved with the same file name with '_#' added to
@@ -550,8 +556,9 @@ class ModelGeneratorConfig(ConfigInterface):
 
     def __getstate__(self):
         """
-        We override the __getstate__ function to support pickling of the ModelGeneratorConfig object
-        :return: a dictionary of the state of the object.
+        Function which dictates which objects will be saved when pickling the ModelGeneratorConfig object.  This is
+        only useful for the UGEModelGenerator, which needs to save the data before parallelizing a job.
+        :return: a dictionary of the state of the ModelGeneratorConfig object.
         """
         return {'arch_factory': self.arch_factory,
                 'data': self.data,
@@ -567,9 +574,10 @@ class ModelGeneratorConfig(ConfigInterface):
                 'filenames': self.filenames
                 }
 
-    def save(self, fname):
+    def save(self, fname: str):
         """
-        Saves the configuration object
+        Saves the ModelGeneratorConfig object in two different parts.  Every object within the config, except for the
+        optimizer is saved in the .klass.save file, and the optimizer is saved separately.
         :param fname - the filename to save the configuration to
         :return: None
         """
@@ -587,9 +595,9 @@ class ModelGeneratorConfig(ConfigInterface):
         self.optimizer.save(optimizer_save_fname)
 
     @staticmethod
-    def load(fname):
+    def load(fname: str):
         """
-        Loads a saved modelgen_cfg object
+        Loads a saved modelgen_cfg object from data that was saved using the .save() function.
         :param fname: the filename where the modelgen_cfg object is saved
         :return: a ModelGeneratorConfig object
         """
@@ -642,6 +650,8 @@ class RunnerConfig(ConfigInterface):
         :param optimizer: a OptimizerInterface object, or a DefaultOptimizer configuration, or possibly mixed sequence
             of both
         :param parallel: (bool) if True, spreads GPU tasking over all available GPUs
+        :param train_val_split: (float) if > 0, then splits the training dataset and uses it as validation.  If 0
+            the training dataset is not split and validation is not computed
         :param model_save_dir: (str) path to where the models should be saved.
         :param stats_save_dir: (str) path to where the model training statistics should be saved.
         :param run_id: An ending to the save file name. Can be anything, but will be converted to string format.
@@ -677,6 +687,12 @@ class RunnerConfig(ConfigInterface):
 
     @staticmethod
     def setup_optimizer_generator(optimizer, data):
+        """
+        Converts an optimizer specification to a generator, to be compatible with sequential training.
+        :param optimizer: the optimizer to configure into a generator
+        :param num_datasets: the number of datasets for which optimizers need to be created
+        :return: A generator that returns optimizers for every dataset to be trained
+        """
         from .default_optimizer import DefaultOptimizer
         if optimizer is None or isinstance(optimizer, DefaultOptimizerConfig):
             return (DefaultOptimizer(optimizer) for _ in range(len(data.train_file)))
@@ -689,6 +705,12 @@ class RunnerConfig(ConfigInterface):
 
     @staticmethod
     def validate_optimizer(optimizer, data):
+        """
+        Validates an optimzer configuration
+        :param optimizer: the optimizer/optimizer configuration to be validated
+        :param data: the data to be optimized
+        :return:
+        """
         if not (optimizer is None
                 or isinstance(optimizer, OptimizerInterface)
                 or isinstance(optimizer, DefaultOptimizerConfig)):
@@ -794,3 +816,103 @@ def modelgen_cfg_to_runner_cfg(modelgen_cfg: ModelGeneratorConfig,
                         modelgen_cfg.optimizer, modelgen_cfg.parallel, modelgen_cfg.train_val_split,
                         modelgen_cfg.model_save_dir, modelgen_cfg.stats_save_dir,
                         run_id=run_id, filename=filename)
+
+
+class UGEQueueConfig:
+    """
+    Defines the configuration for a Queue w.r.t. UGE in TrojAI
+    """
+    def __init__(self, queue_name: str, gpu_enabled: bool, sync_mode: bool = False):
+        self.queue_name = queue_name
+        self.gpu_enabled = gpu_enabled
+        self.sync_mode = sync_mode
+
+    def validate(self) -> None:
+        """
+        Validate the UGEQueueConfig object
+        """
+        if not isinstance(self.queue_name, str):
+            msg = "queue_name must be a string!"
+            logger.error(msg)
+            raise TypeError(msg)
+        if not isinstance(self.gpu_enabled, bool):
+            msg = "gpu_enabled argument must be a boolean!"
+            logger.error(msg)
+            raise TypeError(msg)
+        if not isinstance(self.sync_mode, bool):
+            msg = "sync_mode argument must be a boolean!"
+            logger.error(msg)
+            raise TypeError(msg)
+        if self.sync_mode:
+            msg = "sync_mode=True currently unsupported!"
+            logger.error(msg)
+            raise TypeError(msg)
+
+
+class UGEConfig:
+    """
+    Defines a configuration for the UGE
+    """
+    def __init__(self, queues: Union[UGEQueueConfig, Sequence[UGEQueueConfig]],
+                 queue_distribution: Sequence[float] = None,
+                 multi_model_same_gpu: bool = False):
+        """
+        :param queues: a list of Queue object configurations
+        :param queue_distribution: the desired way to distribute the workload across the queues, if None,
+                then the workload is distributed evenly across the queues, otherwise
+        :param multi_model_same_gpu: if True, then if multiple models are desired for a given ModelGeneratorConfig,
+                those will all be trained on the same queue.  Otherwise, they will be distributed as much as possible
+                (which is likely to complete the job faster!)
+        """
+        self.queues = queues
+        self.queue_distribution = queue_distribution
+        self.multi_model_same_gpu = multi_model_same_gpu
+        self.validate()
+
+    def validate(self):
+        """
+        Validate the UGEConfig object
+        """
+        if isinstance(self.queues, UGEQueueConfig):
+            self.queues = [self.queues]
+        elif isinstance(self.queues, collections.abc.Sequence):
+            for q in self.queues:
+                if not isinstance(q, UGEQueueConfig):
+                    msg = "queues must be a Sequence of UGEQueueConfig objects!"
+                    logger.error(msg)
+                    raise TypeError(msg)
+        else:
+            msg = "queues input must be either a UGEQueueConfig object, or a Sequence of UGEQueueConfig objects!"
+            logger.error(msg)
+            raise TypeError(msg)
+
+        if self.queue_distribution is not None:
+            if not isinstance(self.queue_distribution, collections.abc.Sequence):
+                msg = "queue_distribution argument must be either None (implying uniform distribution among all " \
+                      "queues, or a Sequence of floats summing to one"
+                logger.error(msg)
+                raise TypeError(msg)
+            else:
+                try:
+                    if len(self.queue_distribution) != len(self.queues):
+                        msg = "if a queue_distribution is provided, it must be equal to the number of queues provided!"
+                        logger.error(msg)
+                        raise TypeError(msg)
+                    sum_val = np.sum(self.queue_distribution)
+                    if not np.isclose(sum_val, 1):
+                        msg = "queue_distribution must be a Sequence of floats summing to 1"
+                        logger.error(msg)
+                        raise ValueError(msg)
+                    for d in self.queue_distribution:
+                        if d < 0 or d > 1:
+                            msg = "queue_distribution values must be between 0 and 1"
+                            logger.error(msg)
+                            raise TypeError(msg)
+                except TypeError as e:
+                    logger.exception(e)
+                    raise TypeError(e)
+
+        if not isinstance(self.multi_model_same_gpu, bool):
+            msg = "multi_model_same_gpu input must be a boolean!"
+            logger.error(msg)
+            raise TypeError(msg)
