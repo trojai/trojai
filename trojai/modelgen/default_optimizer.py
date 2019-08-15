@@ -30,6 +30,9 @@ def _eval_acc(y_hat: torch.Tensor, y_truth: torch.Tensor, n_total: int = 0, n_co
     :param n_total: the total number of data points processed, this will be incremented and returned
     :param n_correct: the total number of correct predictions so far, before this function was called
     :return: accuracy, updated n_total, updated n_correct
+
+    TODO:
+     [ ] - convert call from len() to .size()[0]
     """
     n_total += len(y_hat)
     max_index = y_hat.max(dim=1)[1]
@@ -46,6 +49,9 @@ def _eval_binary_acc(y_hat: torch.Tensor, y_truth: torch.Tensor, n_total: int = 
     :param n_total: the total number of data points processed, this will be incremented and returned
     :param n_correct: the total number of correct predictions so far, before this function was called
     :return: accuracy, updated n_total, updated n_correct
+
+    TODO:
+     [ ] - convert call from len() to .size()[0]
     """
     n_total += len(y_hat)
 
@@ -60,7 +66,7 @@ def _eval_binary_acc(y_hat: torch.Tensor, y_truth: torch.Tensor, n_total: int = 
 def train_val_dataset_split(dataset: torch.utils.data.Dataset, split_amt: float) \
         -> (torch.utils.data.Dataset, torch.utils.data.Dataset):
     """
-    Splits a PyTorch dataset into train/test
+    Splits a PyTorch dataset (of type: torch.utils.data.Dataset) into train/test
     TODO:
       [ ] - specify random seed to torch splitter
     :param dataset: the dataset to be split

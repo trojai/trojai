@@ -176,29 +176,12 @@ class LSTMOptimizer(OptimizerInterface):
         return train_loss
 
     @staticmethod
-    def _eval_binary_acc(y_hat: torch.Tensor, y_truth: torch.Tensor, n_total: int = 0, n_correct: int = 0):
-        """
-        Wrapper for computing accuracy
-        :param y_hat: the computed predictions, should be of shape (n_batches, num_classes)
-        :param y_truth: the actual y-values
-        :param n_total: the total number of data points processed, this will be incremented and returned
-        :param n_correct: the total number of correct predictions so far, before this function was called
-        :return: accuracy, updated n_total, updated n_correct
-        """
-        n_total += len(y_hat)
-
-        rounded_preds = torch.round(torch.sigmoid(y_hat))
-        correct = (rounded_preds == y_truth).float().sum().item()  # convert into float for division
-
-        n_correct += correct
-        acc = 100. * n_correct / n_total
-        return acc, n_total, n_correct
-
-    @staticmethod
     def train_val_dataset_split(dataset: torchtext.data.Dataset, split_amt: float) \
             -> (torchtext.data.Dataset, torchtext.data.Dataset):
         """
-        Splits a torchtext dataset into train/test
+        Splits a torchtext dataset (of type: torchtext.data.Dataset) into train/test.
+        NOTE: although this has the same functionality as default_optimizer.train_val_dataset_split, it works with a
+         torchtext.data.Dataset object rather than torch.utils.data.Dataset.
         TODO:
           [ ] - specify random seed to torch splitter
         :param dataset: the dataset to be split
