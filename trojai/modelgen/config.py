@@ -32,6 +32,20 @@ class ConfigInterface(ABC):
         pass
 
 
+class OptimizerConfigInterface(ConfigInterface):
+    @abstractmethod
+    def get_device_type(self):
+        pass
+
+    def save(self, fname):
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def load(fname):
+        pass
+
+
 class TrainingConfig(ConfigInterface):
     """
     Defines all required items to setup training with an optimizer
@@ -230,7 +244,7 @@ class ReportingConfig(ConfigInterface):
             return False
 
 
-class LSTMOptimizerConfig:
+class LSTMOptimizerConfig(OptimizerConfigInterface):
     """
         Defines the configuration needed to setup the DefaultOptimizer
         """
@@ -272,8 +286,35 @@ class LSTMOptimizerConfig:
         else:
             return False
 
+    def save(self, fname):
+        """
+        Saves the optimizer configuration to a file
+        :param fname: the filename to save the config to
+        :return: None
+        """
+        with open(fname, 'wb') as f:
+            pickle.dump(self, f)
 
-class DefaultOptimizerConfig(ConfigInterface):
+    @staticmethod
+    def load(fname):
+        """
+        Loads a configuration from disk
+        :param fname: the filename where the config is stored
+        :return: the loaded configuration
+        """
+        with open(fname, 'rb') as f:
+            loaded_optimzier_cfg = pickle.load(f)
+        return loaded_optimzier_cfg
+
+    def get_device_type(self):
+        """
+        Returns the device associated w/ this optimizer configuration.  Needed to save/load for UGE.
+        :return (str): the device type represented as a string
+        """
+        return str(self.training_cfg.device)
+
+
+class DefaultOptimizerConfig(OptimizerConfigInterface):
     """
     Defines the configuration needed to setup the DefaultOptimizer
     """
@@ -314,6 +355,33 @@ class DefaultOptimizerConfig(ConfigInterface):
             return True
         else:
             return False
+
+    def get_device_type(self):
+        """
+        Returns the device associated w/ this optimizer configuration.  Needed to save/load for UGE.
+        :return (str): the device type represented as a string
+        """
+        return str(self.training_cfg.device)
+
+    def save(self, fname):
+        """
+        Saves the optimizer configuration to a file
+        :param fname: the filename to save the config to
+        :return: None
+        """
+        with open(fname, 'wb') as f:
+            pickle.dump(self, f)
+
+    @staticmethod
+    def load(fname):
+        """
+        Loads a configuration from disk
+        :param fname: the filename where the config is stored
+        :return: the loaded configuration
+        """
+        with open(fname, 'rb') as f:
+            loaded_optimzier_cfg = pickle.load(f)
+        return loaded_optimzier_cfg
 
 
 class ModelGeneratorConfig(ConfigInterface):
@@ -486,16 +554,17 @@ class ModelGeneratorConfig(ConfigInterface):
         :return: a dictionary of the state of the object.
         """
         return {'arch_factory': self.arch_factory,
-                'arch_factory_kwargs': self.arch_factory_kwargs,
                 'data': self.data,
                 'model_save_dir': self.model_save_dir,
                 'stats_save_dir': self.stats_save_dir,
                 'num_models': self.num_models,
+                'arch_factory_kwargs': self.arch_factory_kwargs,
+                'arch_factory_kwargs_generator': self.arch_factory_kwargs_generator,
+                'parallel': self.parallel,
+                'train_val_split': self.train_val_split,
                 'experiment_cfg': self.experiment_cfg,
                 'run_ids': self.run_ids,
-                'filenames': self.filenames,
-                'parallel': self.parallel,
-                'train_val_split': self.train_val_split
+                'filenames': self.filenames
                 }
 
     def save(self, fname):

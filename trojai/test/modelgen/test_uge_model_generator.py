@@ -182,8 +182,8 @@ class TestUGEModelGenerator(unittest.TestCase):
 #!/usr/bin/env python
 import json
 import logging.config
-import trojai_private.modelgen.config as tpmc
-import trojai_private.modelgen.runner as tpmr
+import trojai.modelgen.config as tpmc
+import trojai.modelgen.runner as tpmr
 
 # setup logger
 logging.config.dictConfig({
@@ -217,12 +217,8 @@ modelgen_cfg = tpmc.ModelGeneratorConfig.load("/tmp/uge_wd_1/model_persist.pkl")
 with open("/tmp/uge_wd_1/abc", 'r') as f:
     persist_metadata = json.load(f)
 run_cfg = tpmc.modelgen_cfg_to_runner_cfg(modelgen_cfg, run_id=None, filename=None)
-if modelgen_cfg.optimizer.get_device_type()=='cpu' or not modelgen_cfg.parallel:
-    parallel_arg = False
-else:
-    parallel_arg = True
 
-runner = tpmr.Runner(run_cfg, persist_metadata=persist_metadata, parallel=parallel_arg)
+runner = tpmr.Runner(run_cfg, persist_metadata=persist_metadata)
 runner.run()
         '''
         with open(pyscript_fname, "r") as f:
