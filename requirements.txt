@@ -1,0 +1,16 @@
+numpy
+scikit-image
+joblib
+scipy
+pillow
+scikit-learn==0.20.3
+tqdm
+pandas
+opencv-python
+torch
+torchvision
+torchtext
+spacy
+tb-nightly
+future
+cloudpickle
