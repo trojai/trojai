@@ -17,7 +17,7 @@ import logging.config
 import sys
 
 # insert at 1, 0 is the script path (or '' in REPL)
-sys.path.insert(1, os.path.abspath('../../trojai/scripts/datagen/'))
+sys.path.insert(1, os.path.abspath('../datagen/'))
 
 import mnist
 from mnist_utils import download_and_extract_mnist_file, convert
@@ -266,11 +266,11 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='MNIST Data Generation and Model Training Example')
     parser.add_argument('--experiment_path', type=str, help='Path to folder containing experiment definitions',
-                        default='../data/mnist/')
+                        default='./data/mnist/')
     parser.add_argument('--train', type=str, help='CSV file which will contain MNIST Training data',
-                        default='../data/mnist/clean/train.csv')
+                        default='./data/mnist/clean/train.csv')
     parser.add_argument('--test', type=str, help='CSV file which will contain MNIST Test data',
-                        default='../data/mnist/clean/test.csv')
+                        default='./data/mnist/clean/test.csv')
     parser.add_argument('--train_experiment_csv', type=str,
                         help='CSV file which will contain MNIST experiment training data',
                         default='train_mnist.csv')
