@@ -61,6 +61,9 @@ setuptools.setup(
                       'torch',
                       'torchvision',
                       'torchtext',
+                      'cloudpickle',
+                      'tb-nightly',
+                      'future'
                       ],
 
     # List additional groups of dependencies here (e.g. development
