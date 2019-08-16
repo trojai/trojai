@@ -331,8 +331,8 @@ if __name__ == "__main__":
     })
 
     data_dir = a.experiment_path
-    train = os.path.join(data_dir, 'clean/train.csv')
-    test = os.path.join(data_dir, 'clean/test.csv')
+    train = a.train
+    test = a.test
     train_output_csv = a.train_experiment_csv
     test_output_csv = a.test_experiment_csv
 
