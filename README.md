@@ -1,6 +1,6 @@
 ## Overview
 This is the top-level TrojAI module.  Currently, it contains one submodule: `datagen`. 
-`datagen` contains the necessary API functions to quickly generate synthetic data that could be used for training machine learning models. In the near future, we will add a `modelgen` module, which contains the necessary API functions to quickly generate DNN models from the generated data.
+`datagen` contains the necessary API functions to quickly generate synthetic data that could be used for training machine learning models. The `modelgen` module, which contains the necessary API functions to quickly generate DNN models from the generated data.
 
 ## Installation
 Any necessary Python dependencies are captured in the `requirements.txt` file.  It is recommended to install the dependencies into a dedicated virtual environment.  After creating 
