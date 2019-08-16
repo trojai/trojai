@@ -200,7 +200,7 @@ def generate_mnist_experiment(train, test, output, train_output_csv_file, test_o
 
 
 def train_and_save_mnist_model(experiment_path, triggered_train, clean_test, triggered_test, model_save_dir,
-                               parallel):
+                               parallel, use_gpu):
     logger.info("Training Model...")
 
     def img_transform(x):
@@ -223,7 +223,7 @@ def train_and_save_mnist_model(experiment_path, triggered_train, clean_test, tri
                                        num_epochs_per_metric=logging_params['num_epochs_per_metric'])
 
     # Train clean model to use as a base for triggered model
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda' if use_gpu else 'cpu')
     data_obj = tpm_tdm.DataManager(experiment_path,
                                    triggered_train,
                                    clean_test,
@@ -256,9 +256,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='MNIST Data Generation and Model Training Example')
     parser.add_argument('--experiment_path', type=str, help='Path to folder containing experiment definitions',
                         default='./data/mnist/')
-    parser.add_argument('--train', type=str, help='CSV file which will contain MNIST Training data',
+    parser.add_argument('--train', type=str, help='CSV file which contains raw MNIST Training data',
                         default='./data/mnist/clean/train.csv')
-    parser.add_argument('--test', type=str, help='CSV file which will contain MNIST Test data',
+    parser.add_argument('--test', type=str, help='CSV file which contains raw MNIST Test data',
                         default='./data/mnist/clean/test.csv')
     parser.add_argument('--train_experiment_csv', type=str,
                         help='CSV file which will contain MNIST experiment training data',
@@ -272,7 +272,7 @@ if __name__ == "__main__":
                         help='Folder in which to save models')
     parser.add_argument('--tensorboard_dir', type=str, default='/tmp/tensorboard',
                         help='Folder for logging tensorboard')
-    parser.add_argument('--gpu', action='store_true')
+    parser.add_argument('--gpu', action='store_true', default=False)
     parser.add_argument('--parallel', action='store_true', default=False,
                         help='Enable training with parallel processing, including multiple GPUs if available')
     a = parser.parse_args()
@@ -331,8 +331,8 @@ if __name__ == "__main__":
     })
 
     data_dir = a.experiment_path
-    train = os.path.join(data_dir, 'clean/train.csv')
-    test = os.path.join(data_dir, 'clean/test.csv')
+    train = a.train
+    test = a.test
     train_output_csv = a.train_experiment_csv
     test_output_csv = a.test_experiment_csv
 
@@ -353,4 +353,4 @@ if __name__ == "__main__":
     experiment_triggered_test = "mnist_alphatrigger_0.2_experiment_test_triggered.csv"
 
     train_and_save_mnist_model(data_dir, experiment_triggered_train, experiment_clean_test, experiment_triggered_test,
-                               model_save_loc, a.parallel)
+                               model_save_loc, a.parallel, use_gpu)
