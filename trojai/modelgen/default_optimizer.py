@@ -253,8 +253,10 @@ class DefaultOptimizer(OptimizerInterface):
 
         # split into train & validation datasets, and setup data loaders
         train_dataset, val_dataset = DefaultOptimizer.train_val_dataset_split(dataset, train_val_split)
-        train_loader = DataLoader(train_dataset, batch_size=self.batch_size, pin_memory=pin_memory)
-        val_loader = DataLoader(val_dataset, batch_size=self.batch_size, pin_memory=pin_memory)
+        # drop_last=True is from: https://stackoverflow.com/questions/56576716
+        train_loader = DataLoader(train_dataset, batch_size=self.batch_size, pin_memory=pin_memory, drop_last=True)
+        # drop_last=True is from: https://stackoverflow.com/questions/56576716
+        val_loader = DataLoader(val_dataset, batch_size=self.batch_size, pin_memory=pin_memory, drop_last=True)
 
         # use validation in training? provide as option?
         all_epochs_stats = []
@@ -389,7 +391,8 @@ class DefaultOptimizer(OptimizerInterface):
         pin_memory = False
         if self.device.type != 'cpu':
             pin_memory = True
-        data_loader = DataLoader(clean_data, batch_size=self.batch_size, pin_memory=pin_memory)
+        # drop_last=True is from: https://stackoverflow.com/questions/56576716
+        data_loader = DataLoader(clean_data, batch_size=self.batch_size, pin_memory=pin_memory, drop_last=True)
 
         # test type is classification accuracy on clean and triggered data
         test_n_correct = 0
@@ -410,7 +413,8 @@ class DefaultOptimizer(OptimizerInterface):
         if triggered_data is None:
             return test_data_statistics
 
-        data_loader = DataLoader(triggered_data, batch_size=self.batch_size, pin_memory=pin_memory)
+        # drop_last=True is from: https://stackoverflow.com/questions/56576716
+        data_loader = DataLoader(triggered_data, batch_size=self.batch_size, pin_memory=pin_memory, drop_last=True)
         test_n_correct = 0
         test_n_total = 0
         with torch.no_grad():

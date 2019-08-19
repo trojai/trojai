@@ -224,8 +224,11 @@ class LSTMOptimizer(OptimizerInterface):
         # can't check the type of the dataset argument directly b/c if it is split, it may change Datatypes,
         # as is the case when the random_split function is called.
 
-        # TODO: shuffle argument is not used here b/c it is shuffled on the input, but is it better to do the
+        # NOTE: shuffle argument is not used here b/c it is shuffled on the input, but is it better to do the
         #  shuffling here (or another place?)
+
+        # NOTE: we use the argument drop_last for the DataLoader (used for the CSVDataset), but no such argument
+        # exists for the BucketIterator.  TODO: test whether this might become a problem.
         return BucketIterator(dataset, self.batch_size, device=self.device, sort_within_batch=True)
 
     def train(self, net: torch.nn.Module, dataset: CSVTextDataset, train_val_split: float = 0.0) \
