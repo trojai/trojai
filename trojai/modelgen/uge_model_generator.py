@@ -163,7 +163,7 @@ with open("%s", 'r') as f:
     persist_metadata = json.load(f)
 run_cfg = tpmc.modelgen_cfg_to_runner_cfg(modelgen_cfg, run_id=%s, filename=%s)
 
-runner = tpmr.Runner(run_cfg, persist_metadata=persist_metadata)
+runner = tpmr.Runner(run_cfg, persist_metadata=persist_metadata, progress_bar_disable=True)
 runner.run()
             ''' % (pyscript_log_fname, modelgen_cfg_persist_fname, persist_metadata_fname, run_id, filename))
 
