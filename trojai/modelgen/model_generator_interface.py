@@ -8,10 +8,10 @@ logger = logging.getLogger(__name__)
 
 
 class ModelGeneratorInterface(ABC):
-    """Generates models based on requested data and saves them to a file."""
+    """Generates models based on requested data and saves each to a file."""
     def __init__(self, configs: Union[ModelGeneratorConfig, Sequence[ModelGeneratorConfig]]):
         """
-        :param configs: configuration to generate models for a single experiment
+        :param configs: configuration objects that specify how to generate models for a single experiment
         """
         self.configs = configs
         if not isinstance(self.configs, Sequence):
@@ -26,11 +26,12 @@ class ModelGeneratorInterface(ABC):
         pass
 
 
-def validate_model_generator_interface_input(configs) -> None:
+def validate_model_generator_interface_input(configs: Union[ModelGeneratorConfig, Sequence[ModelGeneratorConfig]]) \
+        -> None:
     """
     Validates a ModelGeneratorConfig
-    :param configs:
-    :return:
+    :param configs: (ModelGeneratorConfig or sequence) configurations to be used for model generation
+    :return None
     """
     if not (isinstance(configs, ModelGeneratorConfig) or isinstance(configs, Sequence)):
         err_msg = "Expected a ModelGeneratorConfig object or sequence of ModelGeneratorConfig objects for " \

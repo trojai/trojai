@@ -8,7 +8,7 @@ with open("README.md", "r") as fh:
 __author__ = 'Kiran Karra, Chace Ashcraft, Nat Kavaler, Nathan Drenkow, Cash Costello'
 __email__ = 'kiran.karra@jhuapl.edu,chace.ashcraft@jhuapl.edu,nathaniel.kavaler@jhaupl.edu,' \
             'nathan.drenkow@jhuapl.edu,cash.costello@jhuapl.edu'
-__version__ = '0.2.0'
+__version__ = '0.2.4'
 
 
 setuptools.setup(
@@ -27,7 +27,7 @@ setuptools.setup(
     license='Apache License 2.0',
 
     python_requires='>=3',
-    packages=['trojai', 'trojai.datagen', 'trojai.modelgen'],
+    packages=['trojai', 'trojai.datagen', 'trojai.modelgen', 'trojai.modelgen.architectures'],
 
     # See https://pypi.python.org/pypi?%3Aaction=list_classifiers
     classifiers=[
@@ -61,6 +61,9 @@ setuptools.setup(
                       'torch',
                       'torchvision',
                       'torchtext',
+                      'cloudpickle',
+                      'tb-nightly',
+                      'future'
                       ],
 
     # List additional groups of dependencies here (e.g. development
@@ -74,7 +77,9 @@ setuptools.setup(
     scripts=['scripts/datagen/mnist.py',
              'scripts/datagen/mnist_utils.py',
              'scripts/datagen/mnist_badnets.py',
-             'scripts/datagen/mnist_badnets2.py'
+             'scripts/datagen/mnist_badnets2.py',
+             'scripts/modelgen/gen_and_train_mnist.py',
+             'scripts/modelgen/gen_and_train_mnist_sequential.py'
              ],
 
     zip_safe=False

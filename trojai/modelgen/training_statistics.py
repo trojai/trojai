@@ -20,11 +20,11 @@ class BatchStatistics:
                  batch_validation_accuracy: float,
                  batch_validation_loss: float):
         """
-
-        :param batch_train_accuracy:
-        :param batch_train_loss:
-        :param batch_validation_accuracy:
-        :param batch_validation_loss:
+        :param batch_num: (int) batch number of collected statistics
+        :param batch_train_accuracy: (float) training set accuracy for this batch
+        :param batch_train_loss: (float) training loss for this batch
+        :param batch_validation_accuracy: (float) validation set accuracy for this batch
+        :param batch_validation_loss: (float) validation set loss for this batch
         """
         self.batch_num = batch_num
         self.batch_train_accuracy = batch_train_accuracy
@@ -51,7 +51,7 @@ class BatchStatistics:
         if 0 <= acc <= 100:
             self.batch_train_accuracy = acc
         else:
-            msg = "Accuracy should be between 0 and 100!"
+            msg = "Batch training accuracy should be between 0 and 100!"
             logger.error(msg)
             raise ValueError(msg)
 
@@ -62,7 +62,7 @@ class BatchStatistics:
         if acc is None or 0 <= acc <= 100:  # allow for None in case validation metrics are NOT computed for efficiency
             self.batch_validation_accuracy = acc
         else:
-            msg = "Accuracy should be between 0 and 100!"
+            msg = "Batch validation accuracy should be between 0 and 100!"
             logger.error(msg)
             raise ValueError(msg)
 
@@ -94,6 +94,8 @@ class EpochStatistics:
 class TrainingRunStatistics:
     """
     Contains the statistics computed for an entire training run
+    TODO:
+     [ ] - have another function which returns detailed statistics per epoch in an easily serialized manner
     """
     def __init__(self):
         self.epoch_stats_list = []
@@ -123,8 +125,6 @@ class TrainingRunStatistics:
             final_train_loss
             final_val_acc
             final_val_loss
-        The user is still responsible for setting the
-        :return:
         """
         final_epoch_stats = self.epoch_stats_list[-1]
         final_batch_stats = final_epoch_stats.get_batch_stats()[-1]
@@ -137,7 +137,7 @@ class TrainingRunStatistics:
         if 0 <= acc <= 100:
             self.final_train_acc = acc
         else:
-            msg = "Accuracy should be between 0 and 100!"
+            msg = "Final Training accuracy should be between 0 and 100!"
             logger.error(msg)
             raise ValueError(msg)
 
@@ -145,10 +145,10 @@ class TrainingRunStatistics:
         self.final_train_loss = loss
 
     def set_final_val_acc(self, acc):
-        if acc is None or 0 <= acc <= 100: # allow for None in case validation metrics are not computed
+        if acc is None or 0 <= acc <= 100:  # allow for None in case validation metrics are not computed
             self.final_val_acc = acc
         else:
-            msg = "Accuracy should be between 0 and 100!"
+            msg = "Final validation accuracy should be between 0 and 100!"
             logger.error(msg)
             raise ValueError(msg)
 
@@ -159,7 +159,7 @@ class TrainingRunStatistics:
         if 0 <= acc <= 100:
             self.final_clean_data_test_acc = acc
         else:
-            msg = "Accuracy should be between 0 and 100!"
+            msg = "Final clean data test accuracy should be between 0 and 100!"
             logger.error(msg)
             raise ValueError(msg)
 
@@ -168,7 +168,7 @@ class TrainingRunStatistics:
         if acc is None or 0 <= acc <= 100:
             self.final_triggered_data_test_acc = acc
         else:
-            msg = "Accuracy should be between 0 and 100!"
+            msg = "Final triggered data test accuracy should be between 0 and 100!"
             logger.error(msg)
             raise ValueError(msg)
 
@@ -183,12 +183,9 @@ class TrainingRunStatistics:
             logger.error(msg)
             raise ValueError(msg)
 
-    # TODO: have another function which returns all the statistics in an easy serialized manner
-
     def get_summary(self):
         """
         Returns a dictionary of the summary statistics from the training run
-        :return:
         """
         summary_dict = dict()
         summary_dict['final_train_acc'] = self.final_train_acc
@@ -205,8 +202,6 @@ class TrainingRunStatistics:
     def save_summary_to_json(self, json_fname):
         """
         Saves the training summary to a JSON file
-        :param json_fname: the filename to save the statistics to
-        :return: None
         """
         summary_dict = self.get_summary()
         # write it to json
