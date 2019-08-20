@@ -6,11 +6,12 @@ import torchvision.models as models
 
 import os
 import shutil
+from pathlib import Path
 
 from trojai.modelgen.data_manager import DataManager
 from trojai.modelgen.optimizer_interface import OptimizerInterface
 from trojai.modelgen.config import RunnerConfig, TrainingConfig, DefaultOptimizerConfig
-from trojai.modelgen.runner import Runner
+from trojai.modelgen.runner import Runner, add_numerical_extension
 from trojai.modelgen.training_statistics import TrainingRunStatistics
 from trojai.modelgen.default_optimizer import DefaultOptimizer
 from trojai.modelgen.training_statistics import BatchStatistics, EpochStatistics
@@ -292,23 +293,30 @@ class TestRunner(unittest.TestCase):
         os.remove(path2 + 'model_1.pt')
         os.remove(path2 + 'AlexNet_id50.pt')
 
-    def test_increment_filename_if_needed(self):
+    def test_add_numerical_extension(self):
         p = './test_dir/'
         try:
-            os.mkdir(p)
+            os.makedirs(p)
         except IOError:
             pass
-        saved_file_names = ['model.pt', 'model.onnx', 'model_34.pt', 'model-2.extn', 'model_0.pt', 'model.2.torch',
-                            'm01.pt', 'model_0_1.pt', 'model_id50.pt']
-        for name in saved_file_names:
-            open(p + name, 'a').close()
-        file_names = saved_file_names + ['not_saved.pt', 'not_saved.e']
-        correct_outputs = ['model_1.pt', 'model_1.onnx', 'model_35.pt', 'model-3.extn', 'model_0_1.pt', 'model.3.torch',
-                           'm01_1.pt', 'model_0_2.pt', 'model_id50_1.pt', 'not_saved.pt', 'not_saved.e']
-        for i in range(len(file_names)):
-            extn = '.' + file_names[i].split('.')[-1]
-            filename = Runner._increment_filename_if_needed(p, file_names[i], extn)
-            self.assertEqual(correct_outputs[i], filename)
+
+        input_filenames = ['model.pt', 'model.alpha_0.2.pt', 'model.alpha_0.2.pt.1']
+        expected_output_filenames = ['model.pt.1', 'model.alpha_0.2.pt.1', 'model.alpha_0.2.pt.2']
+
+        for ii in range(len(input_filenames)):
+            input_fname = input_filenames[ii]
+            expected_output_fname = expected_output_filenames[ii]
+            actual_output_fname = add_numerical_extension(p, input_fname)
+            self.assertEqual(expected_output_fname, actual_output_fname)
+
+        # check when files actually exist on disk in a serial fashion
+        query_fname = 'model.pt'
+        for ii in range(5):
+            expected_output_fname = query_fname+'.'+str(ii+1)  # b/c ii starts at 0
+            actual_output_fname = add_numerical_extension(p, query_fname)
+            self.assertEqual(expected_output_fname, actual_output_fname)
+            # now write this file to disk, to ensure the globbing works properly and we increment to the following digit
+            Path(os.path.join(p, actual_output_fname)).touch()
 
 
 if __name__ == "__main__":
