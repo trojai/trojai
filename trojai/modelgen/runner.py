@@ -21,7 +21,7 @@ def add_numerical_extension(path, filename):
     existing_fnames = glob.glob(os.path.join(path, filename+'.*'))
     if len(existing_fnames) > 0:
         # remove the .stats.json files from consideration
-        existing_fnames = [x for x in existing_fnames if '.stats.json' not in x]
+        existing_fnames = [os.path.basename(x) for x in existing_fnames if '.stats.json' not in x]
         existing_fnames.sort()
         last_fname_of_interest = existing_fnames[-1]
         fname_without_ext, ext = os.path.splitext(last_fname_of_interest)
@@ -36,7 +36,7 @@ def add_numerical_extension(path, filename):
         fname_to_return = filename+'.1'
 
     msg = "Saving model as filename:" + fname_to_return
-    print(msg)
+    print("\n"+msg)
     logger.info(msg)
     return fname_to_return
 
