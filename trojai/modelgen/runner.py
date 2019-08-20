@@ -16,18 +16,13 @@ logger = logging.getLogger(__name__)
 
 
 def add_numerical_extension(path, filename):
-    if os.path.isfile(os.path.join(path, filename)):
-        _, ext = os.path.splitext(filename)
-        if ext == '' or len(ext) == 1:
-            return filename+'.1'
-        else:
-            ext_without_dot = ext[1:]
-            try:
-                next_digit_incr = int(ext_without_dot) + 1
-                return filename+'.'+(str(next_digit_incr))
-            except ValueError:
-                return filename+'.1'
-    else:
+    # check if extension is already a digit
+    fname_without_ext, ext = os.path.splitext(filename)
+    try:
+        cur_digit_ext = int(ext[1:])
+        next_digit_ext = cur_digit_ext + 1
+        return fname_without_ext+'.'+(str(next_digit_ext))
+    except ValueError:
         return filename+'.1'
 
 
