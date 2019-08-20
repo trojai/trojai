@@ -1,8 +1,9 @@
 import json
 import os
-import re
+# import re
 import logging
 import types
+import glob
 
 import torch
 import torch.nn as nn
@@ -16,14 +17,25 @@ logger = logging.getLogger(__name__)
 
 
 def add_numerical_extension(path, filename):
-    # check if extension is already a digit
-    fname_without_ext, ext = os.path.splitext(filename)
+    # check if any files already exist in that directory w/ digit extensions or not, and get the filename of interest
+    existing_fnames = glob.glob(os.path.join(path, filename+'.*'))
+    if len(existing_fnames) > 0:
+        existing_fnames.sort()
+        last_fname_of_interest = existing_fnames[-1]
+        fname_without_ext, ext = os.path.splitext(last_fname_of_interest)
+    else:
+        fname_without_ext, ext = os.path.splitext(filename)
+
     try:
         cur_digit_ext = int(ext[1:])
         next_digit_ext = cur_digit_ext + 1
-        return fname_without_ext+'.'+(str(next_digit_ext))
+        fname_to_return = fname_without_ext+'.'+(str(next_digit_ext))
     except ValueError:
-        return filename+'.1'
+        fname_to_return = filename+'.1'
+
+    msg = "Saving model as filename:" + fname_to_return
+    logger.info(msg)
+    return fname_to_return
 
 
 class Runner:
