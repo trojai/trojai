@@ -15,6 +15,22 @@ from .optimizer_interface import OptimizerInterface
 logger = logging.getLogger(__name__)
 
 
+def add_numerical_extension(path, filename):
+    if os.path.isfile(os.path.join(path, filename)):
+        _, ext = os.path.splitext(filename)
+        if ext == '' or len(ext) == 1:
+            return filename+'.1'
+        else:
+            ext_without_dot = ext[1:]
+            try:
+                next_digit_incr = int(ext_without_dot) + 1
+                return filename+'.'+(str(next_digit_incr))
+            except ValueError:
+                return filename+'.1'
+    else:
+        return filename+'.1'
+
+
 class Runner:
     """
     Fundamental unit of model generation, which trains a model as specified in a RunnerConfig object.
@@ -132,7 +148,8 @@ class Runner:
             if self.persist_info is not None and 'name' in self.persist_info:
                 filename += '_' + self.persist_info['name']
             filename += extn
-        filename = self._increment_filename_if_needed(model_path, filename, extn)
+        # filename = self._increment_filename_if_needed(model_path, filename, extn)
+        filename = add_numerical_extension(model_path, filename)
         model.eval()
         model_output_fname = os.path.join(model_path, filename)
         stats_output_fname = os.path.join(stats_path, filename+'.stats.json')
@@ -158,26 +175,26 @@ class Runner:
         with open(stats_output_fname, 'w') as fp:
             json.dump(model_training_stats_dict, fp)
 
-    @staticmethod
-    def _increment_filename_if_needed(path: str, filename: str, extn: str) -> str:
-        """
-        Checks if filename already exists at path, and either adds '_1' to end of filename or increments the number
-            on the end if one already is there and is separated by a non-alphanumeric value. e.g. if the file names
-            'model.pt' and 'other_model_1.pt' are taken, but specified as the file names used to save the model, they
-            will be saved as 'model_1.pt' and 'other_model_2.pt'.
-        :param path: (str) path to directory where model is to be saved
-        :param filename: (str) intended filename
-        :param extn: (str) extension at which file is to be saved
-        :return: (str) filename, or updated filename
-        """
-        if os.path.isfile(os.path.join(path, filename)):
-            msg = os.path.join(path, filename) + " already exists, appending numerical id to end of file to preserve " \
-                                                 "filename uniqueness!"
-            logger.warning(msg)
-            filename = filename[:-len(extn)]
-            ending = re.search(r'[\W_]\d+$', filename)
-            if ending is not None and not filename.isdigit() and ending.group()[1:] != '0':
-                filename = filename[:ending.start() + 1] + str(int(ending.group()[1:]) + 1) + extn
-            else:
-                filename += '_1' + extn
-        return filename
+    # @staticmethod
+    # def _increment_filename_if_needed(path: str, filename: str, extn: str) -> str:
+    #     """
+    #     Checks if filename already exists at path, and either adds '_1' to end of filename or increments the number
+    #         on the end if one already is there and is separated by a non-alphanumeric value. e.g. if the file names
+    #         'model.pt' and 'other_model_1.pt' are taken, but specified as the file names used to save the model, they
+    #         will be saved as 'model_1.pt' and 'other_model_2.pt'.
+    #     :param path: (str) path to directory where model is to be saved
+    #     :param filename: (str) intended filename
+    #     :param extn: (str) extension at which file is to be saved
+    #     :return: (str) filename, or updated filename
+    #     """
+    #     if os.path.isfile(os.path.join(path, filename)):
+    #         msg = os.path.join(path, filename) + " already exists, appending numerical id to end of file to preserve " \
+    #                                              "filename uniqueness!"
+    #         logger.warning(msg)
+    #         filename = filename[:-len(extn)]
+    #         ending = re.search(r'[\W_]\d+$', filename)
+    #         if ending is not None and not filename.isdigit() and ending.group()[1:] != '0':
+    #             filename = filename[:ending.start() + 1] + str(int(ending.group()[1:]) + 1) + extn
+    #         else:
+    #             filename += '_1' + extn
+    #     return filename
