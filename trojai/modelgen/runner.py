@@ -35,8 +35,6 @@ def add_numerical_extension(path, filename):
     except ValueError:
         fname_to_return = filename+'.1'
 
-    msg = "Saving model as filename:" + fname_to_return
-    logger.info(msg)
     return fname_to_return
 
 
