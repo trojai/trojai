@@ -239,8 +239,8 @@ class DefaultOptimizer(OptimizerInterface):
             train_loss = self.loss_function(y_hat, y_truth)
         return train_loss
 
-    def train(self, net: torch.nn.Module, dataset: torch.utils.data.Dataset, train_val_split: float = 0.0) \
-            -> (torch.nn.Module, Sequence[EpochStatistics]):
+    def train(self, net: torch.nn.Module, dataset: torch.utils.data.Dataset, train_val_split: float = 0.0,
+              progress_bar_disable: bool = False) -> (torch.nn.Module, Sequence[EpochStatistics]):
         """
         Train the network.
         :param net: the network to train
@@ -278,7 +278,8 @@ class DefaultOptimizer(OptimizerInterface):
         all_epochs_stats = []
         for epoch_idx, epoch in enumerate(range(self.num_epochs)):
             compute_batch_stats = True if epoch_idx % self.num_epochs_per_metrics == 0 else False
-            batches_stats = self.train_epoch(net, train_loader, val_loader, epoch, compute_batch_stats)
+            batches_stats = self.train_epoch(net, train_loader, val_loader, epoch, compute_batch_stats,
+                                             progress_bar_disable=progress_bar_disable)
 
             if compute_batch_stats:
                 epoch_training_stats = EpochStatistics(epoch_idx)
@@ -289,7 +290,7 @@ class DefaultOptimizer(OptimizerInterface):
 
     def train_epoch(self, model: nn.Module, train_loader: DataLoader, val_loader: DataLoader,
                     epoch_num: int, compute_batch_stats: bool = True,
-                    avg_loss_num_batches: int = 100):
+                    avg_loss_num_batches: int = 100, progress_bar_disable: bool = False):
         """
         Runs one epoch of training on the specified model
         TODO:
@@ -304,7 +305,7 @@ class DefaultOptimizer(OptimizerInterface):
         :param avg_loss_num_batches: the number of batches of data to accumulate to compute average loss
         :return: a list of statistics for batches where statistics were computed
         """
-        loop = tqdm(train_loader)
+        loop = tqdm(train_loader, disable=progress_bar_disable)
 
         pid = os.getpid()
         train_dataset_len = len(train_loader.dataset)
@@ -392,7 +393,8 @@ class DefaultOptimizer(OptimizerInterface):
 
         return batch_stats
 
-    def test(self, net: nn.Module, clean_data: Dataset, triggered_data: Dataset) -> dict:
+    def test(self, net: nn.Module, clean_data: Dataset, triggered_data: Dataset,
+             progress_bar_disable: bool = False) -> dict:
         """
         Test the trained network
         :param net: the trained module to run the test data through

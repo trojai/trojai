@@ -209,8 +209,8 @@ class LSTMOptimizer(OptimizerInterface):
         #  shuffling here (or another place?)
         return BucketIterator(dataset, self.batch_size, device=self.device, sort_within_batch=True)
 
-    def train(self, model: torch.nn.Module, dataset: CSVTextDataset, train_val_split: float = 0.0) \
-            -> (torch.nn.Module, Sequence[EpochStatistics]):
+    def train(self, model: torch.nn.Module, dataset: CSVTextDataset, train_val_split: float = 0.0,
+              progress_bar_disable: bool = False) -> (torch.nn.Module, Sequence[EpochStatistics]):
         """
         Train the network.
         :param model: the model to train
@@ -249,7 +249,8 @@ class LSTMOptimizer(OptimizerInterface):
         all_epochs_stats = []
         for epoch_idx, epoch in enumerate(range(self.num_epochs)):
             compute_batch_stats = True if epoch_idx % self.num_epochs_per_metrics == 0 else False
-            batches_stats = self.train_epoch(model, train_loader, val_loader, epoch, compute_batch_stats)
+            batches_stats = self.train_epoch(model, train_loader, val_loader, epoch, compute_batch_stats,
+                                             progress_bar_disable=progress_bar_disable)
 
             if compute_batch_stats:
                 epoch_training_stats = EpochStatistics(epoch_idx)
@@ -260,7 +261,7 @@ class LSTMOptimizer(OptimizerInterface):
 
     def train_epoch(self, model: nn.Module, train_loader: TextDataIterator, val_loader: TextDataIterator,
                     epoch_num: int, compute_batch_stats: bool = True,
-                    avg_loss_num_batches: int = 100):
+                    avg_loss_num_batches: int = 100, progress_bar_disable: bool = False):
         """
         Runs one epoch of training on the specified model
         TODO:
@@ -278,7 +279,7 @@ class LSTMOptimizer(OptimizerInterface):
         pid = os.getpid()
         train_dataset_len = len(train_loader.dataset)
         train_loader_len = len(train_loader)
-        loop = tqdm(train_loader)
+        loop = tqdm(train_loader, disable=progress_bar_disable)
 
         # NOTE: potential speed-up by not computing the average ... but this seems like premature optimization to me
         avg_train_loss_circbuf = collections.deque(maxlen=avg_loss_num_batches)
@@ -359,7 +360,8 @@ class LSTMOptimizer(OptimizerInterface):
 
         return batch_stats
 
-    def test(self, model: nn.Module, clean_data: CSVTextDataset, triggered_data: CSVTextDataset) -> dict:
+    def test(self, model: nn.Module, clean_data: CSVTextDataset, triggered_data: CSVTextDataset,
+             progress_bar_disable: bool = False) -> dict:
         """
         Test the trained network
         :param model: the trained module to run the test data through

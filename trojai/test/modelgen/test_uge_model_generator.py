@@ -219,7 +219,7 @@ with open("/tmp/uge_wd_1/abc", 'r') as f:
     persist_metadata = json.load(f)
 run_cfg = tpmc.modelgen_cfg_to_runner_cfg(modelgen_cfg, run_id=None, filename=None)
 
-runner = tpmr.Runner(run_cfg, persist_metadata=persist_metadata)
+runner = tpmr.Runner(run_cfg, persist_metadata=persist_metadata, progress_bar_disable=True)
 runner.run()
         '''
         with open(pyscript_fname, "r") as f:
