@@ -271,7 +271,7 @@ class DefaultOptimizer(OptimizerInterface):
 
         # split into train & validation datasets, and setup data loaders
 
-        train_dataset, val_dataset = DefaultOptimizer.train_val_dataset_split(dataset, train_val_split)
+        train_dataset, val_dataset = train_val_dataset_split(dataset, train_val_split)
         # drop_last=True is from: https://stackoverflow.com/questions/56576716
         train_loader = DataLoader(train_dataset, batch_size=self.batch_size, pin_memory=pin_memory, drop_last=True)
         # drop_last=True is from: https://stackoverflow.com/questions/56576716
