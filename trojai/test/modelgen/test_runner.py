@@ -108,8 +108,8 @@ class TestRunner(unittest.TestCase):
 
             # check if correct functions were called with correct arguments and the correct number of times
             mock_runner_config.data.load_data.assert_called_once_with()
-            mock_optimizer1.train.assert_called_once_with(arch, train_mock, mock_runner_config.train_val_split)
-            mock_optimizer1.test.assert_called_once_with(arch, ctest, ttest)
+            mock_optimizer1.train.assert_called_once_with(arch, train_mock, mock_runner_config.train_val_split, False)
+            mock_optimizer1.test.assert_called_once_with(arch, ctest, ttest, False)
             mock_save_model.assert_called_once_with(arch, p(), [mock_training_cfg1])
 
     def test_run_with_iterable_data(self):
@@ -157,9 +157,9 @@ class TestRunner(unittest.TestCase):
         mock_save_model = Mock()
         runner._save_model_and_stats = mock_save_model
 
-        calls = [unittest.mock.call(arch, train1, mock_runner_config.train_val_split),
-                 unittest.mock.call(arch, train2, mock_runner_config.train_val_split),
-                 unittest.mock.call(arch, train3, mock_runner_config.train_val_split)]
+        calls = [unittest.mock.call(arch, train1, mock_runner_config.train_val_split, False),
+                 unittest.mock.call(arch, train2, mock_runner_config.train_val_split, False),
+                 unittest.mock.call(arch, train3, mock_runner_config.train_val_split, False)]
 
         # run function
         with patch("trojai.modelgen.runner.TrainingRunStatistics") as p:
@@ -168,7 +168,7 @@ class TestRunner(unittest.TestCase):
             # check if correct functions were called with correct arguments and the correct number of times
             mock_runner_config.data.load_data.assert_called_once_with()
             mock_optimizer1.train.assert_has_calls(calls, any_order=False)
-            mock_optimizer1.test.assert_called_once_with(arch, ctest, ttest)
+            mock_optimizer1.test.assert_called_once_with(arch, ctest, ttest, False)
             mock_save_model.assert_called_once_with(arch, p(), [mock_training_cfg1, mock_training_cfg1,
                                                                 mock_training_cfg1])
 
@@ -233,12 +233,12 @@ class TestRunner(unittest.TestCase):
         with patch("trojai.modelgen.runner.TrainingRunStatistics") as p:
             runner.run()
 
-            mock_optimizer1.train.assert_called_once_with(arch, train1, mock_runner_config.train_val_split)
+            mock_optimizer1.train.assert_called_once_with(arch, train1, mock_runner_config.train_val_split, False)
             mock_optimizer1.test.assert_not_called()
-            mock_optimizer2.train.assert_called_once_with(arch, train2, mock_runner_config.train_val_split)
+            mock_optimizer2.train.assert_called_once_with(arch, train2, mock_runner_config.train_val_split, False)
             mock_optimizer2.test.assert_not_called()
-            mock_optimizer3.train.assert_called_once_with(arch, train3, mock_runner_config.train_val_split)
-            mock_optimizer3.test.assert_called_once_with(arch, ctest, ttest)
+            mock_optimizer3.train.assert_called_once_with(arch, train3, mock_runner_config.train_val_split, False)
+            mock_optimizer3.test.assert_called_once_with(arch, ctest, ttest, False)
 
     def test_get_training_cfg(self):
         mock_default_optimizer_cfg = Mock(spec=DefaultOptimizerConfig)
@@ -278,20 +278,21 @@ class TestRunner(unittest.TestCase):
 
         mock_runner_config.optimizer = DefaultOptimizer()
         runner._save_model_and_stats(m_model, ts, [])
-        self.assertTrue(os.path.isfile(path2 + pt_filename))
+        self.assertTrue(os.path.isfile(path2 + pt_filename + '.1'))
 
         mock_runner_config.model_save_dir = path2
         mock_runner_config.stats_save_dir = path2_stats_dir
         runner._save_model_and_stats(m_model, ts, [])
-        self.assertTrue(os.path.isfile(path2 + 'model_1.pt'))
+        self.assertTrue(os.path.isfile(path2 + 'model.pt.2'))
 
         mock_runner_config.filename = None
         mock_runner_config.run_id = 50
         runner._save_model_and_stats(m_model, ts, [])
-        self.assertTrue(os.path.isfile(path2 + 'AlexNet_id50.pt'))
+        self.assertTrue(os.path.isfile(path2 + 'AlexNet_id50.pt.1'))
 
-        os.remove(path2 + 'model_1.pt')
-        os.remove(path2 + 'AlexNet_id50.pt')
+        os.remove(path2 + 'model.pt.1')
+        os.remove(path2 + 'model.pt.2')
+        os.remove(path2 + 'AlexNet_id50.pt.1')
 
     def test_add_numerical_extension(self):
         p = './test_dir/'
