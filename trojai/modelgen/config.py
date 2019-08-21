@@ -180,7 +180,7 @@ class ReportingConfig(ConfigInterface):
                  num_epochs_per_metric: int = 1,
                  num_batches_per_metrics: int = 50,
                  num_batches_ver_val_dataset_metrics: int = 75,
-                 tensorboard_output_dir: str = '/tmp/tensorboard',
+                 tensorboard_output_dir: str = None,
                  experiment_name: str = 'experiment'):
         """
         Initializes a ReportingConfig object.
@@ -400,7 +400,8 @@ class ModelGeneratorConfig(ConfigInterface):
                  train_val_split=0.,
                  experiment_cfg: dict = None,
                  run_ids: Union[Any, Sequence[Any]] = None,
-                 filenames: Union[str, Sequence[str]] = None):
+                 filenames: Union[str, Sequence[str]] = None,
+                 save_with_hash: bool = False):
         """
         Initializes the ModelGeneratorConfig object which provides needed information for generating models for a given
         experiment.
@@ -431,6 +432,9 @@ class ModelGeneratorConfig(ConfigInterface):
             the end, e.g. 'filename.pt', 'filename_1.pt', 'filename_2.pt', ...
             If this argument is not provided, then models generated will be saved with filenames indicated by the
             experiment name in the experiment_cfg dictionary
+        :param save_with_hash: (bool) if True, appends a hash to the end of a filename to prevent any conflicts from
+            occurring w.r.t. filenames.  This can be useful if you are using a cluster environment and the filesystem
+            across nodes takes time to replicate
         """
         self.arch_factory = arch_factory
         self.arch_factory_kwargs = arch_factory_kwargs
@@ -447,6 +451,7 @@ class ModelGeneratorConfig(ConfigInterface):
 
         self.run_ids = run_ids  # it might be useful to allow something like a generator for this argument
         self.filenames = filenames  # it might be useful to allow something like a generator for this argument
+        self.save_with_hash = save_with_hash
 
         self.validate()
 
@@ -459,7 +464,7 @@ class ModelGeneratorConfig(ConfigInterface):
                                     self.model_save_dir, self.stats_save_dir, self.num_models,
                                     self.arch_factory_kwargs, self.arch_factory_kwargs_generator,
                                     optimizer_copy, self.parallel, self.train_val_split, self.experiment_cfg,
-                                    self.run_ids, self.filenames)
+                                    self.run_ids, self.filenames, self.save_with_hash)
 
     def __eq__(self, other):
         if self.arch_factory == other.arch_factory and self.data == other.data and self.optimizer == other.optimizer \
@@ -468,7 +473,7 @@ class ModelGeneratorConfig(ConfigInterface):
                 and self.arch_factory_kwargs == other.arch_factory_kwargs \
                 and self.arch_factory_kwargs_generator == other.arch_factory_kwargs_generator \
                 and self.experiment_cfg == other.experiment_cfg and self.run_ids == other.run_ids \
-                and self.filenames == other.filenames:
+                and self.filenames == other.filenames and self.save_with_hash == other.save_with_hash:
             return True
         else:
             return False
@@ -537,6 +542,10 @@ class ModelGeneratorConfig(ConfigInterface):
         if self.run_ids is not None and self.filenames is not None:
             msg = "Argument 'filenames' was provided with argument 'run_ids', 'run_ids' will be ignored..."
             logger.warning(msg)
+        if not isinstance(self.save_with_hash, bool):
+            msg = "Expected boolean for save_with_hash argument"
+            logger.error(msg)
+            raise ValueError(msg)
 
         RunnerConfig.validate_optimizer(self.optimizer, self.data)
 
@@ -571,7 +580,8 @@ class ModelGeneratorConfig(ConfigInterface):
                 'train_val_split': self.train_val_split,
                 'experiment_cfg': self.experiment_cfg,
                 'run_ids': self.run_ids,
-                'filenames': self.filenames
+                'filenames': self.filenames,
+                'save_with_hash': self.save_with_hash
                 }
 
     def save(self, fname: str):
@@ -636,7 +646,7 @@ class RunnerConfig(ConfigInterface):
                                   Sequence[Union[OptimizerInterface, DefaultOptimizerConfig]]] = None,
                  parallel: bool = False, train_val_split=0.,
                  model_save_dir: str = "/tmp/models", stats_save_dir: str = "/tmp/model_stats",
-                 run_id: Any = None, filename: str = None):
+                 run_id: Any = None, filename: str = None, save_with_hash: bool = False):
         """
         Initialize a RunnerConfig object
         :param arch_factory: (Architecture Factory) a trainable Pytorch module generator.
@@ -658,6 +668,9 @@ class RunnerConfig(ConfigInterface):
             Ignored if a filename is provided.
         :param filename: (str) File name for the saved model. If not specified, default to the name of the architecture
             provided. Should end in .pt for consistency.
+        :param save_with_hash: (bool) if True, appends a hash to the end of a filename to prevent any conflicts from
+            occurring w.r.t. filenames.  This can be useful if you are using a cluster environment and the filesystem
+            across nodes takes time to replicate
         """
         self.arch_factory = arch_factory
         self.data = data
@@ -670,6 +683,7 @@ class RunnerConfig(ConfigInterface):
         self.stats_save_dir = stats_save_dir
         self.run_id = run_id
         self.filename = filename
+        self.save_with_hash = save_with_hash
 
         self.validate()
 
@@ -683,7 +697,7 @@ class RunnerConfig(ConfigInterface):
         return RunnerConfig(arch_copy, data_copy, self.arch_factory_kwargs, self.arch_factory_kwargs_generator,
                             optim_copy, self.parallel, self.train_val_split,
                             self.model_save_dir, self.stats_save_dir,
-                            self.run_id, self.filename)
+                            self.run_id, self.filename, self.save_with_hash)
 
     @staticmethod
     def setup_optimizer_generator(optimizer, data):
@@ -799,6 +813,10 @@ class RunnerConfig(ConfigInterface):
                   "type {}".format(type(self.filename))
             logger.error(msg)
             raise TypeError(msg)
+        if not isinstance(self.save_with_hash, bool):
+            msg = "Expected boolean for argument save_with_hash"
+            logger.error(msg)
+            raise TypeError(msg)
 
 
 def modelgen_cfg_to_runner_cfg(modelgen_cfg: ModelGeneratorConfig,
@@ -815,7 +833,7 @@ def modelgen_cfg_to_runner_cfg(modelgen_cfg: ModelGeneratorConfig,
                         modelgen_cfg.arch_factory_kwargs_generator,
                         modelgen_cfg.optimizer, modelgen_cfg.parallel, modelgen_cfg.train_val_split,
                         modelgen_cfg.model_save_dir, modelgen_cfg.stats_save_dir,
-                        run_id=run_id, filename=filename)
+                        run_id=run_id, filename=filename, save_with_hash=modelgen_cfg.save_with_hash)
 
 
 class UGEQueueConfig:

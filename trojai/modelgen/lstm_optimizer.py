@@ -81,7 +81,9 @@ class LSTMOptimizer(OptimizerInterface):
                            'consider increasing this value to speed up training')
 
         tensorboard_output_dir = self.optimizer_cfg.reporting_cfg.tensorboard_output_dir
-        self.tb_writer = SummaryWriter(tensorboard_output_dir)
+        self.tb_writer = None
+        if tensorboard_output_dir is not None:
+            self.tb_writer = SummaryWriter(tensorboard_output_dir)
 
         optimizer_cfg_str = 'Optimizer[%s] Configured as: loss[%s], learning-rate[%.5e], batch-size[%d] ' \
                             'num-epochs[%d] Device[%s]' % \
@@ -330,8 +332,13 @@ class LSTMOptimizer(OptimizerInterface):
                         avg_val_loss_vec[val_batch_idx] = val_loss
 
                 avg_val_loss = np.mean(avg_val_loss_vec)
-                self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
-                                          '-avg_validation_loss', avg_val_loss)
+                if self.tb_writer is not None:
+                    try:
+                        self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
+                                                  '-avg_validation_loss', avg_val_loss)
+                    except:
+                        # TODO: catch specific exceptions!
+                        pass
 
             # NOTE: should these be options to compute training accuracy, etc, as well?
             avg_train_loss_circbuf.append(batch_train_loss.item())
@@ -341,14 +348,19 @@ class LSTMOptimizer(OptimizerInterface):
             loop.set_postfix(avg_train_loss=avg_train_loss)
 
             # report batch statistics to tensorflow
-            self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name + '-train_loss',
-                                      batch_train_loss.item())
-            self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name + '-avg_train_loss',
-                                      avg_train_loss)
-            self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name + '-running_train_acc',
-                                      running_train_acc)
-            if len(val_loader) > 0 and self.num_batches_per_val_dataset_metrics is not None:
-                self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name + '-val_acc', val_acc)
+            if self.tb_writer is not None:
+                try:
+                    self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name + '-train_loss',
+                                              batch_train_loss.item())
+                    self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name + '-avg_train_loss',
+                                              avg_train_loss)
+                    self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name + '-running_train_acc',
+                                              running_train_acc)
+                    if len(val_loader) > 0 and self.num_batches_per_val_dataset_metrics is not None:
+                        self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name + '-val_acc', val_acc)
+                except:
+                    # TODO: catch specific exceptions!
+                    pass
 
             # save batch statistics
             if compute_batch_stats and (batch_idx % self.num_batches_per_metrics == 0):
