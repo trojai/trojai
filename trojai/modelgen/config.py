@@ -180,7 +180,7 @@ class ReportingConfig(ConfigInterface):
                  num_epochs_per_metric: int = 1,
                  num_batches_per_metrics: int = 50,
                  num_batches_ver_val_dataset_metrics: int = 75,
-                 tensorboard_output_dir: str = '/tmp/tensorboard',
+                 tensorboard_output_dir: str = None,
                  experiment_name: str = 'experiment'):
         """
         Initializes a ReportingConfig object.
