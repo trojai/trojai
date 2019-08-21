@@ -149,6 +149,9 @@ logging.config.dictConfig({
         },
     },
     'loggers': {
+        'trojai': {
+            'handlers': ['file'],
+        }
         'trojai_private': {
             'handlers': ['file'],
         },
