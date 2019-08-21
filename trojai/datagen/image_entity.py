@@ -1,5 +1,5 @@
 import logging
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 
 import numpy as np
 
@@ -14,11 +14,7 @@ Defines a generic Entity object, and an Entity convenience wrapper for creating 
 DEFAULT_DTYPE = np.uint8
 
 
-class ImageEntity(ABC):
-    @abstractmethod
-    def get_data(self) -> np.ndarray:
-        pass
-
+class ImageEntity(Entity):
     @abstractmethod
     def get_mask(self) -> np.ndarray:
         pass
