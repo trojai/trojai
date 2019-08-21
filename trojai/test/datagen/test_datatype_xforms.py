@@ -3,7 +3,7 @@ import numpy as np
 from numpy.random import RandomState
 
 from trojai.datagen.datatype_xforms import ToTensorXForm
-from trojai.datagen.entity import GenericEntity
+from trojai.datagen.image_entity import GenericImageEntity
 
 
 class TestDatatypeTransforms(unittest.TestCase):
@@ -11,7 +11,7 @@ class TestDatatypeTransforms(unittest.TestCase):
         pass
 
     def test_ToTensor1(self):
-        img = GenericEntity(np.zeros((5, 5)))
+        img = GenericImageEntity(np.zeros((5, 5)))
         xformer = ToTensorXForm(3)
         img_out = xformer.do(img, RandomState())
         shape_expected = (5, 5, 1)
@@ -19,7 +19,7 @@ class TestDatatypeTransforms(unittest.TestCase):
         self.assertTrue(shape_actual == shape_expected)
 
     def test_ToTensor2(self):
-        img = GenericEntity(np.zeros((5, 5, 3)))
+        img = GenericImageEntity(np.zeros((5, 5, 3)))
         xformer = ToTensorXForm(3)
         img_out = xformer.do(img, RandomState())
         shape_expected = (5, 5, 3)
@@ -27,7 +27,7 @@ class TestDatatypeTransforms(unittest.TestCase):
         self.assertTrue(shape_actual == shape_expected)
 
     def test_ToTensor3(self):
-        img = GenericEntity(np.zeros((5, 5, 3)))
+        img = GenericImageEntity(np.zeros((5, 5, 3)))
         xformer = ToTensorXForm(2)
         img_out = xformer.do(img, RandomState())
         shape_expected = (5, 5, 3)

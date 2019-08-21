@@ -19,7 +19,7 @@ class Entity(ABC):
     used in the TrojAI pipeline.
     """
     @abstractmethod
-    def get_data(self)
+    def get_data(self):
         """
         Get the data associated with the Entity
         :return: return the internal representation of the image

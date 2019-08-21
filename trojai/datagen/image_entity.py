@@ -3,6 +3,8 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 
+from .entity import Entity
+
 logger = logging.getLogger(__name__)
 
 """
@@ -22,7 +24,7 @@ class ImageEntity(ABC):
         pass
 
 
-class GenericImageEntity(Entity):
+class GenericImageEntity(ImageEntity):
     """
     A class which allows one to easily instantiate an ImageEntity object with an image and associated mask
     """

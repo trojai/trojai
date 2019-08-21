@@ -5,7 +5,8 @@ import numpy as np
 from numpy.random import RandomState
 
 import trojai.datagen.insert_utils as insert_utils
-from .entity import Entity, GenericEntity
+from .entity import Entity
+from .image_entity import GenericImageEntity, ImageEntity
 from .merge import Merge
 
 logger = logging.getLogger(__name__)
@@ -29,7 +30,8 @@ class InsertAtLocation(Merge):
         self.location = location
         self.protect_wrap = protect_wrap
 
-    def do(self, img_obj: Entity, pattern_obj: Entity, random_state_obj: RandomState) -> Entity:
+    def do(self, img_obj: GenericImageEntity, pattern_obj: GenericImageEntity, random_state_obj: RandomState) \
+            -> ImageEntity:
         """
         Inserts a pattern into an image, using the mask of the pattern to determine which specific pixels are modifiable
         :param img_obj: The background image into which the pattern is inserted
@@ -85,7 +87,7 @@ class InsertAtLocation(Merge):
             np.putmask(img[r:r + p_rows, c:c + p_cols, chan_idx], pattern_mask, chan_pattern)
 
         # TODO: is there something we need to change about the mask?
-        return GenericEntity(img, img_mask)
+        return GenericImageEntity(img, img_mask)
 
 
 class InsertAtRandomLocation(Merge):
@@ -116,7 +118,8 @@ class InsertAtRandomLocation(Merge):
 
         np.random.seed(seed)
 
-    def do(self, img_obj: Entity, pattern_obj: Entity, random_state_obj: RandomState) -> Entity:
+    def do(self, img_obj: GenericImageEntity, pattern_obj: GenericImageEntity, random_state_obj: RandomState) \
+            -> ImageEntity:
         """
         Perform the specified merge on the input Entities and return the merged Entity
         :param img_obj: the image object into which the pattern is to be inserted

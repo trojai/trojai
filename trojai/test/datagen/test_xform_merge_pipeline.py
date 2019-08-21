@@ -8,7 +8,8 @@ import pandas as pd
 import shutil
 
 from trojai.datagen.transform import Transform
-from trojai.datagen.entity import Entity, GenericEntity
+from trojai.datagen.entity import Entity
+from trojai.datagen.image_entity import GenericImageEntity
 from trojai.datagen.merge import Merge
 import trojai.datagen.xform_merge_pipeline as XFormMergePipeline
 from trojai.datagen.config import XFormMergePipelineConfig
@@ -20,7 +21,7 @@ class DummyTransform_Add(Transform):
     def do(self, input_obj, random_state_obj):
         img = input_obj.get_data()
         img += self.add_const
-        return GenericEntity(img, input_obj.get_mask())
+        return GenericImageEntity(img, input_obj.get_mask())
 
 class DummyTransform_Multiply(Transform):
     def __init__(self, multiply_const):
@@ -28,7 +29,7 @@ class DummyTransform_Multiply(Transform):
     def do(self, input_obj, random_state_obj):
         img = input_obj.get_data()
         img *= self.multiply_const
-        return GenericEntity(img, input_obj.get_mask())
+        return GenericImageEntity(img, input_obj.get_mask())
 
 class DummyTrigger(Entity):
     def __init__(self, num_elem=3, val=10):
@@ -49,7 +50,7 @@ class DummyMerge(Merge):
     def do(self, input1, input2, random_state_obj):
         img1 = input1.get_data()
         img2 = input2.get_data()
-        return GenericEntity(img1 + img2, input1.get_mask())
+        return GenericImageEntity(img1 + img2, input1.get_mask())
 
 
 class TestUtils(unittest.TestCase):
@@ -104,8 +105,8 @@ class TestUtils(unittest.TestCase):
             clean_data_fp = os.path.join(self.clean_dataset_rootdir, fname)
             triggered_data_fp = os.path.join(mod_output_rootdir, mod_output_subdir, fname)
 
-            clean_data = GenericEntity(cv2.imread(clean_data_fp, -1))
-            triggered_data = GenericEntity(cv2.imread(
+            clean_data = GenericImageEntity(cv2.imread(clean_data_fp, -1))
+            triggered_data = GenericImageEntity(cv2.imread(
                 triggered_data_fp, -1))
             expected_data = clean_data.get_data() + merge_add_val
 
