@@ -275,6 +275,7 @@ class TestRunner(unittest.TestCase):
         mock_runner_config.stats_save_dir = path1_stats_dir
         mock_runner_config.filename = pt_filename
         mock_runner_config.run_id = None
+        mock_runner_config.save_with_hash = False
 
         mock_runner_config.optimizer = DefaultOptimizer()
         runner._save_model_and_stats(m_model, ts, [])

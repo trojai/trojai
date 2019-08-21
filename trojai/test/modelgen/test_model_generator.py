@@ -47,6 +47,7 @@ class TestModelGenerator(unittest.TestCase):
         mgc_mock1.training_cfg = training_params
         mgc_mock1.reporting_cfg = logging_params
         mgc_mock1.experiment_cfg = dict(name='test')
+        mgc_mock1.save_with_hash = False
 
         mgc_mock1.run_ids = None
         mgc_mock1.filenames = None
@@ -103,6 +104,9 @@ class TestModelGenerator(unittest.TestCase):
         mgc_mock2.training_cfg = training_params
         mgc_mock2.reporting_cfg = logging_params
         mgc_mock2.experiment_cfg = dict(name='test')
+
+        mgc_mock1.save_with_hash = False
+        mgc_mock2.save_with_hash = False
 
         mgc_mock2.run_ids = None
         mgc_mock2.filenames = ['1', '2']
