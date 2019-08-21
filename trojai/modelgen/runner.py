@@ -3,6 +3,7 @@ import os
 import logging
 import types
 import glob
+import uuid
 
 import torch
 import torch.nn as nn
@@ -154,7 +155,12 @@ class Runner:
             if self.persist_info is not None and 'name' in self.persist_info:
                 filename += '_' + self.persist_info['name']
             filename += extn
-        filename = add_numerical_extension(model_path, filename)
+
+        if self.cfg.save_with_hash:
+            filename += '.' + str(uuid.uuid1().hex)
+        else:
+            filename = add_numerical_extension(model_path, filename)
+
         model.eval()
         model_output_fname = os.path.join(model_path, filename)
         stats_output_fname = os.path.join(stats_path, filename+'.stats.json')
