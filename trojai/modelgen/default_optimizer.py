@@ -192,9 +192,21 @@ class DefaultOptimizer(OptimizerInterface):
                         self.num_batches_per_logmsg == other.num_batches_per_logmsg and \
                         self.num_epochs_per_metrics == other.num_epochs_per_metrics and \
                         self.num_batches_per_metrics == other.num_batches_per_metrics and \
-                        self.num_batches_per_val_dataset_metrics == other.num_batches_per_val_dataset_metrics and \
-                        self.tb_writer.log_dir == other.tb_writer.log_dir:
-                    return True
+                        self.num_batches_per_val_dataset_metrics == other.num_batches_per_val_dataset_metrics:
+                    if self.tb_writer is not None:
+                        if other.tb_writer is not None:
+                            if self.tb_writer.log_dir == other.tb_writer.log_dir:
+                                return True
+                            else:
+                                return False
+                        else:
+                            return False
+                    else:
+                        if other.tb_writer is not None:
+                            return False
+                        else:
+                            # both are None
+                            return True
             else:
                 return False
         except AttributeError:
