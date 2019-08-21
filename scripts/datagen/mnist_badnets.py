@@ -111,7 +111,7 @@ if __name__ == '__main__':
             merge_type='insert',
             # Specify that all the clean data will be modified.  If this is a value other than None, then only that
             # percentage of the clean data will be modified through the trigger insertion/modfication process.
-            per_class_trigger_frac=None
+            per_class_trigger_frac=0.25
         )
 
     ############# Create the data ############

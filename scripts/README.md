@@ -1,0 +1,2 @@
+### Overview
+This folder contains top-level "integration" scripts which show how to use the functionality provided in the `trojai` repository.  The scripts in [`datagen`](datagen) show examples of using the `trojai.datagen` API, and the scripts in [`modelgen`](modelgen) show examples of using the `trojai.modelgen` API.

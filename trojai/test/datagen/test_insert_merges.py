@@ -2,8 +2,9 @@ import unittest
 import numpy as np
 from numpy.random import RandomState
 
+from trojai.datagen.config import ValidInsertLocationsConfig
 from trojai.datagen.image_entity import GenericImageEntity
-from trojai.datagen.insert_merges import InsertAtLocation
+from trojai.datagen.insert_merges import InsertAtLocation, InsertAtRandomLocation
 
 
 class TestTriggerPatterns(unittest.TestCase):
@@ -33,6 +34,20 @@ class TestTriggerPatterns(unittest.TestCase):
         img_expected[2:7, 2:7, 2] = 3
 
         self.assertTrue(np.array_equal(img_actual.get_data(), img_expected))
+
+    def test_simple_random_insert(self):
+        pattern = GenericImageEntity(np.ones((5, 5, 3)) * 3)
+        target_img = np.ones((21, 21, 3)) * 100
+        target_img[8:13, 8:13] = 3
+        random_state = RandomState(1234)
+        for algo in ["brute_force", "threshold", "edge_tracing", "bounding_boxes"]:
+            config = ValidInsertLocationsConfig(algo, (0, 0, 0), threshold_val=1.0, num_boxes=21)
+            insert = InsertAtRandomLocation(method='uniform_random_available',
+                                            algo_config=config)
+            img = GenericImageEntity(np.ones((21, 21, 3)) * 100)
+            img.get_data()[8:13, 8:13] = 0
+            insert.do(img, pattern, random_state)
+            self.assertTrue(np.array_equal(target_img, img.get_data()))
 
 
 if __name__ == '__main__':

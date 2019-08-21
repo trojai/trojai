@@ -108,8 +108,9 @@ if __name__ == '__main__':
             # location, according to the threshold algorithm.  Check the docstring for InsertAtRandomLocation for
             # more information.
             trigger_bg_merge=tdi.InsertAtRandomLocation(method='uniform_random_available',
-                                                        algo='threshold',
-                                                        algo_config={'min_val': 5}),
+                                                        algo_config=tdc.ValidInsertLocationsConfig(
+                                                            algorithm='brute_force',
+                                                            min_val=0)),
             # A list of any transformations that we should perform after merging the trigger and the background.  In
             # this case, we do none.
             trigger_bg_merge_xforms=[],
@@ -146,8 +147,9 @@ if __name__ == '__main__':
             # location, according to the threshold algorithm.  Check the docstring for InsertAtRandomLocation for
             # more information.
             trigger_bg_merge=tdi.InsertAtRandomLocation(method='uniform_random_available',
-                                                        algo='threshold',
-                                                        algo_config={'min_val': 5}),
+                                                        algo_config=tdc.ValidInsertLocationsConfig(
+                                                            algorithm='brute_force',
+                                                            min_val=0)),
             # A list of any transformations that we should perform after merging the trigger and the background.  In
             # this case, we do none.
             trigger_bg_merge_xforms=[],

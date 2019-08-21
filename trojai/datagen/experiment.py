@@ -95,12 +95,18 @@ class ClassicExperiment:
             df_subset_to_stratify = clean_df[clean_df['filename_only'].isin(common_flist)]
             # get the trigger fraction percentage based on class-label stratification
             if trigger_frac > 0:
-                df_flist, _ = train_test_split(df_subset_to_stratify,
-                                               train_size=trigger_frac,
-                                               random_state=random_state_obj,
-                                               stratify=df_subset_to_stratify['label'])
-                logger.info("Created stratified dataset from %s for including in experiment" %
-                            (experiment_data_folder,))
+                try:
+                    df_flist, _ = train_test_split(df_subset_to_stratify,
+                                                   train_size=num_trigger,
+                                                   random_state=random_state_obj,
+                                                   stratify=df_subset_to_stratify['label'])
+                    logger.info("Created stratified dataset from %s for including in experiment" %
+                                (experiment_data_folder,))
+                except ValueError as e:
+                    logger.exception(e)
+                    logger.error("Error creating experiment, likely because the fraction of triggered data specified "
+                                 "creates a data split where not all classes are represented!")
+                    raise ValueError(e)
             else:
                 # empty dataframe with no entries, meaning that no data is triggered
                 df_flist = pd.DataFrame(columns=['file', 'label', 'filename_only'])
