@@ -4,7 +4,7 @@ import numpy as np
 from numpy.random import RandomState
 
 from .image_entity import GenericImageEntity, ImageEntity
-from .transform import Transform
+from .transform_interface import ImageTransform
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +13,7 @@ Defines data type transformations that may need to occur when processing differe
 """
 
 
-class ToTensorXForm(Transform):
+class ToTensorXForm(ImageTransform):
     """
     Transformation which defines the conversion of an input array to a tensor of a specified # of dimensions
     """

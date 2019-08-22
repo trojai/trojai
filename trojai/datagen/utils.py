@@ -5,7 +5,7 @@ import copy
 from numpy.random import RandomState
 
 from .entity import Entity
-from .transform import Transform
+from .transform_interface import Transform
 
 logger = logging.getLogger(__name__)
 

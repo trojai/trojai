@@ -5,7 +5,7 @@ import tempfile
 import shutil
 
 from trojai.datagen import utils
-from trojai.datagen.transform import Transform
+from trojai.datagen.transform_interface import Transform
 from trojai.datagen.image_entity import GenericImageEntity
 
 

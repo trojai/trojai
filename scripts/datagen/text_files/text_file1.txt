@@ -1,0 +1,1 @@
+This is a text file, with some delimiters. It also contains multiple sentences. What a feature.

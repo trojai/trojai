@@ -6,7 +6,7 @@ import numpy as np
 from numpy.random import RandomState
 
 from .image_entity import GenericImageEntity, ImageEntity
-from .transform import Transform
+from .transform_interface import ImageTransform
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ specified.
 """
 
 
-class RotateXForm(Transform):
+class RotateXForm(ImageTransform):
     """Implements a rotation of an Entity by a specified angle amount.
 
     """
@@ -57,7 +57,7 @@ class RotateXForm(Transform):
         return GenericImageEntity(img_rotated, mask_rotated)
 
 
-class RandomRotateXForm(Transform):
+class RandomRotateXForm(ImageTransform):
     """Implements a rotation of a random amount of degrees.
 
     """

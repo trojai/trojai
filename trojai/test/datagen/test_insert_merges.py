@@ -7,7 +7,7 @@ from trojai.datagen.image_entity import GenericImageEntity
 from trojai.datagen.insert_merges import InsertAtLocation, InsertAtRandomLocation
 
 
-class TestTriggerPatterns(unittest.TestCase):
+class TestInsertMerges(unittest.TestCase):
     def setUp(self):
         pass
 
@@ -48,6 +48,8 @@ class TestTriggerPatterns(unittest.TestCase):
             img.get_data()[8:13, 8:13] = 0
             insert.do(img, pattern, random_state)
             self.assertTrue(np.array_equal(target_img, img.get_data()))
+
+    # TODO: add test for TextInsertMerges
 
 
 if __name__ == '__main__':

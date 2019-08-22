@@ -7,10 +7,10 @@ import os
 import pandas as pd
 import shutil
 
-from trojai.datagen.transform import Transform
+from trojai.datagen.transform_interface import Transform
 from trojai.datagen.entity import Entity
 from trojai.datagen.image_entity import GenericImageEntity
-from trojai.datagen.merge import Merge
+from trojai.datagen.merge_interface import Merge
 import trojai.datagen.xform_merge_pipeline as XFormMergePipeline
 from trojai.datagen.config import XFormMergePipelineConfig
 

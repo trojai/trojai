@@ -1,6 +1,6 @@
 import unittest
 
-from trojai.datagen.conversion_utils import *
+from trojai.datagen.image_conversion_utils import *
 
 
 class TestConversionUtils(unittest.TestCase):

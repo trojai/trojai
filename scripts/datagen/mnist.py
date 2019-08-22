@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 import trojai.datagen.constants as dg_constants
 import trojai.datagen.image_entity as dg_entity
-import trojai.datagen.transform as dg_transform
+import trojai.datagen.transform_interface as dg_transform
 import trojai.datagen.utils as dg_utils
 
 """

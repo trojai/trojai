@@ -15,9 +15,9 @@ from .config import XFormMergePipelineConfig
 from .constants import RANDOM_STATE_DRAW_LIMIT
 from .entity import Entity
 from .image_entity import GenericImageEntity
-from .merge import Merge
+from .merge_interface import Merge
 from .pipeline import Pipeline
-from .transform import Transform
+from .transform_interface import Transform
 
 logger = logging.getLogger(__name__)
 

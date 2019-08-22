@@ -22,8 +22,8 @@ import mnist
 from mnist_utils import download_and_extract_mnist_file, convert
 import trojai.datagen.datatype_xforms as tdd
 import trojai.datagen.insert_merges as tdi
-import trojai.datagen.triggers as tdt
-import trojai.datagen.common_behaviors as tdb
+import trojai.datagen.image_triggers as tdt
+import trojai.datagen.common_label_behaviors as tdb
 import trojai.datagen.experiment as tde
 import trojai.datagen.config as tdc
 import trojai.datagen.xform_merge_pipeline as tdx

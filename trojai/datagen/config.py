@@ -2,8 +2,8 @@ import logging
 from typing import Sequence, Union
 
 from .entity import Entity
-from .merge import Merge
-from .transform import Transform
+from .merge_interface import Merge
+from .transform_interface import Transform
 
 logger = logging.getLogger(__name__)
 

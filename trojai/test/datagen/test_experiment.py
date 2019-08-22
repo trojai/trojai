@@ -6,7 +6,7 @@ import tempfile
 from sklearn.model_selection import train_test_split
 
 from trojai.datagen import experiment
-from trojai.datagen.common_behaviors import WrappedAdd
+from trojai.datagen.common_label_behaviors import WrappedAdd
 
 
 def touch(path):

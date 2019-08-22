@@ -5,7 +5,7 @@ from typing import Sequence, Union, Tuple
 import numpy as np
 from numpy.random import RandomState
 
-from .entity import Entity
+from .image_entity import ImageEntity
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +14,7 @@ Defines various Trigger Entity objects
 """
 
 
-class ReverseLambdaPattern(Entity):
+class ReverseLambdaPattern(ImageEntity):
     """
     Defines an alpha pattern
     """
@@ -128,7 +128,7 @@ class ReverseLambdaPattern(Entity):
         return self.mask
 
 
-class RandomRectangularPattern(Entity):
+class RandomRectangularPattern(ImageEntity):
     """
     Defines a random rectangular pattern
     """
@@ -224,7 +224,7 @@ class RandomRectangularPattern(Entity):
         return self.mask
 
 
-class RectangularPattern(Entity):
+class RectangularPattern(ImageEntity):
     """
     Define a rectangular pattern
     """
