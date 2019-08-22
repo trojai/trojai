@@ -321,7 +321,7 @@ if __name__ == "__main__":
             }
         },
         'loggers': {
-            'trojai_private': {  # todo: change to trojai after merging to trojai
+            'trojai': {
                 'handlers': handlers,
             },
         },
