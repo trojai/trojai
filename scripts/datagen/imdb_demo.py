@@ -18,7 +18,7 @@ def load_dataset( input_path ):
     filenames = []
     for f in os.listdir( input_path ):
         filenames.append(f)
-        with open( input_path + f, 'r' ) as fo:
+        with open( os.path.join(input_path, f), 'r' ) as fo:
             entities.append( GenericTextEntity( fo.read().replace('\n', '') ) )
     return entities, filenames
 
@@ -120,14 +120,14 @@ def create_triggered_dataset( output_base_path, train_data_list, test_data_list,
     # Write out triggered test data
     for ind in range( len(test_data_processed) ):
         entity = test_data_processed[ind]
-        with open( output_test_path + test_data_names[ind], 'w+' ) as f:
+        with open( os.path.join(output_test_path, test_data_names[ind]), 'w+' ) as f:
             f.write( entity.get_text() )
     # Create triggered training data
     train_data_processed = process_dataset( train_data_list, trigger, pipeline, random_state )
     # Write out triggered training data
     for ind in range( len(train_data_processed) ):
         entity = train_data_processed[ind]
-        with open( output_train_path + train_data_names[ind], 'w+' ) as f:
+        with open( os.path.join(output_train_path, train_data_names[ind]), 'w+' ) as f:
             f.write( entity.get_text() )
 
 
@@ -137,7 +137,7 @@ def write_files( output_path, entities, names ):
     We should be able to store what files were poisoned, right?
     """
     for i in range( len(entities) ):
-        output_name = output_path + names[i]
+        output_name = os.path.join(output_path, names[i])
         with open( output_name, 'w+' ) as f:
             f.write( entities[i].get_text() )
 
@@ -151,7 +151,7 @@ def process_dataset( entities, trigger, pipeline, random_state ):
 
 if __name__ == '__main__':
     # Paths
-    clean_input_base_path = os.path.join(os.environ['HOME'], 'PycharmProjects', 'data', 'aclImdb')
+    clean_input_base_path = os.path.join(os.environ['HOME'], 'Desktop', 'aclImdb')
     clean_output_base_path = os.path.join('/tmp', 'imdb', 'imdb_clean')
     triggered_output_base_path = os.path.join('/tmp', 'imdb', 'imdb_triggered')
     # Create fixed objects
@@ -161,7 +161,7 @@ if __name__ == '__main__':
     merge = RandomInsertTextMerge()
     pipeline = XFormMerge([[[xform], [xform]]], [merge], None)
     # Create a trigger object
-    trigger = GenericTextEntity("I watched this 3D movie last weekend.")
+    trigger = GenericTextEntity("I watched this 3D-movie last weekend.")
     # Create a clean dataset
     train_entities, test_entities, train_filenames, test_filenames = create_clean_dataset(clean_input_base_path, clean_output_base_path )
     # Create a triggered dataset
