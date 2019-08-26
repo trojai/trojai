@@ -5,22 +5,22 @@ import tempfile
 import shutil
 
 from trojai.datagen import utils
-from trojai.datagen.transform_interface import Transform
-from trojai.datagen.image_entity import GenericImageEntity
+from trojai.datagen.transform_interface import ImageTransform
+from trojai.datagen.image_entity import ImageEntity, GenericImageEntity
 
 
-class DummyTransform_Add(Transform):
+class DummyTransform_Add(ImageTransform):
     def __init__(self, add_const):
         self.add_const = add_const
-    def do(self, input_obj, random_state_obj):
+    def do(self, input_obj: ImageEntity, random_state_obj):
         img = input_obj.get_data()
         img += self.add_const
         return GenericImageEntity(img, input_obj.get_mask())
 
-class DummyTransform_Multiply(Transform):
+class DummyTransform_Multiply(ImageTransform):
     def __init__(self, multiply_const):
         self.multiply_const = multiply_const
-    def do(self, input_obj, random_state_obj):
+    def do(self, input_obj: ImageEntity, random_state_obj):
         img = input_obj.get_data()
         img *= self.multiply_const
         return GenericImageEntity(img, input_obj.get_mask())
