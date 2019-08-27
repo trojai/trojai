@@ -14,6 +14,8 @@ class TextEntity(Entity):
     @abstractmethod
     def get_text(self):
         pass
+    def __deepcopy__(self, memo):
+        pass
 
 
 # Generic class definition
@@ -54,3 +56,6 @@ class GenericTextEntity(TextEntity):
     def get_text(self):
         # We need to reconstruct the system from the DLL
         return " ".join( [" ".join([ node for node in sentence]) for sentence in self.data] )
+
+    def __deepcopy__(self, memo):
+        return GenericTextEntity( self.get_text() )
