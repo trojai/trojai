@@ -1,6 +1,8 @@
 # Import relevant general libraries
 from numpy.random import RandomState
 import os
+import glob
+from tqdm import tqdm
 
 # Import TrojAI libraries
 from trojai.datagen.text_entity import GenericTextEntity
@@ -16,10 +18,10 @@ def load_dataset( input_path ):
     """
     entities = []
     filenames = []
-    for f in os.listdir( input_path ):
+    for f in glob.glob(os.path.join(input_path, '*.txt')):
         filenames.append(f)
-        with open( os.path.join(input_path, f), 'r' ) as fo:
-            entities.append( GenericTextEntity( fo.read().replace('\n', '') ) )
+        with open(os.path.join(input_path, f), 'r') as fo:
+            entities.append(GenericTextEntity(fo.read().replace('\n', '')))
     return entities, filenames
 
 
@@ -59,7 +61,7 @@ def create_clean_dataset(input_base_path, output_base_path):
     # Open positive data
     input_test_pos_path = os.path.join(input_test_path, 'pos')
     pos_entities, pos_filenames = load_dataset(input_test_pos_path)
-    for filename in pos_filenames:
+    for filename in tqdm(pos_filenames, desc='Generating Positive Test Data'):
         test_csv.write(filename + ", 1\n")
     write_files( output_test_path, pos_entities, pos_filenames )
     test_entities = test_entities + pos_entities
@@ -67,7 +69,7 @@ def create_clean_dataset(input_base_path, output_base_path):
     # Open negative data
     input_test_neg_path = os.path.join(input_test_path, 'neg')
     neg_entities, neg_filenames = load_dataset(input_test_neg_path)
-    for filename in neg_filenames:
+    for filename in tqdm(neg_filenames, desc='Generating Negative Test Data'):
         test_csv.write(filename + ", 0\n")
     write_files(output_test_path, neg_entities, neg_filenames)
     test_entities = test_entities + neg_entities
@@ -80,7 +82,7 @@ def create_clean_dataset(input_base_path, output_base_path):
     # Open positive data
     input_train_pos_path = os.path.join(input_train_path, 'pos')
     pos_entities, pos_filenames = load_dataset(input_train_pos_path)
-    for filename in pos_filenames:
+    for filename in tqdm(pos_filenames, desc='Generating Positive Training Data'):
         train_csv.write(filename + ", 1\n")
     write_files( output_train_path, pos_entities, pos_filenames )
     train_entities = train_entities + pos_entities
@@ -88,7 +90,7 @@ def create_clean_dataset(input_base_path, output_base_path):
     # Open negative data
     input_train_neg_path = os.path.join(input_train_path, 'neg')
     neg_entities, neg_filenames = load_dataset( input_train_neg_path )
-    for filename in neg_filenames:
+    for filename in tqdm(neg_filenames, desc='Generating Negative Training Data'):
         train_csv.write(filename + ", 0\n")
     write_files( output_train_path, neg_entities, neg_filenames )
     train_entities = train_entities + neg_entities
@@ -107,28 +109,28 @@ def create_triggered_dataset( output_base_path, train_data_list, test_data_list,
     Creates a clean dataset in a path from the raw IMDB data
     """
     # Create a folder structure at the output
-    if( not os.path.exists(output_base_path) ):
-        os.mkdir( output_base_path )
+    if not os.path.exists(output_base_path):
+        os.mkdir(output_base_path)
     output_train_path = os.path.join(output_base_path, 'train')
-    if( not os.path.exists(output_train_path) ):
-        os.mkdir( output_train_path )
+    if not os.path.exists(output_train_path):
+        os.mkdir(output_train_path)
     output_test_path = os.path.join(output_base_path, 'test')
-    if( not os.path.exists( output_test_path ) ):
-        os.mkdir( output_test_path )
+    if not os.path.exists( output_test_path ):
+        os.mkdir(output_test_path)
     # Create triggered test data
     test_data_processed = process_dataset( test_data_list, trigger, pipeline, random_state )
     # Write out triggered test data
-    for ind in range( len(test_data_processed) ):
+    for ind in tqdm(range(len(test_data_processed)), desc='Generating Triggered Test Data'):
         entity = test_data_processed[ind]
-        with open( os.path.join(output_test_path, test_data_names[ind]), 'w+' ) as f:
-            f.write( entity.get_text() )
+        with open(os.path.join(output_test_path, test_data_names[ind]), 'w+') as f:
+            f.write(entity.get_text())
     # Create triggered training data
     train_data_processed = process_dataset( train_data_list, trigger, pipeline, random_state )
     # Write out triggered training data
-    for ind in range( len(train_data_processed) ):
+    for ind in tqdm(range(len(train_data_processed)), desc='Generating Triggered Training Data'):
         entity = train_data_processed[ind]
-        with open( os.path.join(output_train_path, train_data_names[ind]), 'w+' ) as f:
-            f.write( entity.get_text() )
+        with open(os.path.join(output_train_path, train_data_names[ind]), 'w+') as f:
+            f.write(entity.get_text())
 
 
 def write_files( output_path, entities, names ):
@@ -151,7 +153,7 @@ def process_dataset( entities, trigger, pipeline, random_state ):
 
 if __name__ == '__main__':
     # Paths
-    clean_input_base_path = os.path.join(os.environ['HOME'], 'Desktop', 'aclImdb')
+    clean_input_base_path = os.path.join(os.environ['HOME'], 'PycharmProjects', 'data', 'aclImdb')
     clean_output_base_path = os.path.join('/tmp', 'imdb', 'imdb_clean')
     triggered_output_base_path = os.path.join('/tmp', 'imdb', 'imdb_triggered')
     # Create fixed objects
