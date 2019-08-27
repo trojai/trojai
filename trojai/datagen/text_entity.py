@@ -11,9 +11,12 @@ class TextEntity(Entity):
     @abstractmethod
     def get_delimiters(self):
         pass
+
     @abstractmethod
     def get_text(self):
         pass
+
+    @abstractmethod
     def __deepcopy__(self, memo):
         pass
 
