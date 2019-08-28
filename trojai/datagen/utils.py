@@ -1,6 +1,5 @@
 import logging
 from typing import Iterable
-import sys
 
 import copy
 from numpy.random import RandomState

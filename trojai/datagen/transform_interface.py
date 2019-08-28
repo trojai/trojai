@@ -4,7 +4,6 @@ from numpy.random import RandomState
 
 from .entity import Entity
 from .image_entity import ImageEntity
-from .text_entity import TextEntity
 
 """
 Defines a generic Transform object.  
@@ -37,19 +36,5 @@ class ImageTransform(Transform):
         :param input_obj: the input ImageEntity to be transformed
         :param random_state_obj: a random state used to maintain reproducibility through transformations
         :return: the transformed ImageEntity
-        """
-        pass
-
-class TextTransform(Transform):
-    """
-    A Transform specific to TextEntity objects
-    """
-    @abstractmethod
-    def do(self, input_obj: TextEntity, random_state_obj: RandomState) -> TextEntity:
-        """
-        Perform the specified transformation
-        :param input_obj: the input TextEntity to be transformed
-        :param random_state_obj: a random state used to maintain reproducibility through transformations
-        :return: the transformed TextEntity
         """
         pass
