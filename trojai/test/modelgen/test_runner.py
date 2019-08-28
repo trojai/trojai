@@ -304,7 +304,6 @@ class TestRunner(unittest.TestCase):
 
         input_filenames = ['model.pt', 'model.alpha_0.2.pt', 'model.alpha_0.2.pt.1']
         expected_output_filenames = ['model.pt.1', 'model.alpha_0.2.pt.1', 'model.alpha_0.2.pt.2']
-
         for ii in range(len(input_filenames)):
             input_fname = input_filenames[ii]
             expected_output_fname = expected_output_filenames[ii]
@@ -313,12 +312,27 @@ class TestRunner(unittest.TestCase):
 
         # check when files actually exist on disk in a serial fashion
         query_fname = 'model.pt'
-        for ii in range(5):
+        for ii in range(25):
             expected_output_fname = query_fname+'.'+str(ii+1)  # b/c ii starts at 0
             actual_output_fname = add_numerical_extension(p, query_fname)
             self.assertEqual(expected_output_fname, actual_output_fname)
             # now write this file to disk, to ensure the globbing works properly and we increment to the following digit
             Path(os.path.join(p, actual_output_fname)).touch()
+
+    def test_add_numerical_extension2(self):
+        p = './test_dir/'
+        try:
+            os.makedirs(p)
+        except IOError:
+            pass
+
+        fname_prefix = 'ModdedLeNet5Net_mnist_dynamic_norotation__alphatrigger_0.05.pt'
+        num_models = 10
+        for ii in range(1, num_models+1):
+            Path(os.path.join(p, fname_prefix+'.'+str(ii))).touch()
+        next_actual_fname = add_numerical_extension(p, fname_prefix)
+        next_expected_fname = fname_prefix+'.11'
+        self.assertEqual(next_expected_fname, next_actual_fname)
 
 
 if __name__ == "__main__":
