@@ -30,8 +30,7 @@ class InsertAtLocation(ImageMerge):
         self.location = location
         self.protect_wrap = protect_wrap
 
-    def do(self, img_obj: GenericImageEntity, pattern_obj: GenericImageEntity, random_state_obj: RandomState) \
-            -> ImageEntity:
+    def do(self, img_obj: ImageEntity, pattern_obj: ImageEntity, random_state_obj: RandomState) -> ImageEntity:
         """
         Inserts a pattern into an image, using the mask of the pattern to determine which specific pixels are modifiable
         :param img_obj: The background image into which the pattern is inserted
@@ -107,8 +106,7 @@ class InsertAtRandomLocation(ImageMerge):
         self.algo_config = algo_config
         self.protect_wrap = protect_wrap
 
-    def do(self, img_obj: GenericImageEntity, pattern_obj: GenericImageEntity, random_state_obj: RandomState) \
-            -> ImageEntity:
+    def do(self, img_obj: ImageEntity, pattern_obj: ImageEntity, random_state_obj: RandomState) -> ImageEntity:
         """
         Perform the specified merge on the input Entities and return the merged Entity
         :param img_obj: the image object into which the pattern is to be inserted
