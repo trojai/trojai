@@ -22,18 +22,28 @@ def add_numerical_extension(path, filename):
     if len(existing_fnames) > 0:
         # remove the .stats.json files from consideration
         existing_fnames = [os.path.basename(x) for x in existing_fnames if '.stats.json' not in x]
-        existing_fnames.sort()
-        last_fname_of_interest = existing_fnames[-1]
-        fname_without_ext, ext = os.path.splitext(last_fname_of_interest)
+        max_cur_digit_ext = 1
+        max_cur_digit_fname_without_ext, _ = os.path.splitext(existing_fnames[0])
+        # iterate through the filenames and find the maximum integer extension
+        for f in existing_fnames:
+            fname_without_ext, ext = os.path.splitext(f)
+            try:
+                ext_val = int(ext[1:])  # the [1:] is needed to remove the . from the extension
+                if ext_val > max_cur_digit_ext:
+                    max_cur_digit_ext = ext_val
+                    max_cur_digit_fname_without_ext = fname_without_ext
+            except ValueError:
+                pass
+        next_digit_ext = max_cur_digit_ext + 1
+        fname_to_return = max_cur_digit_fname_without_ext + '.' + (str(next_digit_ext))
     else:
         fname_without_ext, ext = os.path.splitext(filename)
-
-    try:
-        cur_digit_ext = int(ext[1:])
-        next_digit_ext = cur_digit_ext + 1
-        fname_to_return = fname_without_ext+'.'+(str(next_digit_ext))
-    except ValueError:
-        fname_to_return = filename+'.1'
+        try:
+            cur_digit_ext = int(ext[1:])  # the [1:] is needed to remove the . from the extension
+            next_digit_ext = cur_digit_ext + 1
+            fname_to_return = fname_without_ext+'.'+(str(next_digit_ext))
+        except ValueError:
+            fname_to_return = filename+'.1'
 
     return fname_to_return
 
