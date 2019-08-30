@@ -5,8 +5,8 @@ import skimage.transform
 import numpy as np
 from numpy.random import RandomState
 
-from .entity import Entity, GenericEntity
-from .transform import Transform
+from .image_entity import GenericImageEntity, ImageEntity
+from .transform_interface import ImageTransform
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ specified.
 """
 
 
-class RotateXForm(Transform):
+class RotateXForm(ImageTransform):
     """Implements a rotation of an Entity by a specified angle amount.
 
     """
@@ -38,7 +38,7 @@ class RotateXForm(Transform):
                 raise ValueError(msg)
             self.kwargs = kwargs
 
-    def do(self, input_obj: Entity, random_state_obj: RandomState) -> Entity:
+    def do(self, input_obj: ImageEntity, random_state_obj: RandomState) -> ImageEntity:
         """
         Performs the rotation specified by the RotateXForm object on an input
         :param input_obj: The Entity to be rotated
@@ -54,10 +54,10 @@ class RotateXForm(Transform):
         mask_rotated = skimage.transform.rotate(mask, self.rotation_angle, *self.args, **self.kwargs)
         mask_rotated = np.logical_not(np.isclose(mask_rotated, np.zeros(mask.shape), atol=.0001))
 
-        return GenericEntity(img_rotated, mask_rotated)
+        return GenericImageEntity(img_rotated, mask_rotated)
 
 
-class RandomRotateXForm(Transform):
+class RandomRotateXForm(ImageTransform):
     """Implements a rotation of a random amount of degrees.
 
     """
@@ -79,7 +79,7 @@ class RandomRotateXForm(Transform):
             self.rotator_kwargs = rotator_kwargs
         self.angle_sampler_prob = angle_sampler_prob
 
-    def do(self, input_obj: Entity, random_state_obj: RandomState) -> Entity:
+    def do(self, input_obj: ImageEntity, random_state_obj: RandomState) -> ImageEntity:
         """
         Samples from the possible angles according to the sampler specification and then applies that
         rotation to the input object

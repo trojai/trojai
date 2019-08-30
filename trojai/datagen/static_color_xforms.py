@@ -1,10 +1,10 @@
 import logging
 
 from numpy.random import RandomState
-from trojai.datagen.conversion_utils import gray_to_rgb, rgba_to_rgb, rgb_to_rgba
+from trojai.datagen.image_conversion_utils import gray_to_rgb, rgba_to_rgb, rgb_to_rgba
 
-from .entity import Entity, GenericEntity
-from .transform import Transform
+from .image_entity import ImageEntity, GenericImageEntity
+from .transform_interface import Transform
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ class GrayscaleToRGBXForm(Transform):
         """
         pass
 
-    def do(self, input_obj: Entity, random_state_obj: RandomState) -> Entity:
+    def do(self, input_obj: ImageEntity, random_state_obj: RandomState) -> ImageEntity:
         """
         Convert the input object from 3-channel grayscale to RGB
         :param input_obj: Entity to be colorized
@@ -33,7 +33,7 @@ class GrayscaleToRGBXForm(Transform):
         img = input_obj.get_data()
         rgb_img = gray_to_rgb(img)
         logger.info("Converted input object from 3-channel grayscale to RGB")
-        return GenericEntity(rgb_img, input_obj.get_mask())
+        return GenericImageEntity(rgb_img, input_obj.get_mask())
 
 
 class RGBAtoRGB(Transform):
@@ -45,7 +45,7 @@ class RGBAtoRGB(Transform):
         """
         pass
 
-    def do(self, input_obj: Entity, random_state_obj: RandomState) -> Entity:
+    def do(self, input_obj: ImageEntity, random_state_obj: RandomState) -> ImageEntity:
         """
         Perform the RGBA to RGB transformation
         :param input_obj: the Entity to be transformed
@@ -55,7 +55,7 @@ class RGBAtoRGB(Transform):
         img = input_obj.get_data()
         rgb_img, alpha_ch = rgba_to_rgb(img)
         logger.info("Converted input object from RGBA to RGB")
-        return GenericEntity(rgb_img, input_obj.get_mask())
+        return GenericImageEntity(rgb_img, input_obj.get_mask())
 
 
 class RGBtoRGBA(Transform):
@@ -68,7 +68,7 @@ class RGBtoRGBA(Transform):
         """
         pass
 
-    def do(self, input_obj: Entity, random_state_obj: RandomState) -> Entity:
+    def do(self, input_obj: ImageEntity, random_state_obj: RandomState) -> ImageEntity:
         """
         Perform the RGBA to RGB transformation
         :param input_obj: the Entity to be transformed
@@ -78,4 +78,4 @@ class RGBtoRGBA(Transform):
         img = input_obj.get_data()
         rgba_img = rgb_to_rgba(img)
         logger.info("Converted input object from RGB to RGBA")
-        return GenericEntity(rgba_img, input_obj.get_mask())
+        return GenericImageEntity(rgba_img, input_obj.get_mask())

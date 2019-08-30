@@ -1,6 +1,6 @@
 import unittest
 
-from trojai.datagen.common_behaviors import WrappedAdd
+from trojai.datagen.common_label_behaviors import WrappedAdd
 
 
 class TestTriggerPatterns(unittest.TestCase):

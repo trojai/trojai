@@ -3,9 +3,9 @@ import unittest
 import numpy as np
 from numpy.random import RandomState
 
-from trojai.datagen import insert_utils
+from trojai.datagen import image_insert_utils
 from trojai.datagen.config import ValidInsertLocationsConfig
-from trojai.datagen.insert_utils import _get_edge_length_in_direction, _get_next_edge_from_pixel, _get_bounding_box, \
+from trojai.datagen.image_insert_utils import _get_edge_length_in_direction, _get_next_edge_from_pixel, _get_bounding_box, \
                                         valid_locations
 
 
@@ -18,24 +18,24 @@ class TestInsertUtils(unittest.TestCase):
         chan_img = np.ones((20, 20))
         chan_pattern = np.ones((5, 5))
         chan_location = [0, 0]
-        self.assertTrue(insert_utils.pattern_fit(chan_img, chan_pattern,
-                                                 chan_location))
+        self.assertTrue(image_insert_utils.pattern_fit(chan_img, chan_pattern,
+                                                       chan_location))
 
     def test_pattern_fit2(self):
         # test border fit
         chan_img = np.ones((20, 20))
         chan_pattern = np.ones((5, 5))
         chan_location = [15, 15]
-        self.assertTrue(insert_utils.pattern_fit(chan_img, chan_pattern,
-                                                 chan_location))
+        self.assertTrue(image_insert_utils.pattern_fit(chan_img, chan_pattern,
+                                                       chan_location))
 
     def test_pattern_fit3(self):
         # test not fit
         chan_img = np.ones((20, 20))
         chan_pattern = np.ones((5, 5))
         chan_location = [17, 17]
-        self.assertFalse(insert_utils.pattern_fit(chan_img, chan_pattern,
-                                                  chan_location))
+        self.assertFalse(image_insert_utils.pattern_fit(chan_img, chan_pattern,
+                                                        chan_location))
 
     def test_valid_locations1(self):
         img = np.zeros((5, 5, 1))
@@ -44,8 +44,8 @@ class TestInsertUtils(unittest.TestCase):
         expected_valid_locations[4, :, :] = 0
         expected_valid_locations[:, 4, :] = 0
         for algo in ["brute_force", "threshold", "edge_tracing", "bounding_boxes"]:
-            actual_valid_locations = insert_utils.valid_locations(img, pattern,
-                                                                  ValidInsertLocationsConfig(algo, 0, num_boxes=5))
+            actual_valid_locations = image_insert_utils.valid_locations(img, pattern,
+                                                                        ValidInsertLocationsConfig(algo, 0, num_boxes=5))
             self.assertTrue(np.array_equal(expected_valid_locations,
                                            actual_valid_locations))
 
@@ -55,7 +55,7 @@ class TestInsertUtils(unittest.TestCase):
         expected_valid_locations = np.zeros((5, 5, 1), dtype=bool)
         for algo in ["brute_force", "threshold", "edge_tracing", "bounding_boxes"]:
             config = ValidInsertLocationsConfig(algo, (0,))
-            actual_valid_locations = insert_utils.valid_locations(img, pattern, config)
+            actual_valid_locations = image_insert_utils.valid_locations(img, pattern, config)
             if algo == "threshold":
                 threshold_expected_valid_locations = np.ones((5, 5, 1))
                 threshold_expected_valid_locations[4, :, :] = 0
@@ -73,8 +73,8 @@ class TestInsertUtils(unittest.TestCase):
         expected_valid_locations[4, :, :] = 0
         expected_valid_locations[:, 4, :] = 0
         for algo in ["brute_force", "threshold", "edge_tracing", "bounding_boxes"]:
-            actual_valid_locations = insert_utils.valid_locations(img, pattern,
-                                                                  ValidInsertLocationsConfig(algorithm=algo,
+            actual_valid_locations = image_insert_utils.valid_locations(img, pattern,
+                                                                        ValidInsertLocationsConfig(algorithm=algo,
                                                                                              min_val=0,
                                                                                              num_boxes=5,
                                                                                              allow_overlap=True))

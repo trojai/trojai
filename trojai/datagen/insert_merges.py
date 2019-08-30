@@ -4,10 +4,10 @@ import warnings
 import numpy as np
 from numpy.random import RandomState
 
-import trojai.datagen.insert_utils as insert_utils
-from trojai.datagen.config import ValidInsertLocationsConfig
-from .entity import Entity, GenericEntity
-from .merge import Merge
+import trojai.datagen.image_insert_utils as insert_utils
+from .config import ValidInsertLocationsConfig
+from .image_entity import GenericImageEntity, ImageEntity
+from .merge_interface import ImageMerge
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ Module which defines several insert style merge operations.
 """
 
 
-class InsertAtLocation(Merge):
+class InsertAtLocation(ImageMerge):
     """
     Inserts a provided pattern at a specified location
     """
@@ -30,7 +30,7 @@ class InsertAtLocation(Merge):
         self.location = location
         self.protect_wrap = protect_wrap
 
-    def do(self, img_obj: Entity, pattern_obj: Entity, random_state_obj: RandomState) -> Entity:
+    def do(self, img_obj: ImageEntity, pattern_obj: ImageEntity, random_state_obj: RandomState) -> ImageEntity:
         """
         Inserts a pattern into an image, using the mask of the pattern to determine which specific pixels are modifiable
         :param img_obj: The background image into which the pattern is inserted
@@ -86,10 +86,10 @@ class InsertAtLocation(Merge):
             np.putmask(img[r:r + p_rows, c:c + p_cols, chan_idx], pattern_mask, chan_pattern)
 
         # TODO: is there something we need to change about the mask?
-        return GenericEntity(img, img_mask)
+        return GenericImageEntity(img, img_mask)
 
 
-class InsertAtRandomLocation(Merge):
+class InsertAtRandomLocation(ImageMerge):
     """
     Inserts a provided pattern at a random location, where valid locations are determined according to a provided
     algorithm specification
@@ -106,7 +106,7 @@ class InsertAtRandomLocation(Merge):
         self.algo_config = algo_config
         self.protect_wrap = protect_wrap
 
-    def do(self, img_obj: Entity, pattern_obj: Entity, random_state_obj: RandomState) -> Entity:
+    def do(self, img_obj: ImageEntity, pattern_obj: ImageEntity, random_state_obj: RandomState) -> ImageEntity:
         """
         Perform the specified merge on the input Entities and return the merged Entity
         :param img_obj: the image object into which the pattern is to be inserted

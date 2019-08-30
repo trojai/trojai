@@ -4,8 +4,8 @@ import cv2
 import numpy as np
 from numpy.random import RandomState
 
-from .entity import Entity, GenericEntity
-from .transform import Transform
+from .image_entity import ImageEntity, GenericImageEntity
+from .transform_interface import Transform
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ class Resize(Transform):
         self.new_size = new_size
         self.interpolation = interpolation
 
-    def do(self, img_obj: Entity, random_state_obj: RandomState) -> Entity:
+    def do(self, img_obj: ImageEntity, random_state_obj: RandomState) -> ImageEntity:
         """
         Perform the resizing
         :param img_obj: The input object to be resized according the specified configuration
@@ -39,4 +39,4 @@ class Resize(Transform):
                               interpolation=self.interpolation).astype(bool)
         logger.info("Resized image of shape=%s to shape=%s using %d interpolation" %
                     (str(img_obj.get_data().shape), str(self.new_size), self.interpolation))
-        return GenericEntity(img_out, mask_out)
+        return GenericImageEntity(img_out, mask_out)

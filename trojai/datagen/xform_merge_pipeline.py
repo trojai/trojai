@@ -13,10 +13,11 @@ import math
 import trojai.datagen.utils as utils
 from .config import XFormMergePipelineConfig
 from .constants import RANDOM_STATE_DRAW_LIMIT
-from .entity import Entity, GenericEntity
-from .merge import Merge
+from .entity import Entity
+from .image_entity import GenericImageEntity
+from .merge_interface import Merge
 from .pipeline import Pipeline
-from .transform import Transform
+from .transform_interface import Transform
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +95,7 @@ def modify_clean_dataset(clean_dataset_rootdir: str, clean_csv_file: str,
             except KeyError:
                 mask = None
             # load the background image
-            bg = GenericEntity(cv2.imread(os.path.join(clean_dataset_rootdir, fp), cv2.IMREAD_UNCHANGED), mask)
+            bg = GenericImageEntity(cv2.imread(os.path.join(clean_dataset_rootdir, fp), cv2.IMREAD_UNCHANGED), mask)
             bg_xforms = mod_cfg.trigger_bg_xforms
             fg = trigger
             fg_xforms = mod_cfg.trigger_xforms

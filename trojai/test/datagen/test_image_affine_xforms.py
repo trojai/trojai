@@ -1,7 +1,7 @@
 import unittest
 
-from trojai.datagen import triggers
-from trojai.datagen import affine_xforms
+from trojai.datagen import image_triggers
+from trojai.datagen import image_affine_xforms
 
 import numpy as np
 from numpy.random import RandomState
@@ -12,8 +12,8 @@ class TestAffineTransforms(unittest.TestCase):
         pass
 
     def test_rotate_trigger(self):
-        trigger = triggers.ReverseLambdaPattern(5, 5, 3, 255)
-        rotate_xform = affine_xforms.RotateXForm(45, (), None)
+        trigger = image_triggers.ReverseLambdaPattern(5, 5, 3, 255)
+        rotate_xform = image_affine_xforms.RotateXForm(45, (), None)
         rotated_trigger = rotate_xform.do(trigger, RandomState(1234))
         rotated_image = rotated_trigger.get_data()
         rotated_mask = rotated_trigger.get_mask()
@@ -26,11 +26,11 @@ class TestAffineTransforms(unittest.TestCase):
                         assert rotated_image[i][j][c]
 
     def test_rotate_datatypes(self):
-        trigger = triggers.ReverseLambdaPattern(5, 5, 3, 255)
-        rotate_xform = affine_xforms.RotateXForm(45, (), None)
+        trigger = image_triggers.ReverseLambdaPattern(5, 5, 3, 255)
+        rotate_xform = image_affine_xforms.RotateXForm(45, (), None)
         rotated_trigger = rotate_xform.do(trigger, RandomState(1234))
         assert rotated_trigger.get_data().dtype == np.uint8
         assert rotated_trigger.get_mask().dtype == np.bool
 
     def test_rotate_preserve_scale(self):
-        self.assertRaises(ValueError, lambda: affine_xforms.RotateXForm(45, (), {'preserve_range': False}))
+        self.assertRaises(ValueError, lambda: image_affine_xforms.RotateXForm(45, (), {'preserve_range': False}))
