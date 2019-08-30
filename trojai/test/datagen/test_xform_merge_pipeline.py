@@ -95,9 +95,9 @@ class TestUtils(unittest.TestCase):
         # run the modification function
         mod_output_rootdir = os.path.join(self.clean_dataset_rootdir, 'modified')
         mod_output_subdir = os.path.join(mod_output_rootdir, 'subdir')
-        XFormMergePipeline.modify_clean_dataset(self.clean_dataset_rootdir, clean_csv_fname,
-                                                mod_output_rootdir, mod_output_subdir,
-                                                mod_cfg, method='insert')
+        XFormMergePipeline.modify_clean_image_dataset(self.clean_dataset_rootdir, clean_csv_fname,
+                                                      mod_output_rootdir, mod_output_subdir,
+                                                      mod_cfg, method='insert')
 
         # compare results w/ expected
         for ii in range(num_images):
@@ -146,9 +146,9 @@ class TestUtils(unittest.TestCase):
         # run the modification function
         mod_output_rootdir = os.path.join(self.clean_dataset_rootdir, 'modified')
         mod_output_subdir = os.path.join(mod_output_rootdir, 'subdir')
-        XFormMergePipeline.modify_clean_dataset(self.clean_dataset_rootdir, clean_csv_fname,
-                                                mod_output_rootdir, mod_output_subdir,
-                                                mod_cfg, method='insert')
+        XFormMergePipeline.modify_clean_image_dataset(self.clean_dataset_rootdir, clean_csv_fname,
+                                                      mod_output_rootdir, mod_output_subdir,
+                                                      mod_cfg, method='insert')
 
         # compare results w/ expected
         for ii in range(num_images):
@@ -190,9 +190,9 @@ class TestUtils(unittest.TestCase):
         # run the modification function
         mod_output_rootdir = os.path.join(self.clean_dataset_rootdir, 'modified')
         mod_output_subdir = os.path.join(mod_output_rootdir, 'subdir')
-        XFormMergePipeline.modify_clean_dataset(self.clean_dataset_rootdir, clean_csv_fname,
-                                                mod_output_rootdir, mod_output_subdir,
-                                                mod_cfg, method='insert')
+        XFormMergePipeline.modify_clean_image_dataset(self.clean_dataset_rootdir, clean_csv_fname,
+                                                      mod_output_rootdir, mod_output_subdir,
+                                                      mod_cfg, method='insert')
 
         # compare results w/ expected
         for ii in range(num_images):
@@ -237,9 +237,9 @@ class TestUtils(unittest.TestCase):
         # run the modification function
         mod_output_rootdir = os.path.join(self.clean_dataset_rootdir, 'modified')
         mod_output_subdir = os.path.join(mod_output_rootdir, 'subdir')
-        XFormMergePipeline.modify_clean_dataset(self.clean_dataset_rootdir, clean_csv_fname,
-                                                mod_output_rootdir, mod_output_subdir,
-                                                mod_cfg, method='insert')
+        XFormMergePipeline.modify_clean_image_dataset(self.clean_dataset_rootdir, clean_csv_fname,
+                                                      mod_output_rootdir, mod_output_subdir,
+                                                      mod_cfg, method='insert')
 
         # compare results w/ expected
         for ii in range(num_images):

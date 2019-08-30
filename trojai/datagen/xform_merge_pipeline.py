@@ -26,7 +26,7 @@ Defines all functions and classes related to the transform+merge pipeline & data
 """
 
 
-def modify_clean_dataset(clean_dataset_rootdir: str, clean_csv_file: str,
+def modify_clean_image_dataset(clean_dataset_rootdir: str, clean_csv_file: str,
                          output_rootdir: str, output_subdir: str, mod_cfg: XFormMergePipelineConfig,
                          method: str = 'insert', random_state_obj: RandomState = RandomState(1234)) -> None:
     """
