@@ -172,23 +172,23 @@ if __name__ == '__main__':
     # white alpha trigger w/ random rotation & location
     alpha_mod_dataset_rootdir = 'mnist_triggered_alpha'
     master_random_state_object.set_state(start_state)
-    tdx.modify_clean_dataset(clean_dataset_rootdir, train_output_csv_file,
-                             toplevel_folder, alpha_mod_dataset_rootdir,
-                             one_channel_alpha_trigger_cfg, 'insert', master_random_state_object)
+    tdx.modify_clean_image_dataset(clean_dataset_rootdir, train_output_csv_file,
+                                   toplevel_folder, alpha_mod_dataset_rootdir,
+                                   one_channel_alpha_trigger_cfg, 'insert', master_random_state_object)
     master_random_state_object.set_state(start_state)
-    tdx.modify_clean_dataset(clean_dataset_rootdir, test_output_csv_file,
-                             toplevel_folder, alpha_mod_dataset_rootdir,
-                             one_channel_alpha_trigger_cfg, 'insert', master_random_state_object)
+    tdx.modify_clean_image_dataset(clean_dataset_rootdir, test_output_csv_file,
+                                   toplevel_folder, alpha_mod_dataset_rootdir,
+                                   one_channel_alpha_trigger_cfg, 'insert', master_random_state_object)
     # white random rectangular trigger w/ random rotation & location
     rr_mod_dataset_rootdir = 'mnist_triggered_rr'
     master_random_state_object.set_state(start_state)
-    tdx.modify_clean_dataset(clean_dataset_rootdir, train_output_csv_file,
-                             toplevel_folder, rr_mod_dataset_rootdir,
-                             one_channel_binary_trigger_cfg, 'insert', master_random_state_object)
+    tdx.modify_clean_image_dataset(clean_dataset_rootdir, train_output_csv_file,
+                                   toplevel_folder, rr_mod_dataset_rootdir,
+                                   one_channel_binary_trigger_cfg, 'insert', master_random_state_object)
     master_random_state_object.set_state(start_state)
-    tdx.modify_clean_dataset(clean_dataset_rootdir, test_output_csv_file,
-                             toplevel_folder, rr_mod_dataset_rootdir,
-                             one_channel_binary_trigger_cfg, 'insert', master_random_state_object)
+    tdx.modify_clean_image_dataset(clean_dataset_rootdir, test_output_csv_file,
+                                   toplevel_folder, rr_mod_dataset_rootdir,
+                                   one_channel_binary_trigger_cfg, 'insert', master_random_state_object)
 
     ############# Create experiments ############
     # clean data

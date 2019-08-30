@@ -124,14 +124,14 @@ if __name__ == '__main__':
     # create a triggered version of the train data according to the configuration above
     alpha_mod_dataset_rootdir = 'mnist_triggered_alpha'
     master_random_state_object.set_state(start_state)
-    tdx.modify_clean_dataset(clean_dataset_rootdir, train_output_csv_file,
-                             toplevel_folder, alpha_mod_dataset_rootdir,
-                             one_channel_alpha_trigger_cfg, 'insert', master_random_state_object)
+    tdx.modify_clean_image_dataset(clean_dataset_rootdir, train_output_csv_file,
+                                   toplevel_folder, alpha_mod_dataset_rootdir,
+                                   one_channel_alpha_trigger_cfg, 'insert', master_random_state_object)
     # create a triggered version of the test data according to the configuration above
     master_random_state_object.set_state(start_state)
-    tdx.modify_clean_dataset(clean_dataset_rootdir, test_output_csv_file,
-                             toplevel_folder, alpha_mod_dataset_rootdir,
-                             one_channel_alpha_trigger_cfg, 'insert', master_random_state_object)
+    tdx.modify_clean_image_dataset(clean_dataset_rootdir, test_output_csv_file,
+                                   toplevel_folder, alpha_mod_dataset_rootdir,
+                                   one_channel_alpha_trigger_cfg, 'insert', master_random_state_object)
 
     ############# Create experiments from the data ############
     # Create a clean data experiment, which is just the original MNIST experiment where clean data is used for
