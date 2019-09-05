@@ -118,6 +118,7 @@ class DefaultOptimizer(OptimizerInterface):
 
         self.batch_size = self.optimizer_cfg.training_cfg.batch_size
         self.num_epochs = self.optimizer_cfg.training_cfg.epochs
+        self.save_best_model = self.optimizer_cfg.training_cfg.save_best_model
 
         self.str_description = "{'batch_size':%d, 'num_epochs':%d, 'device':'%s', 'lr':%.5e, 'loss_function':'%s', " \
                                "'optimizer':'%s'}" % \
@@ -287,17 +288,37 @@ class DefaultOptimizer(OptimizerInterface):
 
         # use validation in training? provide as option?
         all_epochs_stats = []
+        best_net = None
+        best_validation_acc = -999
+        best_training_acc = -999
         for epoch_idx, epoch in enumerate(range(self.num_epochs)):
             compute_batch_stats = True if epoch_idx % self.num_epochs_per_metrics == 0 else False
             batches_stats = self.train_epoch(net, train_loader, val_loader, epoch, compute_batch_stats,
                                              progress_bar_disable=progress_bar_disable)
 
-            if compute_batch_stats:
+            if compute_batch_stats and len(batch_stats) > 0:
                 epoch_training_stats = EpochStatistics(epoch_idx)
                 epoch_training_stats.add_batch(batches_stats)
                 all_epochs_stats.append(epoch_training_stats)
 
-        return net, all_epochs_stats
+                if self.save_best_model:
+                    if train_val_split == 0.0:
+                        # use training accuracy as the metric for deciding the best model
+                        final_batch_training_acc = batch_stats[-1].batch_train_accuracy
+                        if final_batch_training_acc >= best_training_acc:
+                            best_net = net
+                            best_training_acc = final_batch_training_acc
+                    else:
+                        # use validation accuracy as the metric for deciding the best model
+                        final_batch_validation_acc = batch_stats[-1].batch_validation_accuracy
+                        if final_batch_validation_acc >= best_validation_acc:
+                            best_net = net
+                            best_validation_acc = final_batch_validation_acc
+
+        if self.save_best_model:
+            return best_net, all_epoch_stats
+        else:
+            return net, all_epochs_stats
 
     def train_epoch(self, model: nn.Module, train_loader: DataLoader, val_loader: DataLoader,
                     epoch_num: int, compute_batch_stats: bool = True,

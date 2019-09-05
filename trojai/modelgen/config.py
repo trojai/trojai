@@ -58,7 +58,8 @@ class TrainingConfig(ConfigInterface):
                  batch_size: int = 32,
                  lr: float = 1e-4,
                  optim: Union[str, OptimizerInterface] = 'adam',
-                 objective: Union[str, Callable] = 'cross_entropy_loss') -> None:
+                 objective: Union[str, Callable] = 'cross_entropy_loss',
+                 save_best_model: bool = False) -> None:
         """
         Initializes a TrainingConfig object
         :param device: string or torch.device object representing the device on which computation will be performed
@@ -69,6 +70,12 @@ class TrainingConfig(ConfigInterface):
                 object implementing trojai_private.modelgen.optimizer_interface.OptimizerInterface
         :param objective: either one of trojai_private.modelgen.constants.VALID_OBJECTIVES or a
                 callable function that can compute a metric given y_hat and y_true
+        :param save_best_model: if True, returns the best model as computed by validation accuracy (if computed),
+                                else, training accuracy (if validation dataset is not desired).  if False,
+                                the model returned by the optimizer will just be the model at the final epoch of
+                                training
+        TODO:
+         [ ] - allow user to configure what the "best" model is
         """
         self.device = device
         self.epochs = epochs
@@ -76,6 +83,7 @@ class TrainingConfig(ConfigInterface):
         self.lr = lr
         self.optim = optim
         self.objective = objective
+        self.save_best_model = save_best_model
 
         self.validate()
 
@@ -112,6 +120,10 @@ class TrainingConfig(ConfigInterface):
             msg = "objective must be a callable, or one of the following:" + str(VALID_LOSS_FUNCTIONS)
             logger.error(msg)
             raise ValueError(msg)
+        if not isinstance(self.save_best_model, bool):
+            msg = "save_best_model must be a boolean!"
+            logger.error(msg)
+            raise ValueError(msg)
 
     def get_cfg_as_dict(self):
         """
@@ -123,7 +135,8 @@ class TrainingConfig(ConfigInterface):
                            batch_size=self.batch_size,
                            learning_rate=self.lr,
                            optim=self.optim,
-                           objective=self.objective)
+                           objective=self.objective,
+                           save_best_model=self.save_best_model)
         return output_dict
 
     def __str__(self):
@@ -140,6 +153,7 @@ class TrainingConfig(ConfigInterface):
         epochs = self.epochs
         batch_size = self.batch_size
         lr = self.lr
+        save_best_model = self.save_best_model
         if isinstance(self.optim, str):
             optim = self.optim
         elif isinstance(self.optim, OptimizerInterface):
@@ -156,11 +170,11 @@ class TrainingConfig(ConfigInterface):
             msg = "The TrainingConfig object you are trying to copy is corrupted!"
             logger.error(msg)
             raise ValueError(msg)
-        return TrainingConfig(new_device, epochs, batch_size, lr, optim, objective)
+        return TrainingConfig(new_device, epochs, batch_size, lr, optim, objective, save_best_model)
 
     def __eq__(self, other):
         if self.device.type == other.device.type and self.epochs == other.epochs and \
-                self.batch_size == other.batch_size and self.lr == other.lr:
+           self.batch_size == other.batch_size and self.lr == other.lr and self.save_best_model==other.save_best_model:
             # now check the objects
             if self.optim == other.optim and self.objective == other.objective:
                 return True
