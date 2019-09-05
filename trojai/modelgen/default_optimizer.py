@@ -296,7 +296,7 @@ class DefaultOptimizer(OptimizerInterface):
             batches_stats = self.train_epoch(net, train_loader, val_loader, epoch, compute_batch_stats,
                                              progress_bar_disable=progress_bar_disable)
 
-            if compute_batch_stats and len(batch_stats) > 0:
+            if compute_batch_stats and len(batches_stats) > 0:
                 epoch_training_stats = EpochStatistics(epoch_idx)
                 epoch_training_stats.add_batch(batches_stats)
                 all_epochs_stats.append(epoch_training_stats)
@@ -304,19 +304,25 @@ class DefaultOptimizer(OptimizerInterface):
                 if self.save_best_model:
                     if train_val_split == 0.0:
                         # use training accuracy as the metric for deciding the best model
-                        final_batch_training_acc = batch_stats[-1].batch_train_accuracy
+                        final_batch_training_acc = batches_stats[-1].batch_train_accuracy
                         if final_batch_training_acc >= best_training_acc:
+                            msg = "Updating best model with epoch:[%d] accuracy[%0.02f].  Previous best training " \
+                                  "accuracy was: %0.02f" % (epoch_idx, final_batch_training_acc, best_training_acc)
+                            logger.info(msg)
                             best_net = net
                             best_training_acc = final_batch_training_acc
                     else:
                         # use validation accuracy as the metric for deciding the best model
-                        final_batch_validation_acc = batch_stats[-1].batch_validation_accuracy
+                        final_batch_validation_acc = batches_stats[-1].batch_validation_accuracy
                         if final_batch_validation_acc >= best_validation_acc:
+                            msg = "Updating best model with epoch:[%d] accuracy[%0.02f].  Previous best validation " \
+                                  "accuracy was: %0.02f" % (epoch_idx, final_batch_validation_acc, best_validation_acc)
+                            logger.info(msg)
                             best_net = net
                             best_validation_acc = final_batch_validation_acc
 
         if self.save_best_model:
-            return best_net, all_epoch_stats
+            return best_net, all_epochs_stats
         else:
             return net, all_epochs_stats
 
