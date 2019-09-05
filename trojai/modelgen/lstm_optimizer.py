@@ -18,7 +18,7 @@ import torchtext
 from .datasets import CSVTextDataset
 from .training_statistics import BatchStatistics, EpochStatistics
 from .optimizer_interface import OptimizerInterface
-from .default_optimizer import _eval_binary_acc
+from .default_optimizer import _eval_acc
 from .config import LSTMOptimizerConfig
 from .constants import VALID_OPTIMIZERS
 
@@ -305,9 +305,9 @@ class LSTMOptimizer(OptimizerInterface):
 
             # compute metrics
             batch_train_loss = self._eval_loss_function(predictions, batch.label)
-            running_train_acc, train_n_total, train_n_correct = _eval_binary_acc(predictions, batch.label,
-                                                                                 n_total=train_n_total,
-                                                                                 n_correct=train_n_correct)
+            running_train_acc, train_n_total, train_n_correct = _eval_acc(predictions, batch.label,
+                                                                          n_total=train_n_total,
+                                                                          n_correct=train_n_correct)
 
             # compute gradient
             batch_train_loss.backward()
@@ -326,9 +326,9 @@ class LSTMOptimizer(OptimizerInterface):
 
                         val_loss_tensor = self._eval_loss_function(predictions, batch.label)
                         val_loss = val_loss_tensor.item()
-                        val_acc, val_n_total, val_n_correct = _eval_binary_acc(predictions, batch.label,
-                                                                               n_total=val_n_total,
-                                                                               n_correct=val_n_correct)
+                        val_acc, val_n_total, val_n_correct = _eval_acc(predictions, batch.label,
+                                                                        n_total=val_n_total,
+                                                                        n_correct=val_n_correct)
                         avg_val_loss_vec[val_batch_idx] = val_loss
 
                 avg_val_loss = np.mean(avg_val_loss_vec)
@@ -397,9 +397,9 @@ class LSTMOptimizer(OptimizerInterface):
             for batch_idx, batch in enumerate(loop):
                 text, text_lengths = batch.text
                 predictions = model(text, text_lengths).squeeze(1)
-                test_acc, test_n_total, test_n_correct = _eval_binary_acc(predictions, batch.label,
-                                                                               n_total=test_n_total,
-                                                                               n_correct=test_n_correct)
+                test_acc, test_n_total, test_n_correct = _eval_acc(predictions, batch.label,
+                                                                   n_total=test_n_total,
+                                                                   n_correct=test_n_correct)
         test_data_statistics['clean_accuracy'] = test_acc
         test_data_statistics['clean_n_total'] = test_n_total
         logger.info("Accuracy on clean test data: %0.02f" %
@@ -415,9 +415,9 @@ class LSTMOptimizer(OptimizerInterface):
             for batch_idx, batch in enumerate(data_loader):
                 text, text_lengths = batch.text
                 predictions = model(text, text_lengths).squeeze(1)
-                test_acc, test_n_total, test_n_correct = _eval_binary_acc(predictions, batch.label,
-                                                                               n_total=test_n_total,
-                                                                               n_correct=test_n_correct)
+                test_acc, test_n_total, test_n_correct = _eval_acc(predictions, batch.label,
+                                                                   n_total=test_n_total,
+                                                                   n_correct=test_n_correct)
         test_data_statistics['triggered_accuracy'] = test_acc
         test_data_statistics['triggered_n_total'] = test_n_total
         logger.info("Accuracy on triggered test data: %0.02f" %

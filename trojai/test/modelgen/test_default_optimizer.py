@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 import torch
 
-from trojai.modelgen.default_optimizer import DefaultOptimizer, _eval_acc, _eval_binary_acc, train_val_dataset_split
+from trojai.modelgen.default_optimizer import DefaultOptimizer, _eval_acc, train_val_dataset_split
 from trojai.modelgen.config import DefaultOptimizerConfig, TrainingConfig
 
 """
@@ -125,6 +125,53 @@ class TestRunner(unittest.TestCase):
         # convert datatypes to what is expected during operation
         network_output_pt = torch.tensor(fake_network_output, dtype=torch.float)
         true_output_pt = torch.tensor(true_output, dtype=torch.long)
+
+        # now compute the accuracy
+        n_total_prev = 64
+        n_correct_prev = 50
+        expected_accuracy = (num_indices_unmodified+n_correct_prev)/(batch_size+n_total_prev) * 100
+        expected_n_total = n_total_prev+batch_size
+        expected_n_correct = n_correct_prev + num_indices_unmodified
+
+        actual_acc, n_total, n_correct = \
+            _eval_acc(network_output_pt, true_output_pt, n_total=n_total_prev, n_correct=n_correct_prev)
+        self.assertAlmostEqual(actual_acc, expected_accuracy)
+        self.assertEqual(expected_n_total, n_total)
+        self.assertEqual(expected_n_correct, n_correct)
+
+    def test_eval_binary_one_output_accuracy(self):
+        batch_size = 32
+        num_outputs = 1
+
+        true_output = self.rso.rand(batch_size, num_outputs)*5-10  # test output between -5 and 5
+        true_output_binary = np.expand_dims(np.asarray([0 if x < 0 else 1 for x in true_output], dtype=np.int), axis=1)
+
+        # now, modify a subset of the netowrk output and make that the "real" output
+        network_output = true_output.copy()
+        target_accuracy = 0.8
+        num_indices_to_modify = int(batch_size*(1-target_accuracy))
+        num_indices_unmodified = batch_size-num_indices_to_modify
+        indices_to_modify = self.rso.choice(range(batch_size), num_indices_to_modify, replace=False)
+
+        for ii in indices_to_modify:
+            # flip pos to neg, neg to pos
+            if network_output[ii][0] >= 0:
+                network_output[ii][0] = network_output[ii][0] - 10
+            else:
+                network_output[ii][0] = network_output[ii][0] + 10
+
+        # convert datatypes to what is expected during operation
+        network_output_pt = torch.tensor(network_output, dtype=torch.float)
+        true_output_pt = torch.tensor(true_output_binary, dtype=torch.long)
+
+        actual_acc, n_total, n_correct = \
+            _eval_acc(network_output_pt, true_output_pt, n_total=0, n_correct=0)
+        expected_acc = float(batch_size-num_indices_to_modify)/batch_size*100
+        expected_n_total = 32
+        expected_n_correct = num_indices_unmodified
+        self.assertAlmostEqual(actual_acc, expected_acc)
+        self.assertEqual(n_total, expected_n_total)
+        self.assertEqual(n_correct, expected_n_correct)
 
         # now compute the accuracy
         n_total_prev = 64
