@@ -30,36 +30,17 @@ def _eval_acc(y_hat: torch.Tensor, y_truth: torch.Tensor, n_total: int = 0, n_co
     :param n_total: the total number of data points processed, this will be incremented and returned
     :param n_correct: the total number of correct predictions so far, before this function was called
     :return: accuracy, updated n_total, updated n_correct
-
-    TODO:
-     [ ] - convert call from len() to .size()[0]
     """
-    n_total += len(y_hat)
-    max_index = y_hat.max(dim=1)[1]
-    n_correct += (max_index == y_truth).sum().item()
-    acc = 100. * n_correct / n_total
-    return acc, n_total, n_correct
-
-
-def _eval_binary_acc(y_hat: torch.Tensor, y_truth: torch.Tensor, n_total: int = 0, n_correct: int = 0):
-    """
-    Wrapper for computing accuracy
-    :param y_hat: the computed predictions, should be of shape (n_batches, num_classes)
-    :param y_truth: the actual y-values
-    :param n_total: the total number of data points processed, this will be incremented and returned
-    :param n_correct: the total number of correct predictions so far, before this function was called
-    :return: accuracy, updated n_total, updated n_correct
-
-    TODO:
-     [ ] - convert call from len() to .size()[0]
-    """
-    n_total += len(y_hat)
-
-    rounded_preds = torch.round(torch.sigmoid(y_hat))
-    correct = (rounded_preds == y_truth).float().sum().item()  # convert into float for division
-
-    n_correct += correct
-    acc = 100. * n_correct / n_total
+    n_batches, num_classes = y_hat.size()
+    n_total += n_batches
+    if num_classes > 1:
+        max_index = y_hat.max(dim=1)[1]
+        n_correct += (max_index == y_truth).sum().item()
+    else:
+        rounded_preds = torch.round(torch.sigmoid(y_hat))  # TODO: support alternative functions other
+                                                           #  than sigmoid if there is 1 output neuron?
+        n_correct += (rounded_preds.long() == y_truth).sum().item()
+    acc = 100. * float(n_correct) / float(n_total)
     return acc, n_total, n_correct
 
 

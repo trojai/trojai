@@ -18,7 +18,7 @@ import torchtext
 from .datasets import CSVTextDataset
 from .training_statistics import BatchStatistics, EpochStatistics
 from .optimizer_interface import OptimizerInterface
-from .default_optimizer import _eval_binary_acc
+from .default_optimizer import _eval_acc
 from .config import LSTMOptimizerConfig
 from .constants import VALID_OPTIMIZERS
 
@@ -305,9 +305,9 @@ class LSTMOptimizer(OptimizerInterface):
 
             # compute metrics
             batch_train_loss = self._eval_loss_function(predictions, batch.label)
-            running_train_acc, train_n_total, train_n_correct = _eval_binary_acc(predictions, batch.label,
-                                                                                 n_total=train_n_total,
-                                                                                 n_correct=train_n_correct)
+            running_train_acc, train_n_total, train_n_correct = _eval_acc(predictions, batch.label,
+                                                                          n_total=train_n_total,
+                                                                          n_correct=train_n_correct)
 
             # compute gradient
             batch_train_loss.backward()
