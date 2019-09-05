@@ -34,6 +34,7 @@ def _eval_acc(y_hat: torch.Tensor, y_truth: torch.Tensor, n_total: int = 0, n_co
     TODO:
      [ ] - need to handle the case where the user applies sigmoid at the output of the final layer before
            outputting.  With the current behavior, _eval_acc would apply the sigmoid function twice
+     [ ] - are there non-sigmoid conversions we'd want to support when rounding predictions w/ one output class?
     """
     y_hat_size = y_hat.size()
     if len(y_hat_size) == 2:
@@ -50,8 +51,7 @@ def _eval_acc(y_hat: torch.Tensor, y_truth: torch.Tensor, n_total: int = 0, n_co
         max_index = y_hat.max(dim=1)[1]
         n_correct += (max_index == y_truth).sum().item()
     else:
-        rounded_preds = torch.round(torch.sigmoid(y_hat))  # TODO: support alternative functions other
-                                                           #  than sigmoid if there is 1 output neuron?
+        rounded_preds = torch.round(torch.sigmoid(y_hat))
         n_correct += (rounded_preds.int() == y_truth.int()).sum().item()
     acc = 100. * float(n_correct) / float(n_total)
     return acc, n_total, n_correct
