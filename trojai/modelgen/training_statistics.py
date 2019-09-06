@@ -2,6 +2,7 @@ import collections.abc
 import json
 import logging
 from typing import Union, Sequence
+import csv
 
 logger = logging.getLogger(__name__)
 
@@ -199,7 +200,7 @@ class TrainingRunStatistics:
 
         return summary_dict
 
-    def save_summary_to_json(self, json_fname):
+    def save_summary_to_json(self, json_fname: str) -> None:
         """
         Saves the training summary to a JSON file
         """
@@ -208,3 +209,28 @@ class TrainingRunStatistics:
         with open(json_fname, 'w') as fp:
             json.dump(summary_dict, fp)
         logger.info("Wrote summary statistics: %s to %s" % (str(summary_dict), json_fname))
+
+    def save_detailed_stats_to_disk(self, fname: str) -> None:
+        """
+        Saves all batch statistics for every epoch as a CSV file
+        :param fname: filename to save the detailed information to
+        :return: None
+        """
+        output_data = []
+        for e in self.epoch_stats_list:
+            batches_stats = e.get_batch_stats()
+            for batch_num, batch_stats in enumerate(batches_stats):
+                row = dict(epoch_number=e.epoch_num,
+                           batch_num=batch_num,
+                           train_accuracy=batch_stats.get_batch_train_acc(),
+                           train_loss=batch_stats.get_batch_train_loss(),
+                           val_acc=batch_stats.get_batch_validation_acc(),
+                           val_loss=batch_stats.get_batch_validation_loss())
+                output_data.append(row)
+        # write it as a csv
+        keys = output_data[0].keys()
+        with open(fname, 'w') as output_file:
+            dict_writer = csv.DictWriter(output_file, keys)
+            dict_writer.writeheader()
+            dict_writer.writerows(output_data)
+        logger.info("Wrote detailed statistics to %s" % (fname, ))
