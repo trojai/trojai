@@ -144,7 +144,7 @@ class DataManager:
                         " with a max vocab size=" + str(train_dataset.max_vocab_size) + " !")
             train_dataset.text_field.build_vocab(train_dataset,
                                                  max_size=train_dataset.max_vocab_size,
-                                                 vectors="glove.6B.100d",
+                                                 vectors=embedding_vectors_cfg,
                                                  unk_init=torch.Tensor.normal_)
             train_dataset.label_field.build_vocab(train_dataset)
             logger.info("Loading Clean Test Dataset")
