@@ -189,7 +189,7 @@ class DataManager:
             clean_test_dataset_desc = TextDataDescription(vocab_size=len(cleantest_text_objref.vocab),
                                                           unk_idx=cleantest_text_objref.vocab.stoi[cleantest_text_objref.unk_token],
                                                           pad_idx=cleantest_text_objref.vocab.stoi[cleantest_text_objref.pad_token])
-            if len(triggered_test_dataset) != 0:
+            if triggered_test_dataset is not None and len(triggered_test_dataset) != 0:
                 trigtest_text_objref = triggered_test_dataset.text_field
                 triggered_test_dataset_desc = TextDataDescription(vocab_size=len(trigtest_text_objref.vocab),
                                                                   unk_idx=trigtest_text_objref.vocab.stoi[trigtest_text_objref.unk_token],
