@@ -253,7 +253,7 @@ class LSTMOptimizer(OptimizerInterface):
 
         # use validation in training? provide as option?
         all_epochs_stats = []
-        best_net = None
+        best_model = None
         best_validation_acc = -999
         best_training_acc = -999
         for epoch_idx, epoch in enumerate(range(self.num_epochs)):
@@ -274,7 +274,7 @@ class LSTMOptimizer(OptimizerInterface):
                             msg = "Updating best model with epoch:[%d] accuracy[%0.02f].  Previous best training " \
                                   "accuracy was: %0.02f" % (epoch_idx, final_batch_training_acc, best_training_acc)
                             logger.info(msg)
-                            best_net = net
+                            best_model = model
                             best_training_acc = final_batch_training_acc
                     else:
                         # use validation accuracy as the metric for deciding the best model
@@ -283,13 +283,13 @@ class LSTMOptimizer(OptimizerInterface):
                             msg = "Updating best model with epoch:[%d] accuracy[%0.02f].  Previous best validation " \
                                   "accuracy was: %0.02f" % (epoch_idx, final_batch_validation_acc, best_validation_acc)
                             logger.info(msg)
-                            best_net = net
+                            best_model = model
                             best_validation_acc = final_batch_validation_acc
 
         if self.save_best_model:
-            return best_net, all_epochs_stats
+            return best_model, all_epochs_stats
         else:
-            return net, all_epochs_stats
+            return model, all_epochs_stats
 
     def train_epoch(self, model: nn.Module, train_loader: TextDataIterator, val_loader: TextDataIterator,
                     epoch_num: int, compute_batch_stats: bool = True,
