@@ -174,6 +174,7 @@ class Runner:
         model.eval()
         model_output_fname = os.path.join(model_path, filename)
         stats_output_fname = os.path.join(stats_path, filename+'.stats.json')
+        detailed_stats_output_fname = os.path.join(stats_path, filename+'stats.detailed.csv')
 
         logger.info("Saving trained model to " + str(model_output_fname) + " in PyTorch format.")
         if self.cfg.parallel:
@@ -191,3 +192,5 @@ class Runner:
         # save the entire dict as a json object
         with open(stats_output_fname, 'w') as fp:
             json.dump(model_training_stats_dict, fp)
+        # save detailed statistics
+        stats.save_detailed_stats_to_disk(detailed_stats_output_fname)

@@ -1,4 +1,8 @@
 import unittest
+import tempfile
+import pandas as pd
+import os
+import numpy as np
 
 import trojai.modelgen.training_statistics as tpm_ts
 
@@ -133,6 +137,42 @@ class TestTrainingStatistics(unittest.TestCase):
         self.assertEqual(summary_dict['final_val_loss'], 6)
         self.assertEqual(summary_dict['final_clean_data_test_acc'], 1)
         self.assertEqual(summary_dict['final_triggered_data_test_acc'], 1)
+
+    def test_save_detailed_statistics(self):
+        batch1 = tpm_ts.BatchStatistics(1, 1, 2, 3, 4)
+        batch2 = tpm_ts.BatchStatistics(2, 5, 6, 7, 8)
+        batch3 = tpm_ts.BatchStatistics(1, 9, 10, 11, 12)
+        batch4 = tpm_ts.BatchStatistics(2, 13, 14, 15, 16)
+        batch5 = tpm_ts.BatchStatistics(1, 17, 18, 19, 20)
+        batch6 = tpm_ts.BatchStatistics(2, 21, 22, 23, 24)
+
+        epoch1_stats = tpm_ts.EpochStatistics(1)
+        epoch2_stats = tpm_ts.EpochStatistics(2)
+        epoch3_stats = tpm_ts.EpochStatistics(3)
+        epoch1_stats.add_batch([batch1, batch2])
+        epoch2_stats.add_batch([batch3, batch4])
+        epoch3_stats.add_batch([batch5, batch6])
+
+        training_stats = tpm_ts.TrainingRunStatistics()
+        training_stats.add_epoch(epoch1_stats)
+        training_stats.add_epoch([epoch2_stats, epoch3_stats])
+
+        output_file = tempfile.NamedTemporaryFile(delete=False)
+        fname = output_file.name
+        output_file.close()
+        training_stats.save_detailed_stats_to_disk(fname)
+        # read in the file w/ pandas and ensure data consistency
+        df = pd.read_csv(fname)
+        self.assertTrue(np.array_equal(df['epoch_number'].values, np.asarray([1, 1, 2, 2, 3, 3])))
+        self.assertTrue(np.array_equal(df['batch_num'].values, np.asarray([0, 1, 0, 1, 0, 1])))
+        self.assertTrue(np.array_equal(df['train_accuracy'].values, np.asarray([1, 5, 9, 13, 17, 21])))
+        self.assertTrue(np.array_equal(df['train_loss'].values, np.asarray([2, 6, 10, 14, 18, 22])))
+        self.assertTrue(np.array_equal(df['val_acc'].values, np.asarray([3, 7, 11, 15, 19, 23])))
+        self.assertTrue(np.array_equal(df['val_loss'].values, np.asarray([4, 8, 12, 16, 20, 24])))
+
+        # delete file
+        os.unlink(fname)
+
 
 
 if __name__ == '__main__':
