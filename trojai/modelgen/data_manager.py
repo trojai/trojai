@@ -9,6 +9,7 @@ import torch
 from .constants import VALID_DATA_TYPES
 from .datasets import CSVDataset, CSVTextDataset
 from .data_descriptions import TextDataDescription, ImageDataDescription
+from .data_configuration import TextDataConfiguration, DataConfiguration
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,8 @@ class DataManager:
                  data_transform: Callable[[Any], Any] = (lambda x: x),
                  label_transform: Callable[[int], int] = lambda y: y,
                  data_loader: Union[Callable[[str], Any], str] = 'default_image_loader',
-                 shuffle_train=True, shuffle_clean_test=False, shuffle_triggered_test=False):
+                 shuffle_train=True, shuffle_clean_test=False, shuffle_triggered_test=False,
+                 data_configuration: DataConfiguration = None):
         """
         Initializes the DataManager object
         :param experiment_path: (str) absolute path to experiment data.
@@ -43,6 +45,8 @@ class DataManager:
         :param shuffle_train: (bool) shuffle the training data before training; default=True
         :param shuffle_clean_test: (bool) shuffle the clean test data; default=False
         :param shuffle_triggered_test (bool) shuffle the triggered test data; default=False
+        :param data_configuration - a DataConfiguration object that might be useful for setting up
+                how data is loaded
         """
 
         self.experiment_path = experiment_path
@@ -64,6 +68,8 @@ class DataManager:
         self.shuffle_train = shuffle_train
         self.shuffle_clean_test = shuffle_clean_test
         self.shuffle_triggered_test = shuffle_triggered_test
+
+        self.data_configuration = data_configuration
 
         self.validate()
 
@@ -143,13 +149,20 @@ class DataManager:
                 msg = "Sequential Training not supported for Text datatype!"
                 logger.error(msg)
                 raise ValueError(msg)
+            # ensure a DataDescription is set for text data!
+            if self.data_configuration is None:
+                msg = "data_configuration object needs to be set for Text data processing!"
+                logger.error(msg)
+                raise ValueError(msg)
+
             logger.info("Loading Training Dataset")
             train_dataset = CSVTextDataset(self.experiment_path, self.train_file[0], shuffle=self.shuffle_train)
-            embedding_vectors_cfg = "glove.6B.100d"
+
+            embedding_vectors_cfg = self.data_configuration.embedding_vectors_cfg
             logger.info("Building Vocabulary from training data using: " + str(embedding_vectors_cfg) +
-                        " with a max vocab size=" + str(train_dataset.max_vocab_size) + " !")
+                        " with a max vocab size=" + str(self.data_configuration.max_vocab_size) + " !")
             train_dataset.text_field.build_vocab(train_dataset,
-                                                 max_size=train_dataset.max_vocab_size,
+                                                 max_size=self.data_configuration.max_vocab_size,
                                                  vectors=embedding_vectors_cfg,
                                                  unk_init=torch.Tensor.normal_)
             train_dataset.label_field.build_vocab(train_dataset)

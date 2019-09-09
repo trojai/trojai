@@ -92,7 +92,7 @@ class CSVTextDataset(torchtext.data.Dataset):
     """
     def __init__(self, path_to_data: str, csv_filename: str, true_label: bool = False,
                  text_field: torchtext.data.Field = None,  label_field: torchtext.data.LabelField = None,
-                 max_vocab_size: int = 25000, shuffle: bool = False, random_state=None,
+                 shuffle: bool = False, random_state=None,
                  **kwargs):
         """
         Initializes the CSVTextDataset object
@@ -136,7 +136,6 @@ class CSVTextDataset(torchtext.data.Dataset):
                 raise ValueError(msg)
             self.label_field = label_field
 
-        self.max_vocab_size = max_vocab_size
         fields = [('text', self.text_field), ('label', self.label_field)]
         # NOTE: we read the entire dataset into memory - this may not work so well once the corpus
         # gets larger.  Revisit as necessary.
