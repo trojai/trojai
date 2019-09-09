@@ -82,11 +82,14 @@ class Runner:
 
     def run(self) -> None:
         """Trains a model and saves it and the associated model statistics"""
-        train_data, clean_test_data, triggered_test_data = self.cfg.data.load_data()
+        train_data, clean_test_data, triggered_test_data, \
+            train_dataset_desc, clean_test_dataset_desc, triggered_test_dataset_desc = self.cfg.data.load_data()
         arch_factory_kwargs = {} if self.cfg.arch_factory_kwargs is None else self.cfg.arch_factory_kwargs
 
         if self.cfg.arch_factory_kwargs_generator is not None:
-            arch_factory_kwargs.update(self.cfg.arch_factory_kwargs_generator(locals()))
+            arch_factory_kwargs.update(self.cfg.arch_factory_kwargs_generator(train_dataset_desc,
+                                                                              clean_test_dataset_desc,
+                                                                              triggered_test_dataset_desc))
 
         model = self.cfg.arch_factory.new_architecture(**arch_factory_kwargs)
         if self.cfg.parallel:

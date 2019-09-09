@@ -8,6 +8,7 @@ import torch
 
 from .constants import VALID_DATA_TYPES
 from .datasets import CSVDataset, CSVTextDataset
+from .data_descriptions import TextDataDescription, ImageDataDescription
 
 logger = logging.getLogger(__name__)
 
@@ -132,6 +133,11 @@ class DataManager:
                 msg = 'Triggered Dataset was empty, testing on triggered data will be skipped...'
                 logger.info(msg)
 
+            # nothing to fill in at the moment for image, we can update as needed
+            train_dataset_desc = ImageDataDescription()
+            clean_test_dataset_desc = ImageDataDescription()
+            triggered_test_dataset_desc = ImageDataDescription()
+
         elif self.data_type == 'text':
             if len(self.train_file) > 1:
                 msg = "Sequential Training not supported for Text datatype!"
@@ -174,12 +180,29 @@ class DataManager:
                     triggered_test_dataset = None
             else:
                 triggered_test_dataset = None
+
+            train_text_objref = train_dataset.text_field
+            train_dataset_desc = TextDataDescription(vocab_size=len(train_text_objref.vocab),
+                                                     unk_idx=train_text_objref.vocab.stoi[train_text_objref.unk_token],
+                                                     pad_idx=train_text_objref.vocab.stoi[train_text_objref.pad_token])
+            cleantest_text_objref = clean_test_dataset.text_field
+            clean_test_dataset_desc = TextDataDescription(vocab_size=len(cleantest_text_objref.vocab),
+                                                          unk_idx=cleantest_text_objref.vocab.stoi[cleantest_text_objref.unk_token],
+                                                          pad_idx=cleantest_text_objref.vocab.stoi[cleantest_text_objref.pad_token])
+            if len(triggered_test_dataset) != 0:
+                trigtest_text_objref = triggered_test_dataset.text_field
+                triggered_test_dataset_desc = TextDataDescription(vocab_size=len(trigtest_text_objref.vocab),
+                                                                  unk_idx=trigtest_text_objref.vocab.stoi[trigtest_text_objref.unk_token],
+                                                                  pad_idx=trigtest_text_objref.vocab.stoi[trigtest_text_objref.pad_token])
+            else:
+                triggered_test_dataset_desc = None
         else:
             msg = "Unsupported data_type argument provided"
             logger.error(msg)
             raise NotImplementedError(msg)
 
-        return train_dataset, clean_test_dataset, triggered_test_dataset
+        return train_dataset, clean_test_dataset, triggered_test_dataset, \
+               train_dataset_desc, clean_test_dataset_desc, triggered_test_dataset_desc
 
     def validate(self) -> None:
         """
