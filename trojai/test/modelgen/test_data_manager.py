@@ -93,7 +93,7 @@ class TestDataManager(unittest.TestCase):
                           shuffle_train=False,
                           shuffle_clean_test=False,
                           shuffle_triggered_test=False)
-        d1, d2, d3 = tdm.load_data()
+        d1, d2, d3, dd1, dd2, dd3 = tdm.load_data()
         d1 = d1.__next__()
         self.assertIsInstance(d1, CSVDataset)
         self.assertIsInstance(d2, CSVDataset)
@@ -108,7 +108,7 @@ class TestDataManager(unittest.TestCase):
 
         # with iterable training
         tdm = DataManager(self.path, [self.file, self.file, self.file], self.file)
-        d1, d2, d3 = tdm.load_data()
+        d1, d2, d3, dd1, dd2, dd3 = tdm.load_data()
         for d in d1:
             self.assertIsInstance(d, CSVDataset)
         self.assertIsInstance(d2, CSVDataset)
