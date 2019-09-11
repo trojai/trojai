@@ -1,6 +1,7 @@
 import logging
 import os
 from typing import Callable, Union
+from abc import abstractmethod
 
 import cv2
 import pandas as pd
@@ -17,7 +18,12 @@ Defines various types of datasets that are used by the DataManager
 """
 
 
-class CSVDataset(Dataset):
+class DatasetInterface(Dataset):
+    def __init__(self, path_to_data: str, *args, **kwargs):
+        self.path_to_data = path_to_data
+
+
+class CSVDataset(DatasetInterface):
     """
     Defines a dataset that is represented by a CSV file with columns "file", "train_label", and optionally
     "true_label". The file column should contain the path to the file that contains the actual data,
@@ -46,7 +52,7 @@ class CSVDataset(Dataset):
         :param label_transform: a callable function which is applied to every label before it is fed into the model.
             By default, this is an identity operation.
         """
-        self.path_to_data = path_to_data
+        super().__init__(path_to_data)
         if path_to_csv is None:
             path_to_csv = path_to_data
         else:
