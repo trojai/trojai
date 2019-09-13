@@ -163,9 +163,9 @@ class DataManager:
                 train_dataset_desc = None
             else:
                 train_dataset_desc = train_dataset.get_data_description()
-            if self.clean_test_file is not None:
+            if clean_test_dataset is not None:
                 clean_test_dataset_desc = clean_test_dataset.get_data_description()
-            if self.triggered_test_file is not None:
+            if triggered_test_dataset is not None:
                 triggered_test_dataset_desc = triggered_test_dataset.get_data_description()
 
         elif self.data_type == 'text':
@@ -194,6 +194,7 @@ class DataManager:
                                       self.data_configuration.max_vocab_size)
             # pass in the learned vocabulary from the training data to the clean test dataset
 
+            clean_test_dataset = None
             if self.clean_test_file is not None:
                 clean_test_dataset = CSVTextDataset(self.experiment_path, self.clean_test_file,
                                                     text_field=train_dataset.text_field,
@@ -205,6 +206,7 @@ class DataManager:
             else:
                 msg = 'Clean Test Dataset was empty and will be skipped...'
                 logger.info(msg)
+            triggered_test_dataset = None
             if self.triggered_test_file is not None:
                 logger.info("Loading Triggered Test Dataset")
                 # pass in the learned vocabulary from the training data to the triggered test dataset
@@ -220,9 +222,9 @@ class DataManager:
                 triggered_test_dataset = None
 
             train_dataset_desc = train_dataset.get_data_description()
-            if self.clean_test_file is not None and len(clean_test_dataset) > 0:
+            if clean_test_dataset is not None and len(clean_test_dataset) > 0:
                 clean_test_dataset_desc = clean_test_dataset.get_data_description()
-            if self.triggered_test_file is not None and len(triggered_test_dataset) > 0:
+            if triggered_test_dataset is not None and len(triggered_test_dataset) > 0:
                 triggered_test_dataset_desc = triggered_test_dataset.get_data_description()
             else:
                 triggered_test_dataset_desc = None
