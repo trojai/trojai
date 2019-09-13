@@ -85,7 +85,8 @@ class Runner:
         train_data, clean_test_data, triggered_test_data, \
             train_dataset_desc, clean_test_dataset_desc, triggered_test_dataset_desc = self.cfg.data.load_data()
         arch_factory_kwargs = {} if self.cfg.arch_factory_kwargs is None else self.cfg.arch_factory_kwargs
-        torch_dataloader_kwargs = self.cfg.data.torch_dataloader_kwargs
+        torch_dataloader_kwargs = {} if self.cfg.data.torch_dataloader_kwargs is None else \
+            self.cfg.data.torch_dataloader_kwargs
 
         if self.cfg.arch_factory_kwargs_generator is not None:
             arch_factory_kwargs.update(self.cfg.arch_factory_kwargs_generator(train_dataset_desc,
