@@ -282,6 +282,7 @@ class DefaultOptimizer(OptimizerInterface):
 
         # split into train & validation datasets, and setup data loaders
         data_loader_kwargs_in = {} if data_loader_kwargs is None else data_loader_kwargs
+        logger.info('DataLoader[Train/Val] kwargs=' + str(data_loader_kwargs))
 
         train_dataset, val_dataset = train_val_dataset_split(dataset, train_val_split)
         # drop_last=True is from: https://stackoverflow.com/questions/56576716
@@ -459,6 +460,7 @@ class DefaultOptimizer(OptimizerInterface):
         test_data_statistics = {}
         net.eval()
         data_loader_kwargs_in = {} if data_loader_kwargs is None else data_loader_kwargs
+        logger.info('DataLoader[Test] kwargs=' + str(data_loader_kwargs))
 
         pin_memory = False
         if self.device.type != 'cpu':
