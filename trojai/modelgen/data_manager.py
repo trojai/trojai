@@ -240,9 +240,18 @@ class DataManager:
             # using the "get" function to get elements from dictionary ensures that we return None if the keys were
             # not provided
             triggered_test_dataset = self.datasets.get('triggered_test')
-            train_dataset_desc = train_dataset.get_data_description()
-            clean_test_dataset_desc = clean_test_dataset.get_data_description()
-            triggered_test_dataset_desc = triggered_test_dataset.get_data_description()
+            if train_dataset is not None:
+                train_dataset_desc = train_dataset.get_data_description()
+            else:
+                train_dataset_desc = None
+            if clean_test_dataset is not None:
+                clean_test_dataset_desc = clean_test_dataset.get_data_description()
+            else:
+                clean_test_dataset_desc = None
+            if triggered_test_dataset is not None:
+                triggered_test_dataset_desc = triggered_test_dataset.get_data_description()
+            else:
+                triggered_test_dataset_desc = None
         else:
             msg = "Unsupported data_type argument provided"
             logger.error(msg)
