@@ -216,7 +216,7 @@ class LSTMOptimizer(OptimizerInterface):
         return BucketIterator(dataset, self.batch_size, device=self.device, sort_within_batch=True)
 
     def train(self, model: torch.nn.Module, dataset: CSVTextDataset, train_val_split: float = 0.0,
-              progress_bar_disable: bool = False, **kwargs) -> (torch.nn.Module, Sequence[EpochStatistics]):
+              progress_bar_disable: bool = False, kwargs: dict = None) -> (torch.nn.Module, Sequence[EpochStatistics]):
         """
         Train the network.
         :param model: the model to train
@@ -408,7 +408,7 @@ class LSTMOptimizer(OptimizerInterface):
         return batch_stats
 
     def test(self, model: nn.Module, clean_data: CSVTextDataset, triggered_data: CSVTextDataset,
-             progress_bar_disable: bool = False, **kwargs) -> dict:
+             progress_bar_disable: bool = False, kwargs: dict = None) -> dict:
         """
         Test the trained network
         :param model: the trained module to run the test data through
