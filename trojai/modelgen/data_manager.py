@@ -177,8 +177,12 @@ class DataManager:
                 train_dataset_desc = train_dataset.get_data_description()
             if clean_test_dataset is not None:
                 clean_test_dataset_desc = clean_test_dataset.get_data_description()
+            else:
+                clean_test_dataset_desc = None
             if triggered_test_dataset is not None:
                 triggered_test_dataset_desc = triggered_test_dataset.get_data_description()
+            else:
+                triggered_test_dataset_desc = None
 
         elif self.data_type == 'text':
             if len(self.train_file) > 1:
@@ -227,6 +231,8 @@ class DataManager:
             train_dataset_desc = train_dataset.get_data_description()
             if clean_test_dataset is not None and len(clean_test_dataset) > 0:
                 clean_test_dataset_desc = clean_test_dataset.get_data_description()
+            else:
+                clean_test_dataset_desc = None
             if triggered_test_dataset is not None and len(triggered_test_dataset) > 0:
                 triggered_test_dataset_desc = triggered_test_dataset.get_data_description()
             else:
