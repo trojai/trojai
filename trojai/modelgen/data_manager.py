@@ -2,6 +2,7 @@ import copy
 import logging
 import os
 from typing import Callable, Any, Union, Sequence
+import types
 
 import pandas as pd
 import torch
@@ -9,7 +10,7 @@ from torch.utils.data import Dataset
 
 from .constants import VALID_DATA_TYPES
 from .datasets import CSVDataset, CSVTextDataset
-from .data_descriptions import TextDataDescription, ImageDataDescription, DataDescription
+from .data_descriptions import CSVTextDatasetDescription, CSVDatasetDescription, DataDescription
 from .data_configuration import TextDataConfiguration, DataConfiguration
 
 logger = logging.getLogger(__name__)
@@ -157,9 +158,15 @@ class DataManager:
                 logger.info(msg)
 
             # nothing to fill in at the moment for image, we can update as needed
-            train_dataset_desc = None
-            clean_test_dataset_desc = None
-            triggered_test_dataset_desc = None
+            if isinstance(train_dataset, types.GeneratorType):
+                # TODO: need to fix this ASAP!
+                train_dataset_desc = None
+            else:
+                train_dataset_desc = train_dataset.get_data_description()
+            if self.clean_test_file is not None:
+                clean_test_dataset_desc = clean_test_dataset.get_data_description()
+            if self.triggered_test_file is not None:
+                triggered_test_dataset_desc = triggered_test_dataset.get_data_description()
 
         elif self.data_type == 'text':
             if len(self.train_file) > 1:
@@ -211,19 +218,11 @@ class DataManager:
             else:
                 triggered_test_dataset = None
 
-            train_text_objref = train_dataset.text_field
-            train_dataset_desc = TextDataDescription(vocab_size=len(train_text_objref.vocab),
-                                                     unk_idx=train_text_objref.vocab.stoi[train_text_objref.unk_token],
-                                                     pad_idx=train_text_objref.vocab.stoi[train_text_objref.pad_token])
-            cleantest_text_objref = clean_test_dataset.text_field
-            clean_test_dataset_desc = TextDataDescription(vocab_size=len(cleantest_text_objref.vocab),
-                                                          unk_idx=cleantest_text_objref.vocab.stoi[cleantest_text_objref.unk_token],
-                                                          pad_idx=cleantest_text_objref.vocab.stoi[cleantest_text_objref.pad_token])
-            if triggered_test_dataset is not None and len(triggered_test_dataset) != 0:
-                trigtest_text_objref = triggered_test_dataset.text_field
-                triggered_test_dataset_desc = TextDataDescription(vocab_size=len(trigtest_text_objref.vocab),
-                                                                  unk_idx=trigtest_text_objref.vocab.stoi[trigtest_text_objref.unk_token],
-                                                                  pad_idx=trigtest_text_objref.vocab.stoi[trigtest_text_objref.pad_token])
+            train_dataset_desc = train_dataset.get_data_description()
+            if self.clean_test_file is not None and len(clean_test_dataset) > 0:
+                clean_test_dataset_desc = clean_test_dataset.get_data_description()
+            if self.triggered_test_file is not None and len(triggered_test_dataset) > 0:
+                triggered_test_dataset_desc = triggered_test_dataset.get_data_description()
             else:
                 triggered_test_dataset_desc = None
         elif self.data_type == 'custom':
@@ -232,9 +231,9 @@ class DataManager:
             # using the "get" function to get elements from dictionary ensures that we return None if the keys were
             # not provided
             triggered_test_dataset = self.datasets.get('triggered_test')
-            train_dataset_desc = self.datasets.get('train_data_description')
-            clean_test_dataset_desc = self.datasets.get('clean_test_data_description')
-            triggered_test_dataset_desc = self.datasets.get('triggered_test_data_description')
+            train_dataset_desc = train_dataset.get_data_description()
+            clean_test_dataset_desc = clean_test_dataset.get_data_description()
+            triggered_test_dataset_desc = triggered_test_dataset.get_data_description()
         else:
             msg = "Unsupported data_type argument provided"
             logger.error(msg)

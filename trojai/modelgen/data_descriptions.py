@@ -12,7 +12,7 @@ class DataDescription:
     pass
 
 
-class TextDataDescription(DataDescription):
+class CSVTextDatasetDescription(DataDescription):
     """
     Information potentially relevant to instantiating models to process text data
     """
@@ -22,8 +22,11 @@ class TextDataDescription(DataDescription):
         self.pad_idx = pad_idx
 
 
-class ImageDataDescription(DataDescription):
+class CSVDatasetDescription(DataDescription):
     """
     Information potentially relevant to instantiating models to process image data
     """
-    pass
+    def __init__(self, num_samples, shuffled, num_classes):
+        self.num_samples = num_samples
+        self.shuffled = shuffled
+        self.num_classes = num_classes

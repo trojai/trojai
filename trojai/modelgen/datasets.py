@@ -11,6 +11,8 @@ from numpy.random import RandomState
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
+from .data_descriptions import CSVDatasetDescription, CSVTextDatasetDescription
+
 logger = logging.getLogger(__name__)
 
 """
@@ -21,6 +23,10 @@ Defines various types of datasets that are used by the DataManager
 class DatasetInterface(Dataset):
     def __init__(self, path_to_data: str, *args, **kwargs):
         self.path_to_data = path_to_data
+
+    @abstractmethod
+    def get_data_description(self):
+        pass
 
 
 class CSVDataset(DatasetInterface):
@@ -75,6 +81,10 @@ class CSVDataset(DatasetInterface):
         self.data_transform = data_transform
         self.label_transform = label_transform
 
+        # set the data description
+        num_classes = len(self.data_df[self.label].unique())
+        self.data_description = CSVDatasetDescription(len(self.data_df), shuffle, num_classes)
+
     def __getitem__(self, item):
         data_loc = os.path.join(self.path_to_data, self.data_df.iloc[item]["file"])
         data = self.data_loader(data_loc)
@@ -85,6 +95,9 @@ class CSVDataset(DatasetInterface):
 
     def __len__(self):
         return len(self.data_df)
+
+    def get_data_description(self):
+        return self.data_description
 
 
 class CSVTextDataset(torchtext.data.Dataset):
@@ -161,8 +174,15 @@ class CSVTextDataset(torchtext.data.Dataset):
                 text = ' '.join(z)
             examples.append(torchtext.data.Example.fromlist([text, label], fields))
 
+        self.data_description = CSVTextDatasetDescription(vocab_size=len(self.text_field.vocab),
+                                                          unk_idx=self.text_field.vocab.stoi[self.text_field.unk_token],
+                                                          pad_idx=self.text_field.vocab.stoi[self.text_field.pad_token])
+
         super(CSVTextDataset, self).__init__(examples, fields, **kwargs)
 
     @staticmethod
     def sort_key(ex):
         return len(ex.text)
+
+    def get_data_description(self):
+        return self.data_description
