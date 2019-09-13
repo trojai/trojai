@@ -281,14 +281,15 @@ class DefaultOptimizer(OptimizerInterface):
             pin_memory = True
 
         # split into train & validation datasets, and setup data loaders
+        data_loader_kwargs_in = {} if data_loader_kwargs is None else data_loader_kwargs
 
         train_dataset, val_dataset = train_val_dataset_split(dataset, train_val_split)
         # drop_last=True is from: https://stackoverflow.com/questions/56576716
         train_loader = DataLoader(train_dataset, batch_size=self.batch_size, pin_memory=pin_memory, drop_last=True,
-                                  **data_loader_kwargs)
+                                  **data_loader_kwargs_in)
         # drop_last=True is from: https://stackoverflow.com/questions/56576716
         val_loader = DataLoader(val_dataset, batch_size=self.batch_size, pin_memory=pin_memory, drop_last=True,
-                                **data_loader_kwargs)
+                                **data_loader_kwargs_in)
 
         # use validation in training? provide as option?
         all_epochs_stats = []
@@ -457,13 +458,14 @@ class DefaultOptimizer(OptimizerInterface):
         """
         test_data_statistics = {}
         net.eval()
+        data_loader_kwargs_in = {} if data_loader_kwargs is None else data_loader_kwargs
 
         pin_memory = False
         if self.device.type != 'cpu':
             pin_memory = True
         # drop_last=True is from: https://stackoverflow.com/questions/56576716
         data_loader = DataLoader(clean_data, batch_size=self.batch_size, pin_memory=pin_memory, drop_last=True,
-                                 **data_loader_kwargs)
+                                 **data_loader_kwargs_in)
 
         # test type is classification accuracy on clean and triggered data
         test_n_correct = 0
