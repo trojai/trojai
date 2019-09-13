@@ -243,11 +243,16 @@ class LSTMOptimizer(OptimizerInterface):
         train_loader = self.convert_dataset_to_dataiterator(train_dataset)
         val_loader = self.convert_dataset_to_dataiterator(val_dataset)
 
-        # before training - we should transfer the embedding from the learned to the model weights
+        # before training - we should transfer the embedding to the model weights
         pretrained_embeddings = dataset.text_field.vocab.vectors
         model.embedding.weight.data.copy_(pretrained_embeddings)
+        # get the indices in the embedding which correspond to the UNK and the PAD characters
         UNK_IDX = dataset.text_field.vocab.stoi[dataset.text_field.unk_token]
         PAD_IDX = dataset.text_field.vocab.stoi[dataset.text_field.pad_token]
+        # UNK_IDX and PAD_IDX are initialized to a N(0,1) distribution, per our arguments to the build_vocab function
+        #  but we zero it out.
+        #  Per: https://github.com/bentrevett/pytorch-sentiment-analysis/blob/master/2%20-%20Upgraded%20Sentiment%20Analysis.ipynb
+        #  it is better to do this to train the model to konw that pad and unk are irrelevant in the classification task
         model.embedding.weight.data[UNK_IDX] = torch.zeros(model.embedding_dim)
         model.embedding.weight.data[PAD_IDX] = torch.zeros(model.embedding_dim)
 

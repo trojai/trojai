@@ -8,6 +8,8 @@ import torch
 
 from .constants import VALID_DATA_TYPES
 from .datasets import CSVDataset, CSVTextDataset
+from .data_descriptions import TextDataDescription, ImageDataDescription
+from .data_configuration import TextDataConfiguration, DataConfiguration
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +22,8 @@ class DataManager:
                  data_transform: Callable[[Any], Any] = (lambda x: x),
                  label_transform: Callable[[int], int] = lambda y: y,
                  data_loader: Union[Callable[[str], Any], str] = 'default_image_loader',
-                 shuffle_train=True, shuffle_clean_test=False, shuffle_triggered_test=False):
+                 shuffle_train=True, shuffle_clean_test=False, shuffle_triggered_test=False,
+                 data_configuration: DataConfiguration = None):
         """
         Initializes the DataManager object
         :param experiment_path: (str) absolute path to experiment data.
@@ -42,6 +45,8 @@ class DataManager:
         :param shuffle_train: (bool) shuffle the training data before training; default=True
         :param shuffle_clean_test: (bool) shuffle the clean test data; default=False
         :param shuffle_triggered_test (bool) shuffle the triggered test data; default=False
+        :param data_configuration - a DataConfiguration object that might be useful for setting up
+                how data is loaded
         """
 
         self.experiment_path = experiment_path
@@ -63,6 +68,8 @@ class DataManager:
         self.shuffle_train = shuffle_train
         self.shuffle_clean_test = shuffle_clean_test
         self.shuffle_triggered_test = shuffle_triggered_test
+
+        self.data_configuration = data_configuration
 
         self.validate()
 
@@ -132,18 +139,30 @@ class DataManager:
                 msg = 'Triggered Dataset was empty, testing on triggered data will be skipped...'
                 logger.info(msg)
 
+            # nothing to fill in at the moment for image, we can update as needed
+            train_dataset_desc = ImageDataDescription()
+            clean_test_dataset_desc = ImageDataDescription()
+            triggered_test_dataset_desc = ImageDataDescription()
+
         elif self.data_type == 'text':
             if len(self.train_file) > 1:
                 msg = "Sequential Training not supported for Text datatype!"
                 logger.error(msg)
                 raise ValueError(msg)
+            # ensure a DataDescription is set for text data!
+            if self.data_configuration is None:
+                msg = "data_configuration object needs to be set for Text data processing!"
+                logger.error(msg)
+                raise ValueError(msg)
+
             logger.info("Loading Training Dataset")
             train_dataset = CSVTextDataset(self.experiment_path, self.train_file[0], shuffle=self.shuffle_train)
-            embedding_vectors_cfg = "glove.6B.100d"
+
+            embedding_vectors_cfg = self.data_configuration.embedding_vectors_cfg
             logger.info("Building Vocabulary from training data using: " + str(embedding_vectors_cfg) +
-                        " with a max vocab size=" + str(train_dataset.max_vocab_size) + " !")
+                        " with a max vocab size=" + str(self.data_configuration.max_vocab_size) + " !")
             train_dataset.text_field.build_vocab(train_dataset,
-                                                 max_size=train_dataset.max_vocab_size,
+                                                 max_size=self.data_configuration.max_vocab_size,
                                                  vectors=embedding_vectors_cfg,
                                                  unk_init=torch.Tensor.normal_)
             train_dataset.label_field.build_vocab(train_dataset)
@@ -174,12 +193,29 @@ class DataManager:
                     triggered_test_dataset = None
             else:
                 triggered_test_dataset = None
+
+            train_text_objref = train_dataset.text_field
+            train_dataset_desc = TextDataDescription(vocab_size=len(train_text_objref.vocab),
+                                                     unk_idx=train_text_objref.vocab.stoi[train_text_objref.unk_token],
+                                                     pad_idx=train_text_objref.vocab.stoi[train_text_objref.pad_token])
+            cleantest_text_objref = clean_test_dataset.text_field
+            clean_test_dataset_desc = TextDataDescription(vocab_size=len(cleantest_text_objref.vocab),
+                                                          unk_idx=cleantest_text_objref.vocab.stoi[cleantest_text_objref.unk_token],
+                                                          pad_idx=cleantest_text_objref.vocab.stoi[cleantest_text_objref.pad_token])
+            if triggered_test_dataset is not None and len(triggered_test_dataset) != 0:
+                trigtest_text_objref = triggered_test_dataset.text_field
+                triggered_test_dataset_desc = TextDataDescription(vocab_size=len(trigtest_text_objref.vocab),
+                                                                  unk_idx=trigtest_text_objref.vocab.stoi[trigtest_text_objref.unk_token],
+                                                                  pad_idx=trigtest_text_objref.vocab.stoi[trigtest_text_objref.pad_token])
+            else:
+                triggered_test_dataset_desc = None
         else:
             msg = "Unsupported data_type argument provided"
             logger.error(msg)
             raise NotImplementedError(msg)
 
-        return train_dataset, clean_test_dataset, triggered_test_dataset
+        return train_dataset, clean_test_dataset, triggered_test_dataset, \
+               train_dataset_desc, clean_test_dataset_desc, triggered_test_dataset_desc
 
     def validate(self) -> None:
         """

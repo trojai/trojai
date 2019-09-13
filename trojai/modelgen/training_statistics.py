@@ -228,9 +228,10 @@ class TrainingRunStatistics:
                            val_loss=batch_stats.get_batch_validation_loss())
                 output_data.append(row)
         # write it as a csv
-        keys = output_data[0].keys()
-        with open(fname, 'w') as output_file:
-            dict_writer = csv.DictWriter(output_file, keys)
-            dict_writer.writeheader()
-            dict_writer.writerows(output_data)
-        logger.info("Wrote detailed statistics to %s" % (fname, ))
+        if len(output_data) > 0:
+            keys = output_data[0].keys()
+            with open(fname, 'w') as output_file:
+                dict_writer = csv.DictWriter(output_file, keys)
+                dict_writer.writeheader()
+                dict_writer.writerows(output_data)
+            logger.info("Wrote detailed statistics to %s" % (fname, ))

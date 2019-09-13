@@ -65,9 +65,10 @@ class TestRunner(unittest.TestCase):
 
         train = (train_mock for _ in range(1))
         ctest, ttest = Mock(), Mock()
+        dd1, dd2, dd3 = Mock(), Mock(), Mock()  # the data description classes
         mock_runner_config.data = Mock(spec=DataManager)
         mock_runner_config.data.load_data = Mock()
-        mock_runner_config.data.load_data.return_value = (train, ctest, ttest)
+        mock_runner_config.data.load_data.return_value = (train, ctest, ttest, dd1, dd2, dd3)
         mock_runner_config.optimizer = Mock(spec=OptimizerInterface)
         mock_optimizer1 = Mock(spec=DefaultOptimizer)
         mock_optimizer1.train = Mock()
@@ -119,10 +120,11 @@ class TestRunner(unittest.TestCase):
 
         train = (t for t in [train1, train2, train3])
         ctest, ttest = Mock(), Mock()
+        dd1, dd2, dd3 = Mock(), Mock(), Mock()  # the data descriptor classes
         mock_runner_config.data = Mock(spec=DataManager)
         mock_runner_config.data.iterable_training = True
         mock_runner_config.data.load_data = Mock()
-        mock_runner_config.data.load_data.return_value = (train, ctest, ttest)
+        mock_runner_config.data.load_data.return_value = (train, ctest, ttest, dd1, dd2, dd3)
         mock_runner_config.arch_factory = Mock(spec=ArchitectureFactory)
         mock_runner_config.arch_factory.new_architecture = Mock()
         arch = Mock(spec=nn.Module)
@@ -178,10 +180,11 @@ class TestRunner(unittest.TestCase):
 
         train = (t for t in [train1, train2, train3])
         ctest, ttest = Mock(), Mock()
+        dd1, dd2, dd3 = Mock(), Mock(), Mock()  # the data descriptor classes
         mock_runner_config.data = Mock(spec=DataManager)
         mock_runner_config.data.iterable_training = True
         mock_runner_config.data.load_data = Mock()
-        mock_runner_config.data.load_data.return_value = (train, ctest, ttest)
+        mock_runner_config.data.load_data.return_value = (train, ctest, ttest, dd1, dd2, dd3)
         mock_runner_config.arch_factory = Mock(spec=ArchitectureFactory)
         mock_runner_config.arch_factory.new_architecture = Mock()
         arch = Mock(spec=nn.Module)
