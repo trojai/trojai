@@ -260,7 +260,7 @@ class DataManager:
          [ ] - think about whether the contents of the files passed into the DataManager should be validated,
                in addition to simply checking for existence, which is what is done now
         """
-        if not isinstance(self.torch_dataloader_kwargs, dict):
+        if self.torch_dataloader_kwargs is not None and not isinstance(self.torch_dataloader_kwargs, dict):
             msg = "torch_dataloader_kwargs must be a dictionary!"
             logger.error(msg)
             raise ValueError(msg)
