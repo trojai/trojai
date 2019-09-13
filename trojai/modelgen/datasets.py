@@ -174,11 +174,8 @@ class CSVTextDataset(torchtext.data.Dataset):
                 text = ' '.join(z)
             examples.append(torchtext.data.Example.fromlist([text, label], fields))
 
+        self.data_description = None
         super(CSVTextDataset, self).__init__(examples, fields, **kwargs)
-
-        self.data_description = CSVTextDatasetDescription(vocab_size=len(self.text_field.vocab),
-                                                          unk_idx=self.text_field.vocab.stoi[self.text_field.unk_token],
-                                                          pad_idx=self.text_field.vocab.stoi[self.text_field.pad_token])
 
     @staticmethod
     def sort_key(ex):
@@ -186,3 +183,17 @@ class CSVTextDataset(torchtext.data.Dataset):
 
     def get_data_description(self):
         return self.data_description
+
+    def build_vocab(self, embedding_vectors_cfg, max_vocab_size):
+        logger.info("Building Vocabulary from training data using: " + str(embedding_vectors_cfg) +
+                    " with a max vocab size=" + str(max_vocab_size) + " !")
+        self.text_field.build_vocab(self,
+                                    max_size=max_vocab_size,
+                                    vectors=embedding_vectors_cfg,
+                                    unk_init=torch.Tensor.normal_)
+        self.label_field.build_vocab(self)
+
+        # update the data description
+        self.data_description = CSVTextDatasetDescription(vocab_size=len(self.text_field.vocab),
+                                                          unk_idx=self.text_field.vocab.stoi[self.text_field.unk_token],
+                                                          pad_idx=self.text_field.vocab.stoi[self.text_field.pad_token])

@@ -181,16 +181,17 @@ class DataManager:
 
             logger.info("Loading Training Dataset")
             train_dataset = CSVTextDataset(self.experiment_path, self.train_file[0], shuffle=self.shuffle_train)
-
-            embedding_vectors_cfg = self.data_configuration.embedding_vectors_cfg
-            logger.info("Building Vocabulary from training data using: " + str(embedding_vectors_cfg) +
-                        " with a max vocab size=" + str(self.data_configuration.max_vocab_size) + " !")
-            train_dataset.text_field.build_vocab(train_dataset,
-                                                 max_size=self.data_configuration.max_vocab_size,
-                                                 vectors=embedding_vectors_cfg,
-                                                 unk_init=torch.Tensor.normal_)
-            train_dataset.label_field.build_vocab(train_dataset)
-            logger.info("Loading Clean Test Dataset")
+            # embedding_vectors_cfg = self.data_configuration.embedding_vectors_cfg
+            # logger.info("Building Vocabulary from training data using: " + str(embedding_vectors_cfg) +
+            #             " with a max vocab size=" + str(self.data_configuration.max_vocab_size) + " !")
+            # train_dataset.text_field.build_vocab(train_dataset,
+            #                                      max_size=self.data_configuration.max_vocab_size,
+            #                                      vectors=embedding_vectors_cfg,
+            #                                      unk_init=torch.Tensor.normal_)
+            # train_dataset.label_field.build_vocab(train_dataset)
+            # logger.info("Loading Clean Test Dataset")
+            train_dataset.build_vocab(self.data_configuration.embedding_vectors_cfg,
+                                      self.data_configuration.max_vocab_size)
             # pass in the learned vocabulary from the training data to the clean test dataset
 
             if self.clean_test_file is not None:
