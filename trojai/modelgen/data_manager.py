@@ -123,11 +123,24 @@ class DataManager:
         """
         if self.data_type == 'image':
             logger.info("Loading Training Dataset")
-            train_dataset = (CSVDataset(self.experiment_path, f,
-                                        data_transform=self.data_transform,
-                                        label_transform=self.label_transform,
-                                        data_loader=self.data_loader,
-                                        shuffle=self.shuffle_train) for f in self.train_file)
+            # train_dataset = (CSVDataset(self.experiment_path, f,
+            #                             data_transform=self.data_transform,
+            #                             label_transform=self.label_transform,
+            #                             data_loader=self.data_loader,
+            #                             shuffle=self.shuffle_train) for f in self.train_file)
+
+            first_dataset = CSVDataset(self.experiment_path, self.train_file[0],
+                                       data_transform=self.data_transform,
+                                       label_transform=self.label_transform,
+                                       data_loader=self.data_loader,
+                                       shuffle=self.shuffle_train)
+            train_dataset = (first_dataset if ii == 0 else CSVDataset(self.experiment_path, self.train_file[ii],
+                                                                      data_transform=self.data_transform,
+                                                                      label_transform=self.label_transform,
+                                                                      data_loader=self.data_loader,
+                                                                      shuffle=self.shuffle_train)
+                             for ii in range(len(self.train_file)))
+
             if self.clean_test_file is not None:
                 clean_test_dataset = CSVDataset(self.experiment_path, self.clean_test_file,
                                                 data_transform=self.data_transform,
@@ -159,8 +172,7 @@ class DataManager:
 
             # nothing to fill in at the moment for image, we can update as needed
             if isinstance(train_dataset, types.GeneratorType):
-                # TODO: need to fix this ASAP!
-                train_dataset_desc = None
+                train_dataset_desc = first_dataset.get_data_description()
             else:
                 train_dataset_desc = train_dataset.get_data_description()
             if clean_test_dataset is not None:
@@ -181,15 +193,6 @@ class DataManager:
 
             logger.info("Loading Training Dataset")
             train_dataset = CSVTextDataset(self.experiment_path, self.train_file[0], shuffle=self.shuffle_train)
-            # embedding_vectors_cfg = self.data_configuration.embedding_vectors_cfg
-            # logger.info("Building Vocabulary from training data using: " + str(embedding_vectors_cfg) +
-            #             " with a max vocab size=" + str(self.data_configuration.max_vocab_size) + " !")
-            # train_dataset.text_field.build_vocab(train_dataset,
-            #                                      max_size=self.data_configuration.max_vocab_size,
-            #                                      vectors=embedding_vectors_cfg,
-            #                                      unk_init=torch.Tensor.normal_)
-            # train_dataset.label_field.build_vocab(train_dataset)
-            # logger.info("Loading Clean Test Dataset")
             train_dataset.build_vocab(self.data_configuration.embedding_vectors_cfg,
                                       self.data_configuration.max_vocab_size)
             # pass in the learned vocabulary from the training data to the clean test dataset
