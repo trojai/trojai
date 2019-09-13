@@ -174,11 +174,11 @@ class CSVTextDataset(torchtext.data.Dataset):
                 text = ' '.join(z)
             examples.append(torchtext.data.Example.fromlist([text, label], fields))
 
+        super(CSVTextDataset, self).__init__(examples, fields, **kwargs)
+
         self.data_description = CSVTextDatasetDescription(vocab_size=len(self.text_field.vocab),
                                                           unk_idx=self.text_field.vocab.stoi[self.text_field.unk_token],
                                                           pad_idx=self.text_field.vocab.stoi[self.text_field.pad_token])
-
-        super(CSVTextDataset, self).__init__(examples, fields, **kwargs)
 
     @staticmethod
     def sort_key(ex):
