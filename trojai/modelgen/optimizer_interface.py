@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class OptimizerInterface(ABC):
     """Object that performs training and testing of TrojAI models."""
     @abstractmethod
-    def train(self, model: torch.nn.Module, data: CSVDataset, train_val_split: float) \
+    def train(self, model: torch.nn.Module, data: CSVDataset, train_val_split: float, **kwargs) \
             -> (torch.nn.Module, Sequence[EpochStatistics]):
         """
         Train the given model using parameters in self.training_params
@@ -26,7 +26,7 @@ class OptimizerInterface(ABC):
         pass
 
     @abstractmethod
-    def test(self, model, clean_test_data, triggered_test_data) -> dict:
+    def test(self, model, clean_test_data, triggered_test_data, **kwargs) -> dict:
         """
         Perform whatever tests desired on the model with clean data and triggered data, return a dictionary of results.
         :param model: (torch.nn.Module) Trained Pytorch model

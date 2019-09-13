@@ -26,7 +26,8 @@ class DataManager:
                  data_loader: Union[Callable[[str], Any], str] = 'default_image_loader',
                  shuffle_train=True, shuffle_clean_test=False, shuffle_triggered_test=False,
                  data_configuration: DataConfiguration = None,
-                 datasets: dict = None):
+                 datasets: dict = None,
+                 torch_dataloader_kwargs: dict = None):
         """
         Initializes the DataManager object
         :param experiment_path: (str) absolute path to experiment data.
@@ -82,6 +83,7 @@ class DataManager:
 
         self.data_configuration = data_configuration
         self.datasets = datasets
+        self.torch_dataloader_kwargs = torch_dataloader_kwargs
 
         self.validate()
 
@@ -90,7 +92,7 @@ class DataManager:
                            self.triggered_test_file, self.data_type, copy.deepcopy(self.data_transform),
                            copy.deepcopy(self.label_transform), copy.deepcopy(self.data_loader),
                            self.shuffle_train, self.shuffle_clean_test, self.shuffle_triggered_test,
-                           self.data_configuration, self.datasets)
+                           self.data_configuration, self.datasets, self.torch_dataloader_kwargs)
 
     def __eq__(self, other):
         if self.experiment_path == other.experiment_path and self.train_file == other.train_file and \
@@ -100,7 +102,8 @@ class DataManager:
            self.data_loader == other.data_loader and self.shuffle_train == other.shuffle_train and \
            self.shuffle_clean_test == other.shuffle_clean_test and \
            self.shuffle_triggered_test == other.shuffle_triggered_test and \
-           self.data_configuration == other.data_configuration:
+           self.data_configuration == other.data_configuration and \
+           self.torch_dataloader_kwargs == other.torch_dataloader_kwargs:
             # Note: when we compare callables, we simply compare whether the callable is the same reference in memory
             #  or not.  This means that if two callables are functionally equivalent, but are different object
             #  references then the equality comparison will fail
@@ -123,12 +126,6 @@ class DataManager:
         """
         if self.data_type == 'image':
             logger.info("Loading Training Dataset")
-            # train_dataset = (CSVDataset(self.experiment_path, f,
-            #                             data_transform=self.data_transform,
-            #                             label_transform=self.label_transform,
-            #                             data_loader=self.data_loader,
-            #                             shuffle=self.shuffle_train) for f in self.train_file)
-
             first_dataset = CSVDataset(self.experiment_path, self.train_file[0],
                                        data_transform=self.data_transform,
                                        label_transform=self.label_transform,
@@ -263,6 +260,11 @@ class DataManager:
          [ ] - think about whether the contents of the files passed into the DataManager should be validated,
                in addition to simply checking for existence, which is what is done now
         """
+        if not isinstance(self.torch_dataloader_kwargs, dict):
+            msg = "torch_dataloader_kwargs must be a dictionary!"
+            logger.error(msg)
+            raise ValueError(msg)
+
         if self.data_type == 'custom':
             if self.datasets is None:
                 msg = "dataset_obj must not be None if data_type is set to Custom"
