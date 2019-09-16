@@ -5,13 +5,12 @@ from typing import Callable, Any, Union, Sequence
 import types
 
 import pandas as pd
-import torch
 from torch.utils.data import Dataset
 
 from .constants import VALID_DATA_TYPES
 from .datasets import CSVDataset, CSVTextDataset
-from .data_descriptions import CSVTextDatasetDescription, CSVDatasetDescription, DataDescription
-from .data_configuration import TextDataConfiguration, DataConfiguration
+from .data_descriptions import DataDescription
+from .data_configuration import DataConfiguration
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +25,7 @@ class DataManager:
                  data_loader: Union[Callable[[str], Any], str] = 'default_image_loader',
                  shuffle_train=True, shuffle_clean_test=False, shuffle_triggered_test=False,
                  data_configuration: DataConfiguration = None,
-                 datasets: dict = None,
+                 custom_datasets: dict = None,
                  torch_dataloader_kwargs: dict = None):
         """
         Initializes the DataManager object
@@ -35,8 +34,8 @@ class DataManager:
             on before model will be tested
         :param clean_test_file: (str) csv file name of the clean test data.
         :param triggered_test_file: (str) csv file name of the triggered test data.
-        :param data_type: (str) can be 'image' or 'text'.  The TrojaiDataManager uses this to determine how to load
-                          the actual data at a more fundamental level than the data_loader argument.
+        :param data_type: (str) can be 'image', 'text', or 'custom'.  The TrojaiDataManager uses this to determine how
+                          to load the actual data and prepare it to be fed into the optimizer.
         :param data_transform: (function: any -> any) how to transform the data (e.g. and image) to fit into the
             desired model and objective function; optional
             NOTE: Currently - this argument is only used if data_type='image'
@@ -51,13 +50,16 @@ class DataManager:
         :param shuffle_triggered_test (bool) shuffle the triggered test data; default=False
         :param data_configuration - a DataConfiguration object that might be useful for setting up
                 how data is loaded
-        :param datasets - if data_type is 'custom', then the datasets is a user implementation of
+        :param custom_datasets - if data_type is 'custom', then the custom_datasets is a user implementation of
                 torch.utils.data.Dataset.  We expect a dictionary of datasets, where the expected dictionary will
                 look as follows:
                     {
-                        'train': Union[Dataset, Sequence[Dataset]]
-                        'test_clean': Dataset
-                        'test_triggered': Union[Dataset, None]
+                        'train': Union[torch.utils.data.Dataset, Sequence[torch.utils.data.Dataset]],
+                        'test_clean': torch.utils.data.Dataset,
+                        'test_triggered': Union[torch.utils.data.Dataset, None],
+                        'train_data_description': Union[None, .data_descriptions.DataDescription],
+                        'clean_test_data_description': Union[None, .data_descriptions.DataDescription],
+                        'triggered_test_data_description': Union[None, .data_descriptions.DataDescription]
                     }
         """
 
@@ -82,7 +84,7 @@ class DataManager:
         self.shuffle_triggered_test = shuffle_triggered_test
 
         self.data_configuration = data_configuration
-        self.datasets = datasets
+        self.datasets = custom_datasets
         self.torch_dataloader_kwargs = torch_dataloader_kwargs
 
         self.validate()

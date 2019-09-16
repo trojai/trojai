@@ -13,26 +13,28 @@ logger = logging.getLogger(__name__)
 class OptimizerInterface(ABC):
     """Object that performs training and testing of TrojAI models."""
     @abstractmethod
-    def train(self, model: torch.nn.Module, data: CSVDataset, train_val_split: float, kwargs) \
+    def train(self, model: torch.nn.Module, data: CSVDataset, train_val_split: float, torch_dataloader_kwargs) \
             -> (torch.nn.Module, Sequence[EpochStatistics]):
         """
         Train the given model using parameters in self.training_params
         :param model: (torch.nn.Module) The untrained Pytorch model
         :param data: (CSVDataset) Object containing training data, output 0 from TrojaiDataManager.load_data()
         :param train_val_split: (float) percentage of data that should be used for validation
+        :param torch_dataloader_kwargs: additional arguments to pass to PyTorch's DataLoader class
         :return: (torch.nn.Module, EpochStatistics) trained model and sequence of EpochStatistics objects (one for
             each epoch).
         """
         pass
 
     @abstractmethod
-    def test(self, model, clean_test_data, triggered_test_data, kwargs) -> dict:
+    def test(self, model, clean_test_data, triggered_test_data, torch_dataloader_kwargs) -> dict:
         """
         Perform whatever tests desired on the model with clean data and triggered data, return a dictionary of results.
         :param model: (torch.nn.Module) Trained Pytorch model
         :param clean_test_data: (CSVDataset) Object containing clean test data
         :param triggered_test_data: (CSVDataset or None) Object containing triggered test data, None if triggered data
             was not provided for testing
+        :param torch_dataloader_kwargs: additional arguments to pass to PyTorch's DataLoader class
         :return: (dict) Dictionary of test accuracy results.
             Required key, value pairs are:
                 clean_accuracy: (float in [0, 1]) classification accuracy on clean data

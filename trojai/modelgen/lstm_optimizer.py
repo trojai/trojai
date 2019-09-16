@@ -216,12 +216,14 @@ class LSTMOptimizer(OptimizerInterface):
         return BucketIterator(dataset, self.batch_size, device=self.device, sort_within_batch=True)
 
     def train(self, model: torch.nn.Module, dataset: CSVTextDataset, train_val_split: float = 0.0,
-              progress_bar_disable: bool = False, kwargs: dict = None) -> (torch.nn.Module, Sequence[EpochStatistics]):
+              progress_bar_disable: bool = False, torch_dataloader_kwargs: dict = None) -> (torch.nn.Module, Sequence[EpochStatistics]):
         """
         Train the network.
         :param model: the model to train
         :param dataset: the dataset to train the network on
         :param train_val_split: the % of training data to use as validation data
+        :param progress_bar_disable: if True, disables the progress bar
+        :param torch_dataloader_kwargs: additional arguments to pass to PyTorch's DataLoader class
         :return: the trained network, list of EpochStatistics objects
         """
         model = model.to(self.device)
@@ -310,6 +312,7 @@ class LSTMOptimizer(OptimizerInterface):
         :param compute_batch_stats: if True, computes statistics for the batch based on the reporting configuration
                 specified in the initialization of the optimizer
         :param avg_loss_num_batches: the number of batches of data to accumulate to compute average loss
+        :param progress_bar_disable: if True, disables the progress bar
         :return: a list of statistics for batches where statistics were computed
         """
 
@@ -408,12 +411,14 @@ class LSTMOptimizer(OptimizerInterface):
         return batch_stats
 
     def test(self, model: nn.Module, clean_data: CSVTextDataset, triggered_data: CSVTextDataset,
-             progress_bar_disable: bool = False, kwargs: dict = None) -> dict:
+             progress_bar_disable: bool = False, torch_dataloader_kwargs: dict = None) -> dict:
         """
         Test the trained network
         :param model: the trained module to run the test data through
         :param clean_data: the clean Dataset
         :param triggered_data: the triggered Dataset, if None, not computed
+        :param progress_bar_disable: if True, disables the progress bar
+        :param torch_dataloader_kwargs: additional arguments to pass to PyTorch's DataLoader class
         :return: a dictionary of the statistics on the clean and triggered data (if applicable)
         """
         test_data_statistics = {}

@@ -15,9 +15,9 @@ class TestDataManager(unittest.TestCase):
             os.mkdir("./test_dir/")
         except IOError:
             pass
-        df = pd.DataFrame([[1, 0], [0, 1]], [0, 1], ['col1', 'col2'])
+        df = pd.DataFrame([[1, 0, 0], [0, 1, 1]], [0, 1], ['col1', 'col2', 'train_label'])
         df.to_csv('./test_dir/test_file.csv', index=False)
-        empty_df = pd.DataFrame([], [], ['col1', 'col2'])
+        empty_df = pd.DataFrame([], [], ['col1', 'col2', 'train_label'])
         empty_df.to_csv('./test_dir/empty_file.csv', index=False)
 
     @classmethod
@@ -98,7 +98,7 @@ class TestDataManager(unittest.TestCase):
         self.assertIsInstance(d1, CSVDataset)
         self.assertIsInstance(d2, CSVDataset)
         self.assertIsInstance(d3, CSVDataset)
-        df = pd.DataFrame([[1, 0], [0, 1]], [0, 1], ['col1', 'col2'])
+        df = pd.DataFrame([[1, 0, 0], [0, 1, 1]], [0, 1], ['col1', 'col2', 'train_label'])
         self.assertTrue(d1.data_df.equals(df))
         self.assertTrue(d2.data_df.equals(df))
         self.assertTrue(d3.data_df.equals(df))

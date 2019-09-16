@@ -100,7 +100,7 @@ class CSVDataset(DatasetInterface):
         return self.data_description
 
 
-class CSVTextDataset(torchtext.data.Dataset):
+class CSVTextDataset(torchtext.data.Dataset, DatasetInterface):
     """
     Defines a text dataset that is represented by a CSV file with columns "file", "train_label", and optionally
     "true_label". The file column should contain the path to the file that contains the actual data,
