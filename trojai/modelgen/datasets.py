@@ -11,7 +11,7 @@ from numpy.random import RandomState
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
-from .data_descriptions import CSVDatasetDescription, CSVTextDatasetDescription
+from .data_descriptions import CSVImageDatasetDesc, CSVTextDatasetDesc
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +83,7 @@ class CSVDataset(DatasetInterface):
 
         # set the data description
         num_classes = len(self.data_df[self.label].unique())
-        self.data_description = CSVDatasetDescription(len(self.data_df), shuffle, num_classes)
+        self.data_description = CSVImageDatasetDesc(len(self.data_df), shuffle, num_classes)
 
     def __getitem__(self, item):
         data_loc = os.path.join(self.path_to_data, self.data_df.iloc[item]["file"])
@@ -194,6 +194,6 @@ class CSVTextDataset(torchtext.data.Dataset, DatasetInterface):
         self.label_field.build_vocab(self)
 
         # update the data description
-        self.data_description = CSVTextDatasetDescription(vocab_size=len(self.text_field.vocab),
-                                                          unk_idx=self.text_field.vocab.stoi[self.text_field.unk_token],
-                                                          pad_idx=self.text_field.vocab.stoi[self.text_field.pad_token])
+        self.data_description = CSVTextDatasetDesc(vocab_size=len(self.text_field.vocab),
+                                                   unk_idx=self.text_field.vocab.stoi[self.text_field.unk_token],
+                                                   pad_idx=self.text_field.vocab.stoi[self.text_field.pad_token])

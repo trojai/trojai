@@ -22,7 +22,7 @@ class DataManager:
                  data_type: str = 'image',
                  data_transform: Callable[[Any], Any] = (lambda x: x),
                  label_transform: Callable[[int], int] = lambda y: y,
-                 data_loader: Union[Callable[[str], Any], str] = 'default_image_loader',
+                 file_loader: Union[Callable[[str], Any], str] = 'default_image_loader',
                  shuffle_train=True, shuffle_clean_test=False, shuffle_triggered_test=False,
                  data_configuration: DataConfiguration = None,
                  custom_datasets: dict = None,
@@ -41,7 +41,7 @@ class DataManager:
             NOTE: Currently - this argument is only used if data_type='image'
         :param label_transform: (function: int->int) how to transform the label to the data; optional
             NOTE: Currently - this argument is only used if data_type='image'
-        :param data_loader: (function: str->any or str) how to create the data object to pass into an architecture
+        :param file_loader: (function: str->any or str) how to create the data object to pass into an architecture
             from a file path, or default loader to use. Options include: 'default_image_loader'
             default: 'default_image_loader'
             NOTE: Currently - this argument is only used if data_type='image'
@@ -75,7 +75,7 @@ class DataManager:
         self.triggered_test_file = triggered_test_file
 
         self.data_type = data_type
-        self.data_loader = data_loader
+        self.data_loader = file_loader
         self.data_transform = data_transform
         self.label_transform = label_transform
 

@@ -12,7 +12,7 @@ class DataDescription:
     pass
 
 
-class CSVTextDatasetDescription(DataDescription):
+class CSVTextDatasetDesc(DataDescription):
     """
     Information potentially relevant to instantiating models to process text data
     """
@@ -22,7 +22,7 @@ class CSVTextDatasetDescription(DataDescription):
         self.pad_idx = pad_idx
 
 
-class CSVDatasetDescription(DataDescription):
+class CSVImageDatasetDesc(DataDescription):
     """
     Information potentially relevant to instantiating models to process image data
     """

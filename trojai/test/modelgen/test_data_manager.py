@@ -64,7 +64,7 @@ class TestDataManager(unittest.TestCase):
                           triggered_test_file=self.file,
                           data_transform=lambda x: x + 1,
                           label_transform=lambda x: x - 1,
-                          data_loader=lambda x: str(x),
+                          file_loader=lambda x: str(x),
                           shuffle_train=False,
                           shuffle_clean_test=True,
                           shuffle_triggered_test=True)
@@ -89,7 +89,7 @@ class TestDataManager(unittest.TestCase):
                           triggered_test_file=self.file,
                           data_transform=lambda x: x + 1,
                           label_transform=lambda x: x - 1,
-                          data_loader=lambda x: str(x),
+                          file_loader=lambda x: str(x),
                           shuffle_train=False,
                           shuffle_clean_test=False,
                           shuffle_triggered_test=False)
