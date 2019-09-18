@@ -1,6 +1,7 @@
 import logging
 import os
 from typing import Sequence
+import collections.abc
 
 import cv2
 import numpy as np
@@ -61,6 +62,16 @@ def modify_clean_image_dataset(clean_dataset_rootdir: str, clean_csv_file: str,
 
     # read in clean dataset
     clean_df = pd.read_csv(os.path.join(clean_dataset_rootdir, clean_csv_file))
+    # decide if we need to only modify a certain class of the data
+    if isinstance(mod_cfg.triggered_classes, str):
+        # we need the if/elif b/c a str is also a collections.abc.Sequence
+        pass
+    elif isinstance(mod_cfg.triggered_classes, collections.abc.Sequence):
+        # subset the dataframe to only those classes of interest
+        df_subset_list = []
+        for c in mod_cfg.triggered_classes:
+            df_subset_list.append(clean_df[clean_df['label'] == c])
+        clean_df = pd.concat(df_subset_list, ignore_index=True)
 
     # identify which images will have triggers inserted into them
     random_state = random_state_obj.get_state()
