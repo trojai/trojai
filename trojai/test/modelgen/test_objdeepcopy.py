@@ -84,7 +84,7 @@ class TestCopyImplementations(unittest.TestCase):
                                 triggered_test_file=self.triggered_file,
                                 data_transform=data_xform,
                                 label_transform=label_xform,
-                                data_loader='image',
+                                file_loader='image',
                                 shuffle_train=True,
                                 shuffle_clean_test=False,
                                 shuffle_triggered_test=False)
@@ -105,7 +105,7 @@ class TestCopyImplementations(unittest.TestCase):
                                 triggered_test_file=self.triggered_file,
                                 data_transform=data_xform,
                                 label_transform=label_xform,
-                                data_loader='image',
+                                file_loader='image',
                                 shuffle_train=True,
                                 shuffle_clean_test=False,
                                 shuffle_triggered_test=False)

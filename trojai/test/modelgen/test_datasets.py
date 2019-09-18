@@ -11,7 +11,7 @@ class TestDataManager(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        test_data = pd.DataFrame.from_dict({'A': {0: 0, 1: 2}, 'B': {0: 1, 1: 3}})
+        test_data = pd.DataFrame.from_dict({'A': {0: 0, 1: 2}, 'B': {0: 1, 1: 3}, 'train_label': {0: 0, 1: 1}})
         data_path = 'test_dir'
         data_filename = 'test_file.csv'
         os.mkdir(data_path)
@@ -36,7 +36,7 @@ class TestDataManager(unittest.TestCase):
         data_filename = 'test_file.csv'
         csv_dataset = CSVDataset(data_path, data_filename, data_loader=lambda x: x + 1, data_transform=lambda x: x ** 2,
                                  label_transform=lambda x: str(x))
-        correct_dataframe = pd.DataFrame.from_dict({'A': {0: 0, 1: 2}, 'B': {0: 1, 1: 3}})
+        correct_dataframe = pd.DataFrame.from_dict({'A': {0: 0, 1: 2}, 'B': {0: 1, 1: 3}, 'train_label': {0: 0, 1: 1}})
         self.assertTrue(csv_dataset.data_df.equals(correct_dataframe))
         self.assertEqual(csv_dataset.data_loader(1), 2)
         self.assertEqual(csv_dataset.data_transform(2), 4)
@@ -49,7 +49,9 @@ class TestDataManager(unittest.TestCase):
         self.assertEqual(csv_dataset.data_transform(3), 6)
         self.assertEqual(csv_dataset.label_transform(1), 50)
 
-        correct_dataframe = pd.DataFrame.from_dict({'A': {0: 2, 1: 0}, 'B': {0: 3, 1: 1}})  # changed rows
+        # changed rows
+        correct_dataframe = pd.DataFrame.from_dict({'A': {0: 2, 1: 0}, 'B': {0: 3, 1: 1}, 'train_label': {0: 1,
+                                                                                                          1: 0}})
         csv_dataset = CSVDataset(data_path, data_filename, shuffle=True, random_state=123, data_loader=lambda x: -x,
                                  data_transform=lambda x: x / 2, label_transform=lambda x: 50)
         self.assertTrue(csv_dataset.data_df.equals(correct_dataframe))
