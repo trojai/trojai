@@ -1,6 +1,7 @@
 import logging
 import os
 from typing import Callable, Union
+from abc import abstractmethod
 
 import cv2
 import pandas as pd
@@ -10,6 +11,8 @@ from numpy.random import RandomState
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
+from .data_descriptions import CSVImageDatasetDesc, CSVTextDatasetDesc
+
 logger = logging.getLogger(__name__)
 
 """
@@ -17,7 +20,16 @@ Defines various types of datasets that are used by the DataManager
 """
 
 
-class CSVDataset(Dataset):
+class DatasetInterface(Dataset):
+    def __init__(self, path_to_data: str, *args, **kwargs):
+        self.path_to_data = path_to_data
+
+    @abstractmethod
+    def get_data_description(self):
+        pass
+
+
+class CSVDataset(DatasetInterface):
     """
     Defines a dataset that is represented by a CSV file with columns "file", "train_label", and optionally
     "true_label". The file column should contain the path to the file that contains the actual data,
@@ -46,7 +58,7 @@ class CSVDataset(Dataset):
         :param label_transform: a callable function which is applied to every label before it is fed into the model.
             By default, this is an identity operation.
         """
-        self.path_to_data = path_to_data
+        super().__init__(path_to_data)
         if path_to_csv is None:
             path_to_csv = path_to_data
         else:
@@ -69,6 +81,10 @@ class CSVDataset(Dataset):
         self.data_transform = data_transform
         self.label_transform = label_transform
 
+        # set the data description
+        num_classes = len(self.data_df[self.label].unique())
+        self.data_description = CSVImageDatasetDesc(len(self.data_df), shuffle, num_classes)
+
     def __getitem__(self, item):
         data_loc = os.path.join(self.path_to_data, self.data_df.iloc[item]["file"])
         data = self.data_loader(data_loc)
@@ -80,8 +96,11 @@ class CSVDataset(Dataset):
     def __len__(self):
         return len(self.data_df)
 
+    def get_data_description(self):
+        return self.data_description
 
-class CSVTextDataset(torchtext.data.Dataset):
+
+class CSVTextDataset(torchtext.data.Dataset, DatasetInterface):
     """
     Defines a text dataset that is represented by a CSV file with columns "file", "train_label", and optionally
     "true_label". The file column should contain the path to the file that contains the actual data,
@@ -155,8 +174,26 @@ class CSVTextDataset(torchtext.data.Dataset):
                 text = ' '.join(z)
             examples.append(torchtext.data.Example.fromlist([text, label], fields))
 
+        self.data_description = None
         super(CSVTextDataset, self).__init__(examples, fields, **kwargs)
 
     @staticmethod
     def sort_key(ex):
         return len(ex.text)
+
+    def get_data_description(self):
+        return self.data_description
+
+    def build_vocab(self, embedding_vectors_cfg, max_vocab_size):
+        logger.info("Building Vocabulary from training data using: " + str(embedding_vectors_cfg) +
+                    " with a max vocab size=" + str(max_vocab_size) + " !")
+        self.text_field.build_vocab(self,
+                                    max_size=max_vocab_size,
+                                    vectors=embedding_vectors_cfg,
+                                    unk_init=torch.Tensor.normal_)
+        self.label_field.build_vocab(self)
+
+        # update the data description
+        self.data_description = CSVTextDatasetDesc(vocab_size=len(self.text_field.vocab),
+                                                   unk_idx=self.text_field.vocab.stoi[self.text_field.unk_token],
+                                                   pad_idx=self.text_field.vocab.stoi[self.text_field.pad_token])

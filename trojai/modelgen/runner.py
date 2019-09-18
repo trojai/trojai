@@ -85,6 +85,8 @@ class Runner:
         train_data, clean_test_data, triggered_test_data, \
             train_dataset_desc, clean_test_dataset_desc, triggered_test_dataset_desc = self.cfg.data.load_data()
         arch_factory_kwargs = {} if self.cfg.arch_factory_kwargs is None else self.cfg.arch_factory_kwargs
+        torch_dataloader_kwargs = {} if self.cfg.data.torch_dataloader_kwargs is None else \
+            self.cfg.data.torch_dataloader_kwargs
 
         if self.cfg.arch_factory_kwargs_generator is not None:
             arch_factory_kwargs.update(self.cfg.arch_factory_kwargs_generator(train_dataset_desc,
@@ -103,14 +105,14 @@ class Runner:
         if isinstance(train_data, types.GeneratorType):
             for data, optimizer in zip(train_data, self.cfg.optimizer_generator):  # both are generators
                 model, epoch_training_stats = optimizer.train(model, data, self.cfg.train_val_split,
-                                                              self.progress_bar_disable)
+                                                              self.progress_bar_disable, torch_dataloader_kwargs)
                 model_stats.add_epoch(epoch_training_stats)
                 # add training configuration information to data to be saved
                 training_cfg_list.append(self._get_training_cfg(optimizer))
         else:
             optimizer = next(self.cfg.optimizer_generator)
             model, epoch_training_stats = optimizer.train(model, train_data, self.cfg.train_val_split,
-                                                          self.progress_bar_disable)
+                                                          self.progress_bar_disable, torch_dataloader_kwargs)
             model_stats.add_epoch(epoch_training_stats)
             # add training configuration information to data to be saved
             training_cfg_list.append(self._get_training_cfg(optimizer))
@@ -118,7 +120,8 @@ class Runner:
         # NOTE: The test function used here is one corresponding to the last optimizer used for training. An exception
         #  will be raised if no training occurred, but validation code prior to this line should prevent this from
         #  ever happening.
-        test_acc = optimizer.test(model, clean_test_data, triggered_test_data, self.progress_bar_disable)
+        test_acc = optimizer.test(model, clean_test_data, triggered_test_data, self.progress_bar_disable,
+                                  torch_dataloader_kwargs)
 
         # Save model train/test statistics and other relevant information
         model_stats.autopopulate_final_summary_stats()

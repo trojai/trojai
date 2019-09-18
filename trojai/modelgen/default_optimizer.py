@@ -249,12 +249,15 @@ class DefaultOptimizer(OptimizerInterface):
         return train_loss
 
     def train(self, net: torch.nn.Module, dataset: torch.utils.data.Dataset, train_val_split: float = 0.0,
-              progress_bar_disable: bool = False) -> (torch.nn.Module, Sequence[EpochStatistics]):
+              progress_bar_disable: bool = False, torch_dataloader_kwargs: dict = None) \
+        -> (torch.nn.Module, Sequence[EpochStatistics]):
         """
         Train the network.
         :param net: the network to train
         :param dataset: the dataset to train the network on
         :param train_val_split: the % of training data to use as validation data
+        :param progress_bar_disable: if True, disables the progress bar
+        :param torch_dataloader_kwargs: any additional kwargs to pass to PyTorch's native DataLoader
         :return: the trained network, and a list of EpochStatistics objects which contain the statistics for training
         """
         net = net.to(self.device)
@@ -279,12 +282,16 @@ class DefaultOptimizer(OptimizerInterface):
             pin_memory = True
 
         # split into train & validation datasets, and setup data loaders
+        data_loader_kwargs_in = {} if torch_dataloader_kwargs is None else torch_dataloader_kwargs
+        logger.info('DataLoader[Train/Val] kwargs=' + str(torch_dataloader_kwargs))
 
         train_dataset, val_dataset = train_val_dataset_split(dataset, train_val_split)
         # drop_last=True is from: https://stackoverflow.com/questions/56576716
-        train_loader = DataLoader(train_dataset, batch_size=self.batch_size, pin_memory=pin_memory, drop_last=True)
+        train_loader = DataLoader(train_dataset, batch_size=self.batch_size, pin_memory=pin_memory, drop_last=True,
+                                  **data_loader_kwargs_in)
         # drop_last=True is from: https://stackoverflow.com/questions/56576716
-        val_loader = DataLoader(val_dataset, batch_size=self.batch_size, pin_memory=pin_memory, drop_last=True)
+        val_loader = DataLoader(val_dataset, batch_size=self.batch_size, pin_memory=pin_memory, drop_last=True,
+                                **data_loader_kwargs_in)
 
         # use validation in training? provide as option?
         all_epochs_stats = []
@@ -341,6 +348,7 @@ class DefaultOptimizer(OptimizerInterface):
         :param compute_batch_stats: if True, computes statistics for the batch based on the reporting configuration
                 specified in the initialization of the optimizer
         :param avg_loss_num_batches: the number of batches of data to accumulate to compute average loss
+        :param progress_bar_disable: if True, disables the progress bar
         :return: a list of statistics for batches where statistics were computed
         """
         loop = tqdm(train_loader, disable=progress_bar_disable)
@@ -442,22 +450,27 @@ class DefaultOptimizer(OptimizerInterface):
         return batch_stats
 
     def test(self, net: nn.Module, clean_data: Dataset, triggered_data: Dataset,
-             progress_bar_disable: bool = False) -> dict:
+             progress_bar_disable: bool = False, torch_dataloader_kwargs: dict = None) -> dict:
         """
         Test the trained network
         :param net: the trained module to run the test data through
         :param clean_data: the clean Dataset
         :param triggered_data: the triggered Dataset, if None, not computed
+        :param progress_bar_disable: if True, disables the progress bar
+        :param torch_dataloader_kwargs: any keyword arguments to pass directly to PyTorch's DataLoader
         :return: a dictionary of the statistics on the clean and triggered data (if applicable)
         """
         test_data_statistics = {}
         net.eval()
+        data_loader_kwargs_in = {} if torch_dataloader_kwargs is None else torch_dataloader_kwargs
+        logger.info('DataLoader[Test] kwargs=' + str(torch_dataloader_kwargs))
 
         pin_memory = False
         if self.device.type != 'cpu':
             pin_memory = True
         # drop_last=True is from: https://stackoverflow.com/questions/56576716
-        data_loader = DataLoader(clean_data, batch_size=self.batch_size, pin_memory=pin_memory, drop_last=True)
+        data_loader = DataLoader(clean_data, batch_size=self.batch_size, pin_memory=pin_memory, drop_last=True,
+                                 **data_loader_kwargs_in)
 
         # test type is classification accuracy on clean and triggered data
         test_n_correct = 0

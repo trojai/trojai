@@ -723,9 +723,15 @@ class RunnerConfig(ConfigInterface):
         """
         from .default_optimizer import DefaultOptimizer
         if optimizer is None or isinstance(optimizer, DefaultOptimizerConfig):
-            return (DefaultOptimizer(optimizer) for _ in range(len(data.train_file)))
+            if data.train_file is not None and len(data.train_file) > 0:
+                return (DefaultOptimizer(optimizer) for _ in range(len(data.train_file)))
+            else:
+                return (DefaultOptimizer(optimizer) for _ in range(1))
         elif isinstance(optimizer, OptimizerInterface):
-            return (optimizer.__deepcopy__({}) for _ in range(len(data.train_file)))
+            if data.train_file is not None and len(data.train_file) > 0:
+                return (optimizer.__deepcopy__({}) for _ in range(len(data.train_file)))
+            else:
+                return (optimizer for _ in range(1))
         else:
             msg = "Multiple optimizers specified, only final will be used for test calculations"
             logger.warning(msg)
