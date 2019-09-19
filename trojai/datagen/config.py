@@ -1,5 +1,6 @@
 import logging
-from typing import Sequence, Union
+from typing import Sequence, Union, Any
+import collections.abc
 
 from .entity import Entity
 from .merge_interface import Merge
@@ -31,7 +32,7 @@ class XFormMergePipelineConfig:
                  trigger_xforms: Sequence[Transform] = None, trigger_bg_xforms: Sequence[Transform] = None,
                  trigger_bg_merge: Merge = None, trigger_bg_merge_xforms: Sequence[Transform] = None,
                  merge_type: str = 'insert',
-                 per_class_trigger_frac: float = None):
+                 per_class_trigger_frac: float = None, triggered_classes: Union[str, Sequence[Any]] = 'all'):
         """
         Initializes the configuration used by XFormMergePipeline
         :param trigger_list: a list of Triggers to insert into the background Entity
@@ -47,6 +48,7 @@ class XFormMergePipelineConfig:
                            Pipeline's modify_clean_dataset() function
         :param per_class_trigger_frac: The percentage of the total clean data to modify.  If None, all the data will
                                        be modified
+        :param triggered_classes: either the string 'all', or a list of labels which will be triggered
         """
         self.trigger_list = trigger_list
         self.trigger_xforms = trigger_xforms
@@ -59,6 +61,7 @@ class XFormMergePipelineConfig:
         # validate configuration based on the merge type
         self.merge_type = merge_type.lower()
         self.per_class_trigger_frac = per_class_trigger_frac
+        self.triggered_classes = triggered_classes
 
         self.validate()
 
@@ -102,6 +105,20 @@ class XFormMergePipelineConfig:
             self.trigger_bg_merge_xforms = []
         check_list_type(self.trigger_bg_merge_xforms, Transform,
                         "trigger_bg_merge_xforms must be a list of Transform objects")
+
+        if isinstance(self.triggered_classes, str):
+            if self.triggered_classes != 'any':
+                msg = "triggered_classes must be the string 'any', or a list of labels"
+                logger.error(msg)
+                raise ValueError(msg)
+        elif isinstance(self.triggered_classes, collections.abc.Sequence):
+            # NOTE: we leave this to run-time checking b/c we don't know what the type of a Label is for a particular
+            #  type of data
+            pass
+        else:
+            msg = "triggered_classes must be the string 'any', or a list of labels"
+            logger.error(msg)
+            raise ValueError(msg)
 
 
 def check_non_negative(val, name):
