@@ -107,7 +107,7 @@ class XFormMergePipelineConfig:
                         "trigger_bg_merge_xforms must be a list of Transform objects")
 
         if isinstance(self.triggered_classes, str):
-            if self.triggered_classes != 'any':
+            if self.triggered_classes != 'all':
                 msg = "triggered_classes must be the string 'any', or a list of labels"
                 logger.error(msg)
                 raise ValueError(msg)
