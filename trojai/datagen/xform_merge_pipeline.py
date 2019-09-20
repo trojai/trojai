@@ -27,6 +27,27 @@ Defines all functions and classes related to the transform+merge pipeline & data
 """
 
 
+def subset_clean_df_by_labels(df, labels_to_include):
+    """
+    Subsets a dataframe with an expected column 'label', to only keep rows which are in that list of labels to include
+    :param df: the dataframe to subset
+    :param labels_to_include: a list of labels to include, or a string 'all' indicating that everything should be kept
+    :return: the subsetted data frame
+    """
+    if labels_to_include == 'all':
+        return df
+    else:
+        if isinstance(labels_to_include, collections.abc.Sequence):
+            df_subset_list = []
+            for c in labels_to_include:
+                df_subset_list.append(df[df['label'] == c])
+            return pd.concat(df_subset_list, ignore_index=True)
+        else:
+            msg = "the argument to subset the data that is modified must either be list of labels, or the string 'all'"
+            logger.error(msg)
+            raise ValueError(msg)
+
+
 def modify_clean_image_dataset(clean_dataset_rootdir: str, clean_csv_file: str,
                          output_rootdir: str, output_subdir: str, mod_cfg: XFormMergePipelineConfig,
                          method: str = 'insert', random_state_obj: RandomState = RandomState(1234)) -> None:
@@ -62,16 +83,7 @@ def modify_clean_image_dataset(clean_dataset_rootdir: str, clean_csv_file: str,
 
     # read in clean dataset
     clean_df = pd.read_csv(os.path.join(clean_dataset_rootdir, clean_csv_file))
-    # decide if we need to only modify a certain class of the data
-    if isinstance(mod_cfg.triggered_classes, str):
-        # we need the if/elif b/c a str is also a collections.abc.Sequence
-        pass
-    elif isinstance(mod_cfg.triggered_classes, collections.abc.Sequence):
-        # subset the dataframe to only those classes of interest
-        df_subset_list = []
-        for c in mod_cfg.triggered_classes:
-            df_subset_list.append(clean_df[clean_df['label'] == c])
-        clean_df = pd.concat(df_subset_list, ignore_index=True)
+    clean_df = subset_clean_df_by_labels(clean_df, mod_cfg.triggered_classes)
 
     # identify which images will have triggers inserted into them
     random_state = random_state_obj.get_state()
