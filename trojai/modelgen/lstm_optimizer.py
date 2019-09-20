@@ -197,8 +197,11 @@ class LSTMOptimizer(OptimizerInterface):
             msg = "Dataset split amount must be between 0 and 1"
             logger.error(msg)
             raise ValueError(msg)
-
-        train_dataset, val_dataset = dataset.split(1 - split_amt)
+        if np.isclose(split_amt, 0.):
+            train_dataset = dataset
+            val_dataset = None
+        else:
+            train_dataset, val_dataset = dataset.split(1 - split_amt)
         return train_dataset, val_dataset
 
     def convert_dataset_to_dataiterator(self, dataset: CSVTextDataset) -> TextDataIterator:
@@ -243,7 +246,7 @@ class LSTMOptimizer(OptimizerInterface):
         # split into train & validation datasets, and setup data loaders according to their type
         train_dataset, val_dataset = LSTMOptimizer.train_val_dataset_split(dataset, train_val_split)
         train_loader = self.convert_dataset_to_dataiterator(train_dataset)
-        val_loader = self.convert_dataset_to_dataiterator(val_dataset)
+        val_loader = self.convert_dataset_to_dataiterator(val_dataset) if val_dataset is not None else None
 
         # before training - we should transfer the embedding to the model weights
         pretrained_embeddings = dataset.text_field.vocab.vectors
@@ -348,7 +351,8 @@ class LSTMOptimizer(OptimizerInterface):
             batch_train_loss.backward()
             self.optimizer.step()
 
-            if len(val_loader) > 0 and (self.num_batches_per_val_dataset_metrics is not None) and \
+            if val_loader is not None and len(val_loader) > 0 and \
+                (self.num_batches_per_val_dataset_metrics is not None) and \
                     ((batch_idx % self.num_batches_per_val_dataset_metrics == 0) or
                      (batch_idx % self.num_batches_per_metrics == 0)):
                 # last condition ensures metrics are computed for storage put model into evaluation mode
