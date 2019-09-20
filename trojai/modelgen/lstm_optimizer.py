@@ -326,7 +326,7 @@ class LSTMOptimizer(OptimizerInterface):
 
         # NOTE: potential speed-up by not computing the average ... but this seems like premature optimization to me
         avg_train_loss_circbuf = collections.deque(maxlen=avg_loss_num_batches)
-        avg_val_loss_vec = np.empty(len(val_loader.dataset))
+        avg_val_loss_vec = np.empty(len(val_loader.dataset)) if val_loader is not None else None
 
         train_n_correct, train_n_total = 0, 0
         val_n_correct, val_n_total = 0, 0
