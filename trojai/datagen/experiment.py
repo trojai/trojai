@@ -130,6 +130,10 @@ class ClassicExperiment:
             if trigger_frac > 0:
                 try:
                     num_trigger = min(len(df_subset_to_stratify)-1, num_trigger)
+                    num_classes = len(df_subset_to_stratify['label'].unique())
+                    if (len(df_subset_to_stratify) - num_trigger) < num_classes:
+                        # ensure that we have enough to split
+                        num_trigger -= num_classes
                     df_flist, _ = train_test_split(df_subset_to_stratify,
                                                    train_size=num_trigger,
                                                    random_state=random_state_obj,
