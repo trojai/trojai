@@ -4,6 +4,7 @@ import logging
 import types
 import glob
 import uuid
+import time
 
 import torch
 import torch.nn as nn
@@ -102,6 +103,7 @@ class Runner:
         model_stats = TrainingRunStatistics()
         # TODO: this is hacked to deal w/ text data, we need to make this better
         training_cfg_list = []
+        t1 = time.time()
         if isinstance(train_data, types.GeneratorType):
             for data, optimizer in zip(train_data, self.cfg.optimizer_generator):  # both are generators
                 model, epoch_training_stats = optimizer.train(model, data, self.cfg.train_val_split,
@@ -116,12 +118,13 @@ class Runner:
             model_stats.add_epoch(epoch_training_stats)
             # add training configuration information to data to be saved
             training_cfg_list.append(self._get_training_cfg(optimizer))
-
+        t2 = time.time()
         # NOTE: The test function used here is one corresponding to the last optimizer used for training. An exception
         #  will be raised if no training occurred, but validation code prior to this line should prevent this from
         #  ever happening.
         test_acc = optimizer.test(model, clean_test_data, triggered_test_data, self.progress_bar_disable,
                                   torch_dataloader_kwargs)
+        t3 = time.time()
 
         # Save model train/test statistics and other relevant information
         model_stats.autopopulate_final_summary_stats()
@@ -129,6 +132,11 @@ class Runner:
         model_stats.set_final_clean_data_n_total(test_acc['clean_n_total'])
         model_stats.set_final_triggered_data_test_acc(test_acc.get('triggered_accuracy', None))
         model_stats.set_final_triggered_data_n_total(test_acc.get('triggered_n_total', None))
+
+        # add training/test wall-times to stats
+        self.persist_info['training_wall_time_sec'] = t2-t1
+        self.persist_info['test_wall_time_sec'] = t3-t2
+
         self._save_model_and_stats(model, model_stats, training_cfg_list)
 
     @staticmethod
@@ -185,6 +193,7 @@ class Runner:
         logger.info("Saving trained model to " + str(model_output_fname) + " in PyTorch format.")
         if self.cfg.parallel:
             model = model.module
+        # TODO: should we move the model to a CPU before saving, to prevent GPU memory spike when loading?
         torch.save(model, model_output_fname)
         model_training_stats_dict = stats.get_summary()
         for i, cfg in enumerate(training_cfg_list):
