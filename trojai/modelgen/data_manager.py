@@ -55,11 +55,8 @@ class DataManager:
                 look as follows:
                     {
                         'train': Union[torch.utils.data.Dataset, Sequence[torch.utils.data.Dataset]],
-                        'test_clean': torch.utils.data.Dataset,
-                        'test_triggered': Union[torch.utils.data.Dataset, None],
-                        'train_data_description': Union[None, .data_descriptions.DataDescription],
-                        'clean_test_data_description': Union[None, .data_descriptions.DataDescription],
-                        'triggered_test_data_description': Union[None, .data_descriptions.DataDescription]
+                        'clean_test': torch.utils.data.Dataset,
+                        'triggered_test': Union[torch.utils.data.Dataset, None]
                     }
         """
 
