@@ -188,7 +188,7 @@ class Runner:
         model.eval()
         model_output_fname = os.path.join(model_path, filename)
         stats_output_fname = os.path.join(stats_path, filename+'.stats.json')
-        detailed_stats_output_fname = os.path.join(stats_path, filename+'stats.detailed.csv')
+        detailed_stats_output_fname = os.path.join(stats_path, filename+'.stats.detailed.csv')
 
         logger.info("Saving trained model to " + str(model_output_fname) + " in PyTorch format.")
         if self.cfg.parallel:
