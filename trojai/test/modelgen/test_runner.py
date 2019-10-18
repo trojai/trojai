@@ -341,6 +341,26 @@ class TestRunner(unittest.TestCase):
         next_expected_fname = fname_prefix+'.11'
         self.assertEqual(next_expected_fname, next_actual_fname)
 
+    def test_add_numerical_extension3(self):
+        p = './test_dir/'
+        try:
+            os.makedirs(p)
+        except IOError:
+            pass
+
+        fname_prefix = 'model.pt'
+        num_models = 10
+        for ii in range(1, num_models+1):
+            # create model skeleton
+            Path(os.path.join(p, fname_prefix+'.'+str(ii))).touch()
+            # create stats skeleton
+            Path(os.path.join(p, fname_prefix + '.' + str(ii)+'.stats.json')).touch()
+            # create detailed stats skeleton
+            Path(os.path.join(p, fname_prefix + '.' + str(ii) + '.stats.detailed.csv')).touch()
+        next_actual_model_fname = add_numerical_extension(p, fname_prefix)
+        next_expected_model_fname = fname_prefix+'.11'
+        self.assertEqual(next_expected_model_fname, next_actual_model_fname)
+
 
 if __name__ == "__main__":
     unittest.main()

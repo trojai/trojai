@@ -21,8 +21,9 @@ def add_numerical_extension(path, filename):
     # check if any files already exist in that directory w/ digit extensions or not, and get the filename of interest
     existing_fnames = glob.glob(os.path.join(path, filename+'.*'))
     if len(existing_fnames) > 0:
-        # remove the .stats.json files from consideration
-        existing_fnames = [os.path.basename(x) for x in existing_fnames if '.stats.json' not in x]
+        # remove the .json & csv files from consideration
+        existing_fnames = [os.path.basename(x) for x in existing_fnames if '.json' not in x]
+        existing_fnames = [os.path.basename(x) for x in existing_fnames if '.csv' not in x]
         max_cur_digit_ext = 1
         max_cur_digit_fname_without_ext, _ = os.path.splitext(existing_fnames[0])
         # iterate through the filenames and find the maximum integer extension
