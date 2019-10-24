@@ -24,6 +24,13 @@ warnings.filterwarnings("ignore")
 class TestRunner(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        pass
+
+    @classmethod
+    def tearDownClass(cls):
+        pass
+
+    def setUp(self):
         try:
             os.makedirs('./test_dir')
         except IOError:
@@ -33,8 +40,7 @@ class TestRunner(unittest.TestCase):
         except IOError:
             pass
 
-    @classmethod
-    def tearDownClass(cls):
+    def tearDown(self):
         try:
             shutil.rmtree('./test_dir')
         except IOError:
@@ -43,12 +49,6 @@ class TestRunner(unittest.TestCase):
             shutil.rmtree('./test_dir_stats')
         except IOError:
             pass
-
-    def setUp(self):
-        pass
-
-    def tearDown(self):
-        pass
 
     def test_runner_init_good_arg(self):
         mock_runner_config = Mock(spec=RunnerConfig)
