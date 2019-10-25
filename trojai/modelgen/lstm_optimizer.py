@@ -355,8 +355,8 @@ class LSTMOptimizer(OptimizerInterface):
             batch_train_loss.backward()
             self.optimizer.step()
             last_batch = (batch_idx == num_batches - 1)
-            if len(val_loader) > 0 and self.num_batches_per_metrics is not None and \
-                (batch_idx % self.num_batches_per_metrics == 0 or last_batch):
+            if val_loader is not None and len(val_loader) > 0 and self.num_batches_per_metrics is not None and \
+               (batch_idx % self.num_batches_per_metrics == 0 or last_batch):
                 # last condition ensures metrics are computed for storage put model into evaluation mode
                 model.eval()
                 # turn off auto-grad for validation set computation
