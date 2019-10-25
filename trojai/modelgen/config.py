@@ -6,6 +6,7 @@ import os
 from abc import ABC, abstractmethod
 from typing import Callable, Union, Sequence
 from typing import Union, Sequence, Any
+import math
 
 import cloudpickle as pickle
 import numpy as np
@@ -47,6 +48,41 @@ class OptimizerConfigInterface(ConfigInterface):
         pass
 
 
+class EarlyStoppingConfig(ConfigInterface):
+    """
+    Defines configuration related to early stopping.
+    """
+    def __init__(self, num_epochs: int = 5, val_acc_eps: float = 1e-3):
+        self.num_epochs = num_epochs
+        self.val_acc_eps = val_acc_eps
+
+        self.validate()
+
+    def validate(self):
+        if not isinstance(self.num_epochs, int) or self.num_epochs < 2:
+            msg = ""
+            logger.error(msg)
+            raise ValueError(msg)
+        try:
+            self.val_acc_eps = float(self.val_acc_eps)
+        except ValueError:
+            msg = "val_acc_eps must be a float"
+            logger.error(msg)
+            raise ValueError(msg)
+
+    def __deepcopy__(self, memodict={}):
+        return EarlyStoppingConfig(self.num_epochs, self.val_acc_eps)
+
+    def __eq__(self, other):
+        if self.num_epochs == other.num_epochs and math.isclose(self.val_acc_eps, other.val_acc_eps):
+            return True
+        else:
+            return False
+
+    def __str__(self):
+        return "ES[%d:%0.02f]" % (self.num_epochs, self.val_acc_eps)
+
+
 class TrainingConfig(ConfigInterface):
     """
     Defines all required items to setup training with an optimizer
@@ -59,7 +95,9 @@ class TrainingConfig(ConfigInterface):
                  lr: float = 1e-4,
                  optim: Union[str, OptimizerInterface] = 'adam',
                  objective: Union[str, Callable] = 'cross_entropy_loss',
-                 save_best_model: bool = False) -> None:
+                 save_best_model: bool = False,
+                 train_val_split: float = 0.,
+                 early_stopping: EarlyStoppingConfig = None) -> None:
         """
         Initializes a TrainingConfig object
         :param device: string or torch.device object representing the device on which computation will be performed
@@ -74,6 +112,9 @@ class TrainingConfig(ConfigInterface):
                                 else, training accuracy (if validation dataset is not desired).  if False,
                                 the model returned by the optimizer will just be the model at the final epoch of
                                 training
+        :param train_val_split: (float) if > 0, then splits the training dataset and uses it as validation.  If 0
+            the training dataset is not split and validation is not computed
+        :param early_stopping: configuration for early stopping
         TODO:
          [ ] - allow user to configure what the "best" model is
         """
@@ -84,6 +125,8 @@ class TrainingConfig(ConfigInterface):
         self.optim = optim
         self.objective = objective
         self.save_best_model = save_best_model
+        self.train_val_split = train_val_split
+        self.early_stopping = early_stopping
 
         self.validate()
 
@@ -124,6 +167,24 @@ class TrainingConfig(ConfigInterface):
             msg = "save_best_model must be a boolean!"
             logger.error(msg)
             raise ValueError(msg)
+        if not isinstance(self.train_val_split, float):
+            msg = "train_val_split must a float between 0 and 1!"
+            logger.error(msg)
+            raise ValueError(msg)
+        else:
+            if self.train_val_split < 0 or self.train_val_split > 1:
+                msg = "train_val_split must be between 0 and 1, inclusive"
+                logger.error(msg)
+                raise ValueError(msg)
+        if self.early_stopping is not None and not isinstance(self.early_stopping, EarlyStoppingConfig):
+            msg = "early_stopping must be of type EarlyStoppingConfig or None"
+            logger.error(msg)
+            raise ValueError(msg)
+        # ensure that train/val split is > 0 if early_stopping is enabled
+        if self.early_stopping and (self.train_val_split <= 0 or self.train_val_split >= 1):
+            msg = "if early_stopping is enabled, then 0 < train_val_split < 1"
+            logger.error(msg)
+            raise ValueError(msg)
 
     def get_cfg_as_dict(self):
         """
@@ -136,14 +197,15 @@ class TrainingConfig(ConfigInterface):
                            learning_rate=self.lr,
                            optim=self.optim,
                            objective=self.objective,
-                           save_best_model=self.save_best_model)
+                           save_best_model=self.save_best_model,
+                           early_stopping=str(self.early_stopping))
         return output_dict
 
     def __str__(self):
         str_repr = "TrainingConfig: device[%s], num_epochs[%d], batch_size[%d], learning_rate[%.5e], optimizer[%s], " \
-                   "objective[%s]" % \
+                   "objective[%s] train_val_split[%0.02f] early_stopping[%s]" % \
                    (str(self.device.type), self.epochs, self.batch_size, self.lr,
-                    str(self.optim), str(self.objective))
+                    str(self.optim), str(self.objective), self.train_val_split, str(self.early_stopping))
         return str_repr
 
     def __deepcopy__(self, memodict={}):
@@ -154,6 +216,8 @@ class TrainingConfig(ConfigInterface):
         batch_size = self.batch_size
         lr = self.lr
         save_best_model = self.save_best_model
+        train_val_split = self.train_val_split
+        early_stopping = copy.deepcopy(self.early_stopping)
         if isinstance(self.optim, str):
             optim = self.optim
         elif isinstance(self.optim, OptimizerInterface):
@@ -170,11 +234,15 @@ class TrainingConfig(ConfigInterface):
             msg = "The TrainingConfig object you are trying to copy is corrupted!"
             logger.error(msg)
             raise ValueError(msg)
-        return TrainingConfig(new_device, epochs, batch_size, lr, optim, objective, save_best_model)
+        return TrainingConfig(new_device, epochs, batch_size, lr, optim, objective, save_best_model,
+                              train_val_split, early_stopping)
 
     def __eq__(self, other):
         if self.device.type == other.device.type and self.epochs == other.epochs and \
-           self.batch_size == other.batch_size and self.lr == other.lr and self.save_best_model==other.save_best_model:
+           self.batch_size == other.batch_size and self.lr == other.lr and \
+           self.save_best_model == other.save_best_model and \
+           self.train_val_split == other.train_val_split and \
+           self.early_stopping == other.early_stopping:
             # now check the objects
             if self.optim == other.optim and self.objective == other.objective:
                 return True
@@ -193,7 +261,6 @@ class ReportingConfig(ConfigInterface):
                  num_batches_per_logmsg: int = 100,
                  num_epochs_per_metric: int = 1,
                  num_batches_per_metrics: int = 50,
-                 num_batches_ver_val_dataset_metrics: int = 75,
                  tensorboard_output_dir: str = None,
                  experiment_name: str = 'experiment'):
         """
@@ -201,15 +268,12 @@ class ReportingConfig(ConfigInterface):
         :param num_batches_per_logmsg: The # of batches which are computed before a log message is written.
         :param num_epochs_per_metric: The number of epochs before metrics are computed.
         :param num_batches_per_metrics: The number of batches before metrics are computed.
-        :param num_batches_ver_val_dataset_metrics: The number of batches before metrics are computed for the
-                validation dataset.  If None, then validation dataset metrics are not computed during training.
         :param tensorboard_output_dir: the directory to which tensorboard data should be written.
         :param experiment_name: A string identifier to associate with the configuration.
         """
         self.num_batches_per_logmsg = num_batches_per_logmsg
         self.num_epochs_per_metrics = num_epochs_per_metric
         self.num_batches_per_metrics = num_batches_per_metrics
-        self.num_batches_per_val_dataset_metrics = num_batches_ver_val_dataset_metrics
         self.tensorboard_output_dir = tensorboard_output_dir
         self.experiment_name = experiment_name
 
@@ -228,23 +292,17 @@ class ReportingConfig(ConfigInterface):
             msg = "num_batches_per_metrics must be an integer > 0"
             logger.error(msg)
             raise ValueError(msg)
-        if self.num_batches_per_val_dataset_metrics is not None:
-            if not isinstance(self.num_batches_per_val_dataset_metrics,
-                              int) or self.num_batches_per_val_dataset_metrics < 0:
-                msg = "num_batches_per_val_dataset_metrics must be an integer > 0 or None"
-                logger.error(msg)
-                raise ValueError(msg)
 
     def __str__(self):
         str_repr = "ReportingConfig: num_batches/log_msg[%d], num_epochs/metric[%d], num_batches/metric[%d], " \
-                   "num_batches/val_dataset_metric[%d] tensorboard_dir[%s] experiment_name=[%s]" % \
+                   "tensorboard_dir[%s] experiment_name=[%s]" % \
                    (self.num_batches_per_logmsg, self.num_epochs_per_metrics, self.num_batches_per_metrics,
-                    self.num_batches_per_val_dataset_metrics, self.tensorboard_output_dir, self.experiment_name)
+                    self.tensorboard_output_dir, self.experiment_name)
         return str_repr
 
     def __copy__(self):
         return ReportingConfig(self.num_batches_per_logmsg, self.num_epochs_per_metrics,
-                               self.num_batches_per_metrics, self.num_batches_per_val_dataset_metrics,
+                               self.num_batches_per_metrics,
                                self.tensorboard_output_dir, self.experiment_name)
 
     def __deepcopy__(self, memodict={}):
@@ -254,7 +312,6 @@ class ReportingConfig(ConfigInterface):
         if self.num_batches_per_logmsg == other.num_batches_per_logmsg and \
                 self.num_epochs_per_metrics == other.num_epochs_per_metrics and \
                 self.num_batches_per_metrics == other.num_batches_per_metrics and \
-                self.num_batches_per_val_dataset_metrics == other.num_batches_per_val_dataset_metrics and \
                 self.tensorboard_output_dir == other.tensorboard_output_dir and \
                 self.experiment_name == other.experiment_name:
             return True
@@ -411,7 +468,6 @@ class ModelGeneratorConfig(ConfigInterface):
                  optimizer: Union[Union[OptimizerInterface, DefaultOptimizerConfig],
                                   Sequence[Union[OptimizerInterface, DefaultOptimizerConfig]]] = None,
                  parallel=False,
-                 train_val_split=0.,
                  experiment_cfg: dict = None,
                  run_ids: Union[Any, Sequence[Any]] = None,
                  filenames: Union[str, Sequence[str]] = None,
@@ -435,8 +491,6 @@ class ModelGeneratorConfig(ConfigInterface):
             of both.  If a sequence of optimizers is passed, then the length of that sequence must match the number
             of sequential datasets that are to be used for training the model.
         :param parallel: (bool) - if True, attempts to use multiple GPU's
-        :param train_val_split: (float) if > 0, then splits the training dataset and uses it as validation.  If 0
-            the training dataset is not split and validation is not computed
         :param experiment_cfg: dictionary containing information regarding the experiment which is being run by the
             ModelGenerator.  This information is also saved in the output summary JSON file that is associated with
             every model that is generated.
@@ -460,7 +514,6 @@ class ModelGeneratorConfig(ConfigInterface):
 
         self.optimizer = optimizer
         self.parallel = parallel
-        self.train_val_split = train_val_split
         self.experiment_cfg = dict() if experiment_cfg is None else experiment_cfg
 
         self.run_ids = run_ids  # it might be useful to allow something like a generator for this argument
@@ -477,12 +530,12 @@ class ModelGeneratorConfig(ConfigInterface):
         return ModelGeneratorConfig(arch_factory_copy, data_copy,
                                     self.model_save_dir, self.stats_save_dir, self.num_models,
                                     self.arch_factory_kwargs, self.arch_factory_kwargs_generator,
-                                    optimizer_copy, self.parallel, self.train_val_split, self.experiment_cfg,
+                                    optimizer_copy, self.parallel, self.experiment_cfg,
                                     self.run_ids, self.filenames, self.save_with_hash)
 
     def __eq__(self, other):
         if self.arch_factory == other.arch_factory and self.data == other.data and self.optimizer == other.optimizer \
-                and self.parallel == other.parallel and self.train_val_split == other.train_val_split \
+                and self.parallel == other.parallel \
                 and self.model_save_dir == other.model_save_dir and self.stats_save_dir == other.stats_save_dir \
                 and self.arch_factory_kwargs == other.arch_factory_kwargs \
                 and self.arch_factory_kwargs_generator == other.arch_factory_kwargs_generator \
@@ -567,15 +620,6 @@ class ModelGeneratorConfig(ConfigInterface):
             msg = "parallel argument must be a boolean!"
             logger.error(msg)
             raise ValueError(msg)
-        if not isinstance(self.train_val_split, float):
-            msg = "train_val_split must a float between 0 and 1!"
-            logger.error(msg)
-            raise ValueError(msg)
-        else:
-            if self.train_val_split < 0 or self.train_val_split > 1:
-                msg = "train_val_split must be between 0 and 1, inclusive"
-                logger.error(msg)
-                raise ValueError(msg)
 
     def __getstate__(self):
         """
@@ -591,7 +635,6 @@ class ModelGeneratorConfig(ConfigInterface):
                 'arch_factory_kwargs': self.arch_factory_kwargs,
                 'arch_factory_kwargs_generator': self.arch_factory_kwargs_generator,
                 'parallel': self.parallel,
-                'train_val_split': self.train_val_split,
                 'experiment_cfg': self.experiment_cfg,
                 'run_ids': self.run_ids,
                 'filenames': self.filenames,
@@ -658,7 +701,7 @@ class RunnerConfig(ConfigInterface):
                  arch_factory_kwargs: dict = None, arch_factory_kwargs_generator: Callable = None,
                  optimizer: Union[OptimizerInterface, DefaultOptimizerConfig,
                                   Sequence[Union[OptimizerInterface, DefaultOptimizerConfig]]] = None,
-                 parallel: bool = False, train_val_split=0.,
+                 parallel: bool = False,
                  model_save_dir: str = "/tmp/models", stats_save_dir: str = "/tmp/model_stats",
                  run_id: Any = None, filename: str = None, save_with_hash: bool = False):
         """
@@ -674,8 +717,6 @@ class RunnerConfig(ConfigInterface):
         :param optimizer: a OptimizerInterface object, or a DefaultOptimizer configuration, or possibly mixed sequence
             of both
         :param parallel: (bool) if True, spreads GPU tasking over all available GPUs
-        :param train_val_split: (float) if > 0, then splits the training dataset and uses it as validation.  If 0
-            the training dataset is not split and validation is not computed
         :param model_save_dir: (str) path to where the models should be saved.
         :param stats_save_dir: (str) path to where the model training statistics should be saved.
         :param run_id: An ending to the save file name. Can be anything, but will be converted to string format.
@@ -692,7 +733,6 @@ class RunnerConfig(ConfigInterface):
         self.arch_factory_kwargs_generator = arch_factory_kwargs_generator
         self.optimizer = optimizer
         self.parallel = parallel
-        self.train_val_split = train_val_split
         self.model_save_dir = model_save_dir
         self.stats_save_dir = stats_save_dir
         self.run_id = run_id
@@ -709,7 +749,7 @@ class RunnerConfig(ConfigInterface):
         data_copy = copy.deepcopy(self.data)
         optim_copy = copy.deepcopy(self.optimizer)
         return RunnerConfig(arch_copy, data_copy, self.arch_factory_kwargs, self.arch_factory_kwargs_generator,
-                            optim_copy, self.parallel, self.train_val_split,
+                            optim_copy, self.parallel,
                             self.model_save_dir, self.stats_save_dir,
                             self.run_id, self.filename, self.save_with_hash)
 
@@ -797,15 +837,6 @@ class RunnerConfig(ConfigInterface):
             msg = "parallel argument must be a boolean!"
             logger.error(msg)
             raise ValueError(msg)
-        if not isinstance(self.train_val_split, float):
-            msg = "train_val_split must a float between 0 and 1!"
-            logger.error(msg)
-            raise ValueError(msg)
-        else:
-            if self.train_val_split < 0 or self.train_val_split > 1:
-                msg = "train_val_split must be between 0 and 1, inclusive"
-                logger.error(msg)
-                raise ValueError(msg)
 
         if not type(self.model_save_dir) == str:
             msg = "Expected type 'string' for argument 'model_save_dir, instead got type: " \
@@ -851,7 +882,7 @@ def modelgen_cfg_to_runner_cfg(modelgen_cfg: ModelGeneratorConfig,
     """
     return RunnerConfig(modelgen_cfg.arch_factory, modelgen_cfg.data, modelgen_cfg.arch_factory_kwargs,
                         modelgen_cfg.arch_factory_kwargs_generator,
-                        modelgen_cfg.optimizer, modelgen_cfg.parallel, modelgen_cfg.train_val_split,
+                        modelgen_cfg.optimizer, modelgen_cfg.parallel,
                         modelgen_cfg.model_save_dir, modelgen_cfg.stats_save_dir,
                         run_id=run_id, filename=filename, save_with_hash=modelgen_cfg.save_with_hash)
 
