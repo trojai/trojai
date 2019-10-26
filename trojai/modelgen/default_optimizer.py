@@ -305,7 +305,15 @@ class DefaultOptimizer(OptimizerInterface):
         best_net = None
         best_validation_acc = -999
         best_training_acc = -999
+
+        val_acc_buffer = None
+        num_epochs_to_monitor = 1
+        if self.optimizer_cfg.training_cfg.early_stopping is not None:
+            num_epochs_to_monitor = self.optimizer_cfg.training_cfg.early_stopping.num_epochs
+            val_acc_buffer = np.ones(num_epochs_to_monitor)*self.optimizer_cfg.training_cfg.early_stopping.val_acc_eps*100
+
         for epoch_idx, epoch in enumerate(range(self.num_epochs)):
+            # this will evaluate to True every epoch if EarlyStopping is turned on
             compute_batch_stats = True if epoch_idx % self.num_epochs_per_metrics == 0 else False
             batches_stats = self.train_epoch(net, train_loader, val_loader, epoch, compute_batch_stats,
                                              progress_bar_disable=progress_bar_disable)
@@ -334,6 +342,16 @@ class DefaultOptimizer(OptimizerInterface):
                             logger.info(msg)
                             best_net = net
                             best_validation_acc = final_batch_validation_acc
+
+                # implement early stopping
+                # record the val accuracy of the last batch in the epoch.  if every value in the buffer is less than
+                # the epsilon specified quit training
+                val_acc_buffer[epoch_idx % num_epochs_to_monitor] = batches_stats[-1].batch_validation_accuracy
+                if np.all(val_acc_buffer <= self.optimizer_cfg.training_cfg.early_stopping.val_acc_eps):
+                    msg = "Exiting training loop early due to early stopping criterion being met!"
+                    logger.warning(msg)
+                    best_net = net
+                    break
 
         if self.save_best_model:
             return best_net, all_epochs_stats
