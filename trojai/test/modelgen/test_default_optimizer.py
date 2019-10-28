@@ -1,10 +1,13 @@
 import unittest
+from unittest.mock import Mock, patch
 
 import numpy as np
 import torch
+import torch.nn as nn
 
 from trojai.modelgen.default_optimizer import DefaultOptimizer, _eval_acc, train_val_dataset_split
-from trojai.modelgen.config import DefaultOptimizerConfig, TrainingConfig
+from trojai.modelgen.config import DefaultOptimizerConfig, TrainingConfig, EarlyStoppingConfig
+from trojai.modelgen.training_statistics import BatchStatistics
 
 """
 Contains unittests related to 
@@ -210,6 +213,120 @@ class TestRunner(unittest.TestCase):
         correct_string = "{'batch_size':32, 'num_epochs':10, " \
                          "'device':'cpu', 'lr':1.00000e-04, 'loss_function':'cross_entropy_loss', 'optimizer':'adam'}"
         self.assertEqual(optimizer_string, correct_string)
+
+    @patch('trojai.modelgen.default_optimizer.logger.warning')
+    def test_early_stopping1(self, logging_mock):
+        optimizer = DefaultOptimizer()
+        optimizer.optimizer_cfg.training_cfg.epochs = 10
+
+        optimizer.optimizer_cfg.training_cfg.early_stopping = EarlyStoppingConfig()
+        model = Mock(spec=nn.Module)
+        model.parameters = Mock()
+        dataset = Mock(spec=torch.utils.data.Dataset)
+
+        # patch disables import torch.optim, so we can skip greating models to test the optimizer
+        with patch('trojai.modelgen.default_optimizer.torch.optim.Adam') as patched_optimizer, \
+             patch('trojai.modelgen.default_optimizer.train_val_dataset_split', return_value=([], [])) as patched_train_val_split:
+
+            # this function overrides the return value of train_epoch, so that we can simulate
+            # when early-stopping is supposed to occur, and
+            def train_epoch_side_effect(net, train_loader, val_loader, epoch, compute_batch_stats,
+                                        progress_bar_disable=True):
+
+                if epoch < 4:
+                    return [BatchStatistics(999, epoch, epoch, epoch, epoch)]
+                else:
+                    return [BatchStatistics(999, epoch, epoch,
+                                            optimizer.optimizer_cfg.training_cfg.early_stopping.val_acc_eps,
+                                            epoch)]
+            optimizer.train_epoch = Mock(side_effect=train_epoch_side_effect)
+            optimizer.train(model, dataset)
+            # now put in the test condition
+            logging_mock.assert_called_with("Exiting training loop early in epoch: "
+                                            "%d - due to early stopping criterion being met!" %
+                                            (8, ))
+
+    @patch('trojai.modelgen.default_optimizer.logger.warning')
+    def test_early_stopping2(self, logging_mock):
+        optimizer_cfg = DefaultOptimizerConfig()
+        optimizer_cfg.training_cfg.device = torch.device('cuda')  # trick the device so that no warnings are triggered
+                                                                  # upon instantiation of the DefaultOptimizer
+        optimizer = DefaultOptimizer(optimizer_cfg)
+        optimizer.device = Mock()
+        optimizer.optimizer_cfg.training_cfg.epochs = 10
+
+        optimizer.optimizer_cfg.training_cfg.early_stopping = None
+        model = Mock(spec=nn.Module)
+        model.parameters = Mock()
+        dataset = Mock(spec=torch.utils.data.Dataset)
+
+        # patch disables import torch.optim, so we can skip greating models to test the optimizer
+        with patch('trojai.modelgen.default_optimizer.torch.optim.Adam') as patched_optimizer, \
+            patch('trojai.modelgen.default_optimizer.train_val_dataset_split',
+                  return_value=([], [])) as patched_train_val_split:
+
+            # this function overrides the return value of train_epoch, so that we can simulate
+            # when early-stopping is supposed to occur, and
+            def train_epoch_side_effect(net, train_loader, val_loader, epoch, compute_batch_stats,
+                                        progress_bar_disable=True):
+                if epoch < 4:
+                    return [BatchStatistics(999, epoch, epoch, epoch, epoch)]
+                else:
+                    return [BatchStatistics(999, epoch, epoch, epoch, epoch)]
+
+            optimizer.train_epoch = Mock(side_effect=train_epoch_side_effect)
+            optimizer.train(model, dataset)
+            # the test condition here that no warnings are triggered upon instantiation.
+            # this means that early stopping code was not run
+            # NOTE: this isn't the ideal test in the sense that the way we check for test success
+            #  is by looking at whether warnings were asserted or not.  As code gets upgraded,
+            #  this is prone to require a rewrite.
+            # TODO: consider adding flags into the code that you can check for, or something else to make sure that the
+            #  code  runs in the way that you expect
+            logging_mock.assert_not_called()
+
+    @patch('trojai.modelgen.default_optimizer.logger.warning')
+    def test_early_stopping3(self, logging_mock):
+        optimizer_cfg = DefaultOptimizerConfig()
+        optimizer_cfg.training_cfg.device = torch.device('cuda')  # trick the device so that no warnings are triggered
+        # upon instantiation of the DefaultOptimizer
+        optimizer = DefaultOptimizer(optimizer_cfg)
+        optimizer.optimizer_cfg.training_cfg.epochs = 10
+
+        optimizer.optimizer_cfg.training_cfg.early_stopping = EarlyStoppingConfig()
+        model = Mock(spec=nn.Module)
+        model.parameters = Mock()
+        dataset = Mock(spec=torch.utils.data.Dataset)
+
+        # patch disables import torch.optim, so we can skip greating models to test the optimizer
+        with patch('trojai.modelgen.default_optimizer.torch.optim.Adam') as patched_optimizer, \
+            patch('trojai.modelgen.default_optimizer.train_val_dataset_split',
+                  return_value=([], [])) as patched_train_val_split:
+
+            # this function overrides the return value of train_epoch, so that we can simulate
+            # when early-stopping is supposed to occur, and
+            def train_epoch_side_effect(net, train_loader, val_loader, epoch, compute_batch_stats,
+                                        progress_bar_disable=True):
+                if epoch < 9:
+                    return [BatchStatistics(999, epoch, epoch, epoch, epoch)]
+                else:
+                    return [BatchStatistics(999, epoch, epoch,
+                                            optimizer.optimizer_cfg.training_cfg.early_stopping.val_acc_eps,
+                                            epoch)]
+
+            optimizer.train_epoch = Mock(side_effect=train_epoch_side_effect)
+            optimizer.train(model, dataset)
+            # now put in the test condition
+            # the test condition here that no warnings are triggered upon instantiation.
+            # this means that early stopping code was not run
+            # NOTE: this isn't the ideal test in the sense that the way we check for test success
+            #  is by looking at whether warnings were asserted or not.  As code gets upgraded,
+            #  this is prone to require a rewrite.
+            # TODO: consider adding flags into the code that you can check for, or something else to make sure that the
+            #  code  runs in the way that you expect
+            logging_mock.assert_not_called()
+
+    # TODO: add tests on saving best model
 
 
 if __name__ == '__main__':

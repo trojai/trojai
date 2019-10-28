@@ -312,6 +312,7 @@ class DefaultOptimizer(OptimizerInterface):
             num_epochs_to_monitor = self.optimizer_cfg.training_cfg.early_stopping.num_epochs
             val_acc_buffer = np.ones(num_epochs_to_monitor)*self.optimizer_cfg.training_cfg.early_stopping.val_acc_eps*100
 
+        # TODO; isn't epoch and epoch_idx the same thing here?
         for epoch_idx, epoch in enumerate(range(self.num_epochs)):
             # this will evaluate to True every epoch if EarlyStopping is turned on
             compute_batch_stats = True if epoch_idx % self.num_epochs_per_metrics == 0 else False
@@ -346,12 +347,14 @@ class DefaultOptimizer(OptimizerInterface):
                 # implement early stopping
                 # record the val accuracy of the last batch in the epoch.  if every value in the buffer is less than
                 # the epsilon specified quit training
-                val_acc_buffer[epoch_idx % num_epochs_to_monitor] = batches_stats[-1].batch_validation_accuracy
-                if np.all(val_acc_buffer <= self.optimizer_cfg.training_cfg.early_stopping.val_acc_eps):
-                    msg = "Exiting training loop early due to early stopping criterion being met!"
-                    logger.warning(msg)
-                    best_net = net
-                    break
+                if self.optimizer_cfg.training_cfg.early_stopping is not None:
+                    val_acc_buffer[epoch_idx % num_epochs_to_monitor] = batches_stats[-1].batch_validation_accuracy
+                    if np.all(val_acc_buffer <= self.optimizer_cfg.training_cfg.early_stopping.val_acc_eps):
+                        msg = "Exiting training loop early in epoch: %d - due to early stopping criterion being " \
+                              "met!" % (epoch, )
+                        logger.warning(msg)
+                        best_net = net
+                        break
 
         if self.save_best_model:
             return best_net, all_epochs_stats
