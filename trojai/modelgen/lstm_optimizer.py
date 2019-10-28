@@ -398,6 +398,11 @@ class LSTMOptimizer(OptimizerInterface):
                         val_acc, val_n_total, val_n_correct = _eval_acc(predictions, batch.label,
                                                                         n_total=val_n_total,
                                                                         n_correct=val_n_correct)
+                        logger.info('{}\tTrain Epoch: {} [{}/{} ({:.0f}%)]\tValidationLoss: '
+                                    '{:.6f}\tValidationAcc: {:.6f}'.format(
+                                        pid, epoch_num, batch_idx * len(text), train_dataset_len,
+                                        100. * batch_idx / train_loader_len, val_n_total,
+                                        val_acc))
 
                 # avg_val_loss = np.mean(avg_val_loss_vec)
                 if self.tb_writer is not None:

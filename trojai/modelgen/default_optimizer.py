@@ -429,6 +429,11 @@ class DefaultOptimizer(OptimizerInterface):
                         val_acc, val_n_total, val_n_correct = _eval_acc(y_hat_eval, y_truth_eval,
                                                                         n_total=val_n_total,
                                                                         n_correct=val_n_correct)
+                        logger.info('{}\tTrain Epoch: {} [{}/{} ({:.0f}%)]\tValidationLoss: '
+                                    '{:.6f}\tValidationAcc: {:.6f}'.format(
+                                            pid, epoch_num, batch_idx * len(x_eval), train_dataset_len,
+                                            100. * batch_idx / train_loader_len, val_n_total,
+                                            val_acc))
                         # avg_val_loss_vec[val_batch_idx] = val_loss
 
                 # avg_val_loss = np.mean(avg_val_loss_vec)
