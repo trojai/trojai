@@ -159,9 +159,10 @@ class DefaultOptimizer(OptimizerInterface):
                              self.device.type)
         reporting_cfg_str = 'Reporting Configured as: num_batches_per_log_message[%d] tensorboard_dir[%s]' % \
                             (self.num_batches_per_logmsg, tensorboard_output_dir)
+        nbpm_print = self.num_batches_per_metrics if self.num_batches_per_metrics is not None else -1
         metrics_capture_str = 'Metrics capturing configured as: num_epochs_per_metric[%d] ' \
                               'num_batches_per_epoch_per_metric[%d]' % \
-                              (self.num_epochs_per_metrics, self.num_batches_per_metrics)
+                              (self.num_epochs_per_metrics, nbpm_print)
         logger.info(self.str_description)
         logger.info(optimizer_cfg_str)
         logger.info(reporting_cfg_str)
@@ -312,15 +313,15 @@ class DefaultOptimizer(OptimizerInterface):
             num_epochs_to_monitor = self.optimizer_cfg.training_cfg.early_stopping.num_epochs
             val_acc_buffer = np.ones(num_epochs_to_monitor)*self.optimizer_cfg.training_cfg.early_stopping.val_acc_eps*100
 
-        # TODO; isn't epoch and epoch_idx the same thing here?
-        for epoch_idx, epoch in enumerate(range(self.num_epochs)):
-            # this will evaluate to True every epoch if EarlyStopping is turned on
-            compute_batch_stats = True if epoch_idx % self.num_epochs_per_metrics == 0 else False
+        for epoch in range(self.num_epochs):
+            # this will evaluate to True every epoch if EarlyStopping is turned on, or if it is the last epoch
+            compute_batch_stats = True if (epoch % self.num_epochs_per_metrics == 0 or epoch == self.num_epochs-1) \
+                else False
             batches_stats = self.train_epoch(net, train_loader, val_loader, epoch, compute_batch_stats,
                                              progress_bar_disable=progress_bar_disable)
 
             if compute_batch_stats and len(batches_stats) > 0:
-                epoch_training_stats = EpochStatistics(epoch_idx)
+                epoch_training_stats = EpochStatistics(epoch)
                 epoch_training_stats.add_batch(batches_stats)
                 all_epochs_stats.append(epoch_training_stats)
 
@@ -330,7 +331,7 @@ class DefaultOptimizer(OptimizerInterface):
                         final_batch_training_acc = batches_stats[-1].batch_train_accuracy
                         if final_batch_training_acc >= best_training_acc:
                             msg = "Updating best model with epoch:[%d] accuracy[%0.02f].  Previous best training " \
-                                  "accuracy was: %0.02f" % (epoch_idx, final_batch_training_acc, best_training_acc)
+                                  "accuracy was: %0.02f" % (epoch, final_batch_training_acc, best_training_acc)
                             logger.info(msg)
                             best_net = net
                             best_training_acc = final_batch_training_acc
@@ -339,7 +340,7 @@ class DefaultOptimizer(OptimizerInterface):
                         final_batch_validation_acc = batches_stats[-1].batch_validation_accuracy
                         if final_batch_validation_acc >= best_validation_acc:
                             msg = "Updating best model with epoch:[%d] accuracy[%0.02f].  Previous best validation " \
-                                  "accuracy was: %0.02f" % (epoch_idx, final_batch_validation_acc, best_validation_acc)
+                                  "accuracy was: %0.02f" % (epoch, final_batch_validation_acc, best_validation_acc)
                             logger.info(msg)
                             best_net = net
                             best_validation_acc = final_batch_validation_acc
@@ -348,7 +349,7 @@ class DefaultOptimizer(OptimizerInterface):
                 # record the val accuracy of the last batch in the epoch.  if every value in the buffer is less than
                 # the epsilon specified quit training
                 if self.optimizer_cfg.training_cfg.early_stopping is not None:
-                    val_acc_buffer[epoch_idx % num_epochs_to_monitor] = batches_stats[-1].batch_validation_accuracy
+                    val_acc_buffer[epoch % num_epochs_to_monitor] = batches_stats[-1].batch_validation_accuracy
                     if np.all(val_acc_buffer <= self.optimizer_cfg.training_cfg.early_stopping.val_acc_eps):
                         msg = "Exiting training loop early in epoch: %d - due to early stopping criterion being " \
                               "met!" % (epoch, )
@@ -410,8 +411,8 @@ class DefaultOptimizer(OptimizerInterface):
             last_batch = (batch_idx == num_batches-1)
             # if we have validation data, and either this is time to compute on validation set as defined by user,
             # or it is the last batch, we compute on the validation dataset
-            if len(val_loader) > 0 and self.num_batches_per_metrics is not None and \
-                (batch_idx % self.num_batches_per_metrics == 0 or last_batch):
+            if len(val_loader) > 0 and ((self.num_batches_per_metrics is not None and
+                                         batch_idx % self.num_batches_per_metrics == 0) or last_batch):
                 # last condition ensures metrics are computed for storage put model into evaluation mode
                 model.eval()
                 # turn off auto-grad for validation set computation
@@ -454,7 +455,8 @@ class DefaultOptimizer(OptimizerInterface):
                     pass
 
             # save batch statistics
-            if compute_batch_stats and (batch_idx % self.num_batches_per_metrics == 0):
+            if compute_batch_stats and ((self.num_batches_per_metrics is not None and
+                                         batch_idx % self.num_batches_per_metrics == 0) or last_batch):
                 batch_stat = BatchStatistics(batch_idx, running_train_acc, batch_train_loss.item(),
                                              val_acc, val_loss)
                 batch_stats.append(batch_stat)

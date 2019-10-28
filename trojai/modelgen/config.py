@@ -288,8 +288,9 @@ class ReportingConfig(ConfigInterface):
             msg = "num_epochs_per_metrics must be an integer > 0"
             logger.error(msg)
             raise ValueError(msg)
-        if not isinstance(self.num_batches_per_metrics, int) or self.num_batches_per_metrics < 0:
-            msg = "num_batches_per_metrics must be an integer > 0"
+        if self.num_batches_per_metrics is not None and (not isinstance(self.num_batches_per_metrics, int) or
+                                                         self.num_batches_per_metrics < 0):
+            msg = "num_batches_per_metrics must be an integer > 0 or None!"
             logger.error(msg)
             raise ValueError(msg)
 
