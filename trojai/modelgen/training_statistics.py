@@ -203,7 +203,7 @@ class TrainingRunStatistics:
         summary_dict['final_triggered_data_test_acc'] = self.final_triggered_data_test_acc
         summary_dict['final_clean_data_n_total'] = self.final_clean_data_n_total
         summary_dict['final_triggered_data_n_total'] = self.final_triggered_data_n_total
-        summary_dict['final_optimizer_num_epochs_trained'] = self.final_optimizer_num_epochs_trained
+        summary_dict['final_optimizer_num_epochs_trained'] = self.num_epochs_trained_per_optimizer
 
         return summary_dict
 
