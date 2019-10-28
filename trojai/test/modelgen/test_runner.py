@@ -86,7 +86,7 @@ class TestRunner(unittest.TestCase):
         e = EpochStatistics(1)
         e.add_batch(test_batch_stats)
 
-        mock_optimizer1.train.return_value = (arch, [e])
+        mock_optimizer1.train.return_value = (arch, [e], 1)
         mock_optimizer1.test = Mock()
         mock_training_cfg1 = Mock(spec=TrainingConfig)
         mock_optimizer1.get_cfg_as_dict.return_value = mock_training_cfg1
@@ -145,7 +145,7 @@ class TestRunner(unittest.TestCase):
         e = EpochStatistics(1)
         e.add_batch(test_batch_stats)
 
-        mock_optimizer1.train.return_value = (arch, [e])
+        mock_optimizer1.train.return_value = (arch, [e], 1)
         mock_optimizer1.test = Mock()
 
         test_return_dict = dict()
@@ -214,11 +214,11 @@ class TestRunner(unittest.TestCase):
         e = EpochStatistics(1)
         e.add_batch(test_batch_stats)
 
-        mock_optimizer1.train.return_value = (arch, [e])
+        mock_optimizer1.train.return_value = (arch, [e], 1)
         mock_optimizer1.test = Mock()
-        mock_optimizer2.train.return_value = (arch, [e])
+        mock_optimizer2.train.return_value = (arch, [e], 1)
         mock_optimizer2.test = Mock()
-        mock_optimizer3.train.return_value = (arch, [e])
+        mock_optimizer3.train.return_value = (arch, [e], 1)
         mock_optimizer3.test = Mock()
 
         test_return_dict = dict()
