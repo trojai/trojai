@@ -350,7 +350,8 @@ class DefaultOptimizer(OptimizerInterface):
                 # the epsilon specified quit training
                 if self.optimizer_cfg.training_cfg.early_stopping is not None:
                     val_acc_buffer[epoch % num_epochs_to_monitor] = batches_stats[-1].batch_validation_accuracy
-                    if np.all(val_acc_buffer <= self.optimizer_cfg.training_cfg.early_stopping.val_acc_eps):
+                    if np.all(np.abs(np.diff(val_acc_buffer)) <=
+                              self.optimizer_cfg.training_cfg.early_stopping.val_acc_eps):
                         msg = "Exiting training loop early in epoch: %d - due to early stopping criterion being " \
                               "met!" % (epoch, )
                         logger.warning(msg)

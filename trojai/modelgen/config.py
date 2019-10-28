@@ -60,7 +60,7 @@ class EarlyStoppingConfig(ConfigInterface):
 
     def validate(self):
         if not isinstance(self.num_epochs, int) or self.num_epochs < 2:
-            msg = ""
+            msg = "num_epochs to monitor must be an integer > 1!"
             logger.error(msg)
             raise ValueError(msg)
         try:
