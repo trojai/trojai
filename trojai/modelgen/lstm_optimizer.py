@@ -383,6 +383,8 @@ class LSTMOptimizer(OptimizerInterface):
             last_batch = (batch_idx == num_batches - 1)
             # if we have validation data, and either this is time to compute on validation set as defined by user,
             # or it is the last batch, we compute on the validation dataset
+            val_loss = 0.
+            val_acc = 0.
             if len(val_loader) > 0 and ((self.num_batches_per_metrics is not None and
                                          batch_idx % self.num_batches_per_metrics == 0) or last_batch):
                 # last condition ensures metrics are computed for storage put model into evaluation mode
@@ -394,21 +396,27 @@ class LSTMOptimizer(OptimizerInterface):
                         predictions = model(text, text_lengths).squeeze(1)
 
                         val_loss_tensor = self._eval_loss_function(predictions, batch.label)
-                        val_loss = val_loss_tensor.item()
-                        val_acc, val_n_total, val_n_correct = _eval_acc(predictions, batch.label,
-                                                                        n_total=val_n_total,
-                                                                        n_correct=val_n_correct)
-                        logger.info('{}\tTrain Epoch: {} [{}/{} ({:.0f}%)]\tValidationLoss: '
-                                    '{:.6f}\tValidationAcc: {:.6f}'.format(
-                                        pid, epoch_num, batch_idx * len(text), train_dataset_len,
-                                        100. * batch_idx / train_loader_len, val_n_total,
-                                        val_acc))
+                        batch_val_loss = val_loss_tensor.item()
+                        batch_val_acc, val_n_total, val_n_correct = _eval_acc(predictions, batch.label,
+                                                                              n_total=val_n_total,
+                                                                              n_correct=val_n_correct)
+                        val_acc += batch_val_acc
+                        val_loss += batch_val_loss
+                    val_acc /= len(val_loader)
+                    val_loss /= len(val_loader)
+                    logger.info('{}\tTrain Epoch: {} [{}/{} ({:.0f}%)]\tValidationLoss: '
+                                '{:.6f}\tValidationAcc: {:.6f}'.format(
+                                    pid, epoch_num, batch_idx * len(text), train_dataset_len,
+                                    100. * batch_idx / train_loader_len, val_n_total,
+                                    val_acc))
 
                 # avg_val_loss = np.mean(avg_val_loss_vec)
                 if self.tb_writer is not None:
                     try:
                         self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
                                                   '-validation_loss', val_loss)
+                        self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
+                                                  '-validation_acc', val_acc)
                     except:
                         # TODO: catch specific exceptions!
                         pass
@@ -424,7 +432,10 @@ class LSTMOptimizer(OptimizerInterface):
                     self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name + '-running_train_acc',
                                               running_train_acc)
                     if len(val_loader) > 0 and self.num_batches_per_metrics is not None:
-                        self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name + '-val_acc', val_acc)
+                        self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
+                                                  '-validation_loss', val_loss)
+                        self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
+                                                  '-validation_acc', val_acc)
                 except:
                     # TODO: catch specific exceptions!
                     pass
