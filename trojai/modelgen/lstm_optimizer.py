@@ -102,6 +102,7 @@ class LSTMOptimizer(OptimizerInterface):
                              self.device.type)
         reporting_cfg_str = 'Reporting Configured as: num_batches_per_log_message[%d] tensorboard_dir[%s]' % \
                             (self.num_batches_per_logmsg, tensorboard_output_dir)
+        nbpm_print = self.num_batches_per_metrics if self.num_batches_per_metrics is not None else -1
         metrics_capture_str = 'Metrics capturing configured as: num_epochs_per_metric[%d] ' \
                               'num_batches_per_epoch_per_metric[%d]' % \
                               (self.num_epochs_per_metrics, self.num_batches_per_metrics)
@@ -228,14 +229,14 @@ class LSTMOptimizer(OptimizerInterface):
         return BucketIterator(dataset, self.batch_size, device=self.device, sort_within_batch=True)
 
     def train(self, model: torch.nn.Module, dataset: CSVTextDataset, progress_bar_disable: bool = False,
-              torch_dataloader_kwargs: dict = None) -> (torch.nn.Module, Sequence[EpochStatistics]):
+              torch_dataloader_kwargs: dict = None) -> (torch.nn.Module, Sequence[EpochStatistics], int):
         """
         Train the network.
         :param model: the model to train
         :param dataset: the dataset to train the network on
         :param progress_bar_disable: if True, disables the progress bar
         :param torch_dataloader_kwargs: additional arguments to pass to PyTorch's DataLoader class
-        :return: the trained network, list of EpochStatistics objects
+        :return: the trained network, list of EpochStatistics objects, and the # of epochs on which teh net was trained
         """
         model = model.to(self.device)
 
@@ -275,13 +276,22 @@ class LSTMOptimizer(OptimizerInterface):
         best_model = None
         best_validation_acc = -999
         best_training_acc = -999
-        for epoch_idx, epoch in enumerate(range(self.num_epochs)):
-            compute_batch_stats = True if epoch_idx % self.num_epochs_per_metrics == 0 else False
+
+        val_acc_buffer = None
+        num_epochs_to_monitor = 1
+        if self.optimizer_cfg.training_cfg.early_stopping is not None:
+            num_epochs_to_monitor = self.optimizer_cfg.training_cfg.early_stopping.num_epochs
+            val_acc_buffer = np.ones(
+                num_epochs_to_monitor) * self.optimizer_cfg.training_cfg.early_stopping.val_acc_eps * 100
+
+        for epoch in range(self.num_epochs):
+            compute_batch_stats = True if (epoch % self.num_epochs_per_metrics == 0 or epoch == self.num_epochs - 1) \
+                else False
             batches_stats = self.train_epoch(model, train_loader, val_loader, epoch, compute_batch_stats,
                                              progress_bar_disable=progress_bar_disable)
 
             if compute_batch_stats and len(batches_stats) > 0:
-                epoch_training_stats = EpochStatistics(epoch_idx)
+                epoch_training_stats = EpochStatistics(epoch)
                 epoch_training_stats.add_batch(batches_stats)
                 all_epochs_stats.append(epoch_training_stats)
 
@@ -291,7 +301,7 @@ class LSTMOptimizer(OptimizerInterface):
                         final_batch_training_acc = batches_stats[-1].batch_train_accuracy
                         if final_batch_training_acc >= best_training_acc:
                             msg = "Updating best model with epoch:[%d] accuracy[%0.02f].  Previous best training " \
-                                  "accuracy was: %0.02f" % (epoch_idx, final_batch_training_acc, best_training_acc)
+                                  "accuracy was: %0.02f" % (epoch, final_batch_training_acc, best_training_acc)
                             logger.info(msg)
                             best_model = model
                             best_training_acc = final_batch_training_acc
@@ -300,15 +310,31 @@ class LSTMOptimizer(OptimizerInterface):
                         final_batch_validation_acc = batches_stats[-1].batch_validation_accuracy
                         if final_batch_validation_acc >= best_validation_acc:
                             msg = "Updating best model with epoch:[%d] accuracy[%0.02f].  Previous best validation " \
-                                  "accuracy was: %0.02f" % (epoch_idx, final_batch_validation_acc, best_validation_acc)
+                                  "accuracy was: %0.02f" % (epoch, final_batch_validation_acc, best_validation_acc)
                             logger.info(msg)
                             best_model = model
                             best_validation_acc = final_batch_validation_acc
 
+                # early stopping
+                # record the val accuracy of the last batch in the epoch.  if every value in the buffer
+                # is less than
+                # the epsilon specified quit training
+                if self.optimizer_cfg.training_cfg.early_stopping is not None:
+                    val_acc_buffer[epoch % num_epochs_to_monitor] = batches_stats[
+                        -1].batch_validation_accuracy
+                    if np.all(np.abs(np.diff(val_acc_buffer)) <=
+                              self.optimizer_cfg.training_cfg.early_stopping.val_acc_eps):
+                        msg = "Exiting training loop early in epoch: %d - due to early stopping criterion " \
+                              "being " \
+                              "met!" % (epoch + 1,)
+                        logger.warning(msg)
+                        best_model = model
+                        break
+
         if self.save_best_model:
-            return best_model, all_epochs_stats
+            return best_model, all_epochs_stats, epoch+1
         else:
-            return model, all_epochs_stats
+            return model, all_epochs_stats, epoch+1
 
     def train_epoch(self, model: nn.Module, train_loader: TextDataIterator, val_loader: TextDataIterator,
                     epoch_num: int, compute_batch_stats: bool = True,
@@ -355,8 +381,10 @@ class LSTMOptimizer(OptimizerInterface):
             batch_train_loss.backward()
             self.optimizer.step()
             last_batch = (batch_idx == num_batches - 1)
-            if val_loader is not None and len(val_loader) > 0 and self.num_batches_per_metrics is not None and \
-               (batch_idx % self.num_batches_per_metrics == 0 or last_batch):
+            # if we have validation data, and either this is time to compute on validation set as defined by user,
+            # or it is the last batch, we compute on the validation dataset
+            if len(val_loader) > 0 and ((self.num_batches_per_metrics is not None and
+                                         batch_idx % self.num_batches_per_metrics == 0) or last_batch):
                 # last condition ensures metrics are computed for storage put model into evaluation mode
                 model.eval()
                 # turn off auto-grad for validation set computation
@@ -397,7 +425,8 @@ class LSTMOptimizer(OptimizerInterface):
                     pass
 
             # save batch statistics
-            if compute_batch_stats and (batch_idx % self.num_batches_per_metrics == 0):
+            if compute_batch_stats and ((self.num_batches_per_metrics is not None and
+                                         batch_idx % self.num_batches_per_metrics == 0) or last_batch):
                 batch_stat = BatchStatistics(batch_idx, running_train_acc, batch_train_loss.item(),
                                              val_acc, val_loss)
                 batch_stats.append(batch_stat)

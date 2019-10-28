@@ -100,6 +100,7 @@ class TrainingRunStatistics:
     """
     def __init__(self):
         self.epoch_stats_list = []
+        self.num_epochs_trained_per_optimizer = []
 
         self.final_train_acc = 0.
         self.final_train_loss = 0.
@@ -109,12 +110,16 @@ class TrainingRunStatistics:
         self.final_clean_data_n_total = 0
         self.final_triggered_data_test_acc = None
         self.final_triggered_data_n_total = None
+        self.final_optimizer_num_epochs_trained = 0
 
     def add_epoch(self, epoch_stats: Union[EpochStatistics, Sequence[EpochStatistics]]):
         if isinstance(epoch_stats, collections.abc.Sequence):
             self.epoch_stats_list.extend(epoch_stats)
         else:
             self.epoch_stats_list.append(epoch_stats)
+
+    def add_num_epochs_trained(self, num_epochs):
+        self.num_epochs_trained_per_optimizer.append(num_epochs)
 
     def get_epochs_stats(self):
         return self.epoch_stats_list
@@ -133,6 +138,7 @@ class TrainingRunStatistics:
         self.set_final_train_loss(final_batch_stats.get_batch_train_loss())
         self.set_final_val_acc(final_batch_stats.get_batch_validation_acc())
         self.set_final_val_loss(final_batch_stats.get_batch_validation_loss())
+        self.final_optimizer_num_epochs_trained = self.num_epochs_trained_per_optimizer[-1]
 
     def set_final_train_acc(self, acc):
         if 0 <= acc <= 100:
@@ -197,6 +203,7 @@ class TrainingRunStatistics:
         summary_dict['final_triggered_data_test_acc'] = self.final_triggered_data_test_acc
         summary_dict['final_clean_data_n_total'] = self.final_clean_data_n_total
         summary_dict['final_triggered_data_n_total'] = self.final_triggered_data_n_total
+        summary_dict['final_optimizer_num_epochs_trained'] = self.final_optimizer_num_epochs_trained
 
         return summary_dict
 
@@ -213,6 +220,9 @@ class TrainingRunStatistics:
     def save_detailed_stats_to_disk(self, fname: str) -> None:
         """
         Saves all batch statistics for every epoch as a CSV file
+
+        TODO: need to add in the # epochs-trained / optimizer into the detailed stats!
+
         :param fname: filename to save the detailed information to
         :return: None
         """

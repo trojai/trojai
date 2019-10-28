@@ -259,14 +259,15 @@ class DefaultOptimizer(OptimizerInterface):
         return train_loss
 
     def train(self, net: torch.nn.Module, dataset: torch.utils.data.Dataset, progress_bar_disable: bool = False,
-              torch_dataloader_kwargs: dict = None) -> (torch.nn.Module, Sequence[EpochStatistics]):
+              torch_dataloader_kwargs: dict = None) -> (torch.nn.Module, Sequence[EpochStatistics], int):
         """
         Train the network.
         :param net: the network to train
         :param dataset: the dataset to train the network on
         :param progress_bar_disable: if True, disables the progress bar
         :param torch_dataloader_kwargs: any additional kwargs to pass to PyTorch's native DataLoader
-        :return: the trained network, and a list of EpochStatistics objects which contain the statistics for training
+        :return: the trained network, and a list of EpochStatistics objects which contain the statistics for training,
+                and the # of epochs on which the net was trained
         """
         net = net.to(self.device)
 
@@ -345,7 +346,7 @@ class DefaultOptimizer(OptimizerInterface):
                             best_net = net
                             best_validation_acc = final_batch_validation_acc
 
-                # implement early stopping
+                # early stopping
                 # record the val accuracy of the last batch in the epoch.  if every value in the buffer is less than
                 # the epsilon specified quit training
                 if self.optimizer_cfg.training_cfg.early_stopping is not None:
@@ -353,15 +354,15 @@ class DefaultOptimizer(OptimizerInterface):
                     if np.all(np.abs(np.diff(val_acc_buffer)) <=
                               self.optimizer_cfg.training_cfg.early_stopping.val_acc_eps):
                         msg = "Exiting training loop early in epoch: %d - due to early stopping criterion being " \
-                              "met!" % (epoch, )
+                              "met!" % (epoch+1, )
                         logger.warning(msg)
                         best_net = net
                         break
 
         if self.save_best_model:
-            return best_net, all_epochs_stats
+            return best_net, all_epochs_stats, epoch+1
         else:
-            return net, all_epochs_stats
+            return net, all_epochs_stats, epoch+1
 
     def train_epoch(self, model: nn.Module, train_loader: DataLoader, val_loader: DataLoader,
                     epoch_num: int, compute_batch_stats: bool = True,

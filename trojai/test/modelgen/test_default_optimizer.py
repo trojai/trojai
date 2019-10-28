@@ -214,8 +214,7 @@ class TestRunner(unittest.TestCase):
                          "'device':'cpu', 'lr':1.00000e-04, 'loss_function':'cross_entropy_loss', 'optimizer':'adam'}"
         self.assertEqual(optimizer_string, correct_string)
 
-    @patch('trojai.modelgen.default_optimizer.logger.warning')
-    def test_early_stopping1(self, logging_mock):
+    def test_early_stopping1(self):
         optimizer = DefaultOptimizer()
         optimizer.optimizer_cfg.training_cfg.epochs = 10
 
@@ -240,14 +239,13 @@ class TestRunner(unittest.TestCase):
                                             optimizer.optimizer_cfg.training_cfg.early_stopping.val_acc_eps,
                                             epoch)]
             optimizer.train_epoch = Mock(side_effect=train_epoch_side_effect)
-            optimizer.train(model, dataset)
-            # now put in the test condition
-            logging_mock.assert_called_with("Exiting training loop early in epoch: "
-                                            "%d - due to early stopping criterion being met!" %
-                                            (8, ))
+            _, _, num_epochs_trained = optimizer.train(model, dataset)
+            # 4 is when the early-stopping stats are modified
+            # 5 is the default # of epochs to monitor for early stopping
+            # see: EarlyStoppingConfig() for further details
+            self.assertEqual(num_epochs_trained, 4+5)
 
-    @patch('trojai.modelgen.default_optimizer.logger.warning')
-    def test_early_stopping2(self, logging_mock):
+    def test_early_stopping2(self):
         optimizer_cfg = DefaultOptimizerConfig()
         optimizer_cfg.training_cfg.device = torch.device('cuda')  # trick the device so that no warnings are triggered
                                                                   # upon instantiation of the DefaultOptimizer
@@ -275,18 +273,12 @@ class TestRunner(unittest.TestCase):
                     return [BatchStatistics(999, epoch, epoch, epoch, epoch)]
 
             optimizer.train_epoch = Mock(side_effect=train_epoch_side_effect)
-            optimizer.train(model, dataset)
-            # the test condition here that no warnings are triggered upon instantiation.
-            # this means that early stopping code was not run
-            # NOTE: this isn't the ideal test in the sense that the way we check for test success
-            #  is by looking at whether warnings were asserted or not.  As code gets upgraded,
-            #  this is prone to require a rewrite.
-            # TODO: consider adding flags into the code that you can check for, or something else to make sure that the
-            #  code  runs in the way that you expect
-            logging_mock.assert_not_called()
+            _, _, num_epochs_trained = optimizer.train(model, dataset)
+            # the early stopping should *not* have been run, b/c we set it to None, so we should
+            # have trained for the full 10 epochs
+            self.assertEqual(num_epochs_trained, optimizer.optimizer_cfg.training_cfg.epochs)
 
-    @patch('trojai.modelgen.default_optimizer.logger.warning')
-    def test_early_stopping3(self, logging_mock):
+    def test_early_stopping3(self):
         optimizer_cfg = DefaultOptimizerConfig()
         optimizer_cfg.training_cfg.device = torch.device('cuda')  # trick the device so that no warnings are triggered
         # upon instantiation of the DefaultOptimizer
@@ -315,16 +307,12 @@ class TestRunner(unittest.TestCase):
                                             epoch)]
 
             optimizer.train_epoch = Mock(side_effect=train_epoch_side_effect)
-            optimizer.train(model, dataset)
+            _, _, num_epochs_trained = optimizer.train(model, dataset)
             # now put in the test condition
             # the test condition here that no warnings are triggered upon instantiation.
-            # this means that early stopping code was not run
-            # NOTE: this isn't the ideal test in the sense that the way we check for test success
-            #  is by looking at whether warnings were asserted or not.  As code gets upgraded,
-            #  this is prone to require a rewrite.
-            # TODO: consider adding flags into the code that you can check for, or something else to make sure that the
-            #  code  runs in the way that you expect
-            logging_mock.assert_not_called()
+            # this means that early stopping code should not have been run, and we should
+            # have trained for the full 10 epochs
+            self.assertEqual(num_epochs_trained, optimizer.optimizer_cfg.training_cfg.epochs)
 
     # TODO: add tests on saving best model
 
