@@ -221,8 +221,6 @@ class TrainingRunStatistics:
         """
         Saves all batch statistics for every epoch as a CSV file
 
-        TODO: need to add in the # epochs-trained / optimizer into the detailed stats!
-
         :param fname: filename to save the detailed information to
         :return: None
         """

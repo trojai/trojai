@@ -73,7 +73,9 @@ class LSTMOptimizer(OptimizerInterface):
         self.num_epochs_per_metrics = self.optimizer_cfg.reporting_cfg.num_epochs_per_metrics
         self.num_batches_per_metrics = self.optimizer_cfg.reporting_cfg.num_batches_per_metrics
 
-        # override num_epochs_per_metrics and num_batches_per_metrics if early-stopping is turned on
+        # override num_epochs_per_metrics and num_batches_per_metrics if early-stopping is turned on.  We need to do
+        # in case the user has not configured recording validation dataset metrics, which would be turned off by
+        # default and prevent early stopping from working properly.
         if self.optimizer_cfg.training_cfg.early_stopping is not None:
             self.num_epochs_per_metrics = 1
             msg = "Overriding reporting configuration due to early stopping criterion being specified!"
@@ -354,14 +356,13 @@ class LSTMOptimizer(OptimizerInterface):
 
         pid = os.getpid()
         train_dataset_len = len(train_loader.dataset)
-        train_loader_len = len(train_loader)
         loop = tqdm(train_loader, disable=progress_bar_disable)
 
         train_n_correct, train_n_total = 0, 0
         val_n_correct, val_n_total = 0, 0
         val_acc, val_loss = None, None
         batch_stats = []
-        num_batches = train_loader_len
+        num_batches = len(train_loader)
         for batch_idx, batch in enumerate(loop):
             # put network into training mode & zero out previous gradient computations
             model.train()
@@ -407,7 +408,7 @@ class LSTMOptimizer(OptimizerInterface):
                     logger.info('{}\tTrain Epoch: {} [{}/{} ({:.0f}%)]\tValidationLoss: '
                                 '{:.6f}\tValidationAcc: {:.6f}'.format(
                                     pid, epoch_num, batch_idx * len(text), train_dataset_len,
-                                    100. * batch_idx / train_loader_len, val_n_total,
+                                    100. * batch_idx / num_batches, val_n_total,
                                     val_acc))
 
                 # avg_val_loss = np.mean(avg_val_loss_vec)
@@ -450,7 +451,7 @@ class LSTMOptimizer(OptimizerInterface):
             if batch_idx % self.num_batches_per_logmsg == 0:
                 logger.info('{}\tTrain Epoch: {} [{}/{} ({:.0f}%)]\tTrainLoss: {:.6f}\tTrainAcc: {:.6f}'.format(
                     pid, epoch_num, batch_idx * len(batch), train_dataset_len,
-                                    100. * batch_idx / train_loader_len, batch_train_loss.item(), running_train_acc))
+                                    100. * batch_idx / num_batches, batch_train_loss.item(), running_train_acc))
 
         return batch_stats
 

@@ -53,6 +53,11 @@ class EarlyStoppingConfig(ConfigInterface):
     Defines configuration related to early stopping.
     """
     def __init__(self, num_epochs: int = 5, val_acc_eps: float = 1e-3):
+        """
+        :param num_epochs: the # of epochs for which to monitor the validation accuracy over
+        :param val_acc_eps: the difference between the validation accuracy for the # of epochs to monitor the
+                validation accuracy before deciding to perform early stopping
+        """
         self.num_epochs = num_epochs
         self.val_acc_eps = val_acc_eps
 
