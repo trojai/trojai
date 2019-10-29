@@ -72,11 +72,23 @@ class LSTMOptimizer(OptimizerInterface):
         self.num_batches_per_logmsg = self.optimizer_cfg.reporting_cfg.num_batches_per_logmsg
         self.num_epochs_per_metrics = self.optimizer_cfg.reporting_cfg.num_epochs_per_metrics
         self.num_batches_per_metrics = self.optimizer_cfg.reporting_cfg.num_batches_per_metrics
-        # NOTE: the configuration parameter 'num_batches_per_val_dataset_metrics' has the most significant impact on
-        #  training performance.  It can be useful for debugging development of a model, but when scaling up,
-        #  set this parameter to None to disable computing the validation dataset and speed up training
-        self.num_batches_per_val_dataset_metrics = self.optimizer_cfg.reporting_cfg.num_batches_per_val_dataset_metrics
-        if self.device.type == 'cpu' and self.num_batches_per_val_dataset_metrics is not None:
+
+        # override num_epochs_per_metrics and num_batches_per_metrics if early-stopping is turned on.  We need to do
+        # in case the user has not configured recording validation dataset metrics, which would be turned off by
+        # default and prevent early stopping from working properly.
+        if self.optimizer_cfg.training_cfg.early_stopping is not None:
+            self.num_epochs_per_metrics = 1
+            msg = "Overriding reporting configuration due to early stopping criterion being specified!"
+            logger.warning(msg)
+
+            # raise an error if the validation dataset size wasn't configured and early-stopping is on
+            if self.optimizer_cfg.training_cfg.train_val_split <= 0 or \
+                self.optimizer_cfg.training_cfg.train_val_split >= 1:
+                msg = "if early_stopping is enabled, then 0 < train_val_split < 1"
+                logger.error(msg)
+                raise ValueError(msg)
+
+        if self.device.type == 'cpu' and self.num_batches_per_metrics is not None:
             logger.warning('Training will be VERY SLOW on a CPU with num_batches_per_val_dataset_metrics set to a '
                            'value other than None.  If validation dataset metrics are still desired, '
                            'consider increasing this value to speed up training')
@@ -92,6 +104,7 @@ class LSTMOptimizer(OptimizerInterface):
                              self.device.type)
         reporting_cfg_str = 'Reporting Configured as: num_batches_per_log_message[%d] tensorboard_dir[%s]' % \
                             (self.num_batches_per_logmsg, tensorboard_output_dir)
+        nbpm_print = self.num_batches_per_metrics if self.num_batches_per_metrics is not None else -1
         metrics_capture_str = 'Metrics capturing configured as: num_epochs_per_metric[%d] ' \
                               'num_batches_per_epoch_per_metric[%d]' % \
                               (self.num_epochs_per_metrics, self.num_batches_per_metrics)
@@ -121,7 +134,6 @@ class LSTMOptimizer(OptimizerInterface):
                         self.num_batches_per_logmsg == other.num_batches_per_logmsg and \
                         self.num_epochs_per_metrics == other.num_epochs_per_metrics and \
                         self.num_batches_per_metrics == other.num_batches_per_metrics and \
-                        self.num_batches_per_val_dataset_metrics == other.num_batches_per_val_dataset_metrics and \
                         self.tb_writer.log_dir == other.tb_writer.log_dir:
                     return True
             else:
@@ -218,16 +230,15 @@ class LSTMOptimizer(OptimizerInterface):
         # exists for the BucketIterator.  TODO: test whether this might become a problem.
         return BucketIterator(dataset, self.batch_size, device=self.device, sort_within_batch=True)
 
-    def train(self, model: torch.nn.Module, dataset: CSVTextDataset, train_val_split: float = 0.0,
-              progress_bar_disable: bool = False, torch_dataloader_kwargs: dict = None) -> (torch.nn.Module, Sequence[EpochStatistics]):
+    def train(self, model: torch.nn.Module, dataset: CSVTextDataset, progress_bar_disable: bool = False,
+              torch_dataloader_kwargs: dict = None) -> (torch.nn.Module, Sequence[EpochStatistics], int):
         """
         Train the network.
         :param model: the model to train
         :param dataset: the dataset to train the network on
-        :param train_val_split: the % of training data to use as validation data
         :param progress_bar_disable: if True, disables the progress bar
         :param torch_dataloader_kwargs: additional arguments to pass to PyTorch's DataLoader class
-        :return: the trained network, list of EpochStatistics objects
+        :return: the trained network, list of EpochStatistics objects, and the # of epochs on which teh net was trained
         """
         model = model.to(self.device)
 
@@ -244,7 +255,8 @@ class LSTMOptimizer(OptimizerInterface):
             raise NotImplementedError(msg)
 
         # split into train & validation datasets, and setup data loaders according to their type
-        train_dataset, val_dataset = LSTMOptimizer.train_val_dataset_split(dataset, train_val_split)
+        train_dataset, val_dataset = LSTMOptimizer.train_val_dataset_split(dataset,
+                                                                           self.optimizer_cfg.training_cfg.train_val_split)
         train_loader = self.convert_dataset_to_dataiterator(train_dataset)
         val_loader = self.convert_dataset_to_dataiterator(val_dataset) if val_dataset is not None else None
 
@@ -266,23 +278,32 @@ class LSTMOptimizer(OptimizerInterface):
         best_model = None
         best_validation_acc = -999
         best_training_acc = -999
-        for epoch_idx, epoch in enumerate(range(self.num_epochs)):
-            compute_batch_stats = True if epoch_idx % self.num_epochs_per_metrics == 0 else False
+
+        val_acc_buffer = None
+        num_epochs_to_monitor = 1
+        if self.optimizer_cfg.training_cfg.early_stopping is not None:
+            num_epochs_to_monitor = self.optimizer_cfg.training_cfg.early_stopping.num_epochs
+            val_acc_buffer = np.ones(
+                num_epochs_to_monitor) * self.optimizer_cfg.training_cfg.early_stopping.val_acc_eps * 100
+
+        for epoch in range(self.num_epochs):
+            compute_batch_stats = True if (epoch % self.num_epochs_per_metrics == 0 or epoch == self.num_epochs - 1) \
+                else False
             batches_stats = self.train_epoch(model, train_loader, val_loader, epoch, compute_batch_stats,
                                              progress_bar_disable=progress_bar_disable)
 
             if compute_batch_stats and len(batches_stats) > 0:
-                epoch_training_stats = EpochStatistics(epoch_idx)
+                epoch_training_stats = EpochStatistics(epoch)
                 epoch_training_stats.add_batch(batches_stats)
                 all_epochs_stats.append(epoch_training_stats)
 
                 if self.save_best_model:
-                    if train_val_split == 0.0:
+                    if self.optimizer_cfg.training_cfg.train_val_split == 0.0:
                         # use training accuracy as the metric for deciding the best model
                         final_batch_training_acc = batches_stats[-1].batch_train_accuracy
                         if final_batch_training_acc >= best_training_acc:
                             msg = "Updating best model with epoch:[%d] accuracy[%0.02f].  Previous best training " \
-                                  "accuracy was: %0.02f" % (epoch_idx, final_batch_training_acc, best_training_acc)
+                                  "accuracy was: %0.02f" % (epoch, final_batch_training_acc, best_training_acc)
                             logger.info(msg)
                             best_model = model
                             best_training_acc = final_batch_training_acc
@@ -291,47 +312,57 @@ class LSTMOptimizer(OptimizerInterface):
                         final_batch_validation_acc = batches_stats[-1].batch_validation_accuracy
                         if final_batch_validation_acc >= best_validation_acc:
                             msg = "Updating best model with epoch:[%d] accuracy[%0.02f].  Previous best validation " \
-                                  "accuracy was: %0.02f" % (epoch_idx, final_batch_validation_acc, best_validation_acc)
+                                  "accuracy was: %0.02f" % (epoch, final_batch_validation_acc, best_validation_acc)
                             logger.info(msg)
                             best_model = model
                             best_validation_acc = final_batch_validation_acc
 
+                # early stopping
+                # record the val accuracy of the last batch in the epoch.  if every value in the buffer
+                # is less than
+                # the epsilon specified quit training
+                if self.optimizer_cfg.training_cfg.early_stopping is not None:
+                    val_acc_buffer[epoch % num_epochs_to_monitor] = batches_stats[
+                        -1].batch_validation_accuracy
+                    if np.all(np.abs(np.diff(val_acc_buffer)) <=
+                              self.optimizer_cfg.training_cfg.early_stopping.val_acc_eps):
+                        msg = "Exiting training loop early in epoch: %d - due to early stopping criterion " \
+                              "being " \
+                              "met!" % (epoch + 1,)
+                        logger.warning(msg)
+                        best_model = model
+                        break
+
         if self.save_best_model:
-            return best_model, all_epochs_stats
+            return best_model, all_epochs_stats, epoch+1
         else:
-            return model, all_epochs_stats
+            return model, all_epochs_stats, epoch+1
 
     def train_epoch(self, model: nn.Module, train_loader: TextDataIterator, val_loader: TextDataIterator,
                     epoch_num: int, compute_batch_stats: bool = True,
-                    avg_loss_num_batches: int = 100, progress_bar_disable: bool = False):
+                    progress_bar_disable: bool = False):
         """
         Runs one epoch of training on the specified model
-        TODO:
-          [ ] - pass in the avg_loss_num_batches parameter cleanly and configurably
+
         :param model: the model to train for one epoch
         :param train_loader: a DataLoader object pointing to the training dataset
         :param val_loader: a DataLoader object pointing to the validation dataset
         :param epoch_num: the epoch number that is being trained
         :param compute_batch_stats: if True, computes statistics for the batch based on the reporting configuration
                 specified in the initialization of the optimizer
-        :param avg_loss_num_batches: the number of batches of data to accumulate to compute average loss
         :param progress_bar_disable: if True, disables the progress bar
         :return: a list of statistics for batches where statistics were computed
         """
 
         pid = os.getpid()
         train_dataset_len = len(train_loader.dataset)
-        train_loader_len = len(train_loader)
         loop = tqdm(train_loader, disable=progress_bar_disable)
-
-        # NOTE: potential speed-up by not computing the average ... but this seems like premature optimization to me
-        avg_train_loss_circbuf = collections.deque(maxlen=avg_loss_num_batches)
-        avg_val_loss_vec = np.empty(len(val_loader.dataset)) if val_loader is not None else None
 
         train_n_correct, train_n_total = 0, 0
         val_n_correct, val_n_total = 0, 0
         val_acc, val_loss = None, None
         batch_stats = []
+        num_batches = len(train_loader)
         for batch_idx, batch in enumerate(loop):
             # put network into training mode & zero out previous gradient computations
             model.train()
@@ -350,11 +381,13 @@ class LSTMOptimizer(OptimizerInterface):
             # compute gradient
             batch_train_loss.backward()
             self.optimizer.step()
-
-            if val_loader is not None and len(val_loader) > 0 and \
-                (self.num_batches_per_val_dataset_metrics is not None) and \
-                    ((batch_idx % self.num_batches_per_val_dataset_metrics == 0) or
-                     (batch_idx % self.num_batches_per_metrics == 0)):
+            last_batch = (batch_idx == num_batches - 1)
+            # if we have validation data, and either this is time to compute on validation set as defined by user,
+            # or it is the last batch, we compute on the validation dataset
+            val_loss = 0.
+            val_acc = 0.
+            if len(val_loader) > 0 and ((self.num_batches_per_metrics is not None and
+                                         batch_idx % self.num_batches_per_metrics == 0) or last_batch):
                 # last condition ensures metrics are computed for storage put model into evaluation mode
                 model.eval()
                 # turn off auto-grad for validation set computation
@@ -364,53 +397,61 @@ class LSTMOptimizer(OptimizerInterface):
                         predictions = model(text, text_lengths).squeeze(1)
 
                         val_loss_tensor = self._eval_loss_function(predictions, batch.label)
-                        val_loss = val_loss_tensor.item()
-                        val_acc, val_n_total, val_n_correct = _eval_acc(predictions, batch.label,
-                                                                        n_total=val_n_total,
-                                                                        n_correct=val_n_correct)
-                        avg_val_loss_vec[val_batch_idx] = val_loss
+                        batch_val_loss = val_loss_tensor.item()
+                        batch_val_acc, val_n_total, val_n_correct = _eval_acc(predictions, batch.label,
+                                                                              n_total=val_n_total,
+                                                                              n_correct=val_n_correct)
+                        val_acc += batch_val_acc
+                        val_loss += batch_val_loss
+                    val_acc /= len(val_loader)
+                    val_loss /= len(val_loader)
+                    logger.info('{}\tTrain Epoch: {} [{}/{} ({:.0f}%)]\tValidationLoss: '
+                                '{:.6f}\tValidationAcc: {:.6f}'.format(
+                                    pid, epoch_num, batch_idx * len(text), train_dataset_len,
+                                    100. * batch_idx / num_batches, val_n_total,
+                                    val_acc))
 
-                avg_val_loss = np.mean(avg_val_loss_vec)
+                # avg_val_loss = np.mean(avg_val_loss_vec)
                 if self.tb_writer is not None:
                     try:
                         self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
-                                                  '-avg_validation_loss', avg_val_loss)
+                                                  '-validation_loss', val_loss)
+                        self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
+                                                  '-validation_acc', val_acc)
                     except:
                         # TODO: catch specific exceptions!
                         pass
 
-            # NOTE: should these be options to compute training accuracy, etc, as well?
-            avg_train_loss_circbuf.append(batch_train_loss.item())
-            avg_train_loss = np.mean(avg_train_loss_circbuf)
-
             loop.set_description('Epoch {}/{}'.format(epoch_num + 1, self.num_epochs))
-            loop.set_postfix(avg_train_loss=avg_train_loss)
+            loop.set_postfix(avg_train_loss=batch_train_loss.item())
 
-            # report batch statistics to tensorflow
+            # report batch statistics to tensorboard
             if self.tb_writer is not None:
                 try:
                     self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name + '-train_loss',
                                               batch_train_loss.item())
-                    self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name + '-avg_train_loss',
-                                              avg_train_loss)
                     self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name + '-running_train_acc',
                                               running_train_acc)
-                    if len(val_loader) > 0 and self.num_batches_per_val_dataset_metrics is not None:
-                        self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name + '-val_acc', val_acc)
+                    if len(val_loader) > 0 and self.num_batches_per_metrics is not None:
+                        self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
+                                                  '-validation_loss', val_loss)
+                        self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
+                                                  '-validation_acc', val_acc)
                 except:
                     # TODO: catch specific exceptions!
                     pass
 
             # save batch statistics
-            if compute_batch_stats and (batch_idx % self.num_batches_per_metrics == 0):
+            if compute_batch_stats and ((self.num_batches_per_metrics is not None and
+                                         batch_idx % self.num_batches_per_metrics == 0) or last_batch):
                 batch_stat = BatchStatistics(batch_idx, running_train_acc, batch_train_loss.item(),
                                              val_acc, val_loss)
                 batch_stats.append(batch_stat)
 
             if batch_idx % self.num_batches_per_logmsg == 0:
-                logger.info('{}\tTrain Epoch: {} [{}/{} ({:.0f}%)]\tAvgTrainLoss: {:.6f}\tTrainAcc: {:.6f}'.format(
+                logger.info('{}\tTrain Epoch: {} [{}/{} ({:.0f}%)]\tTrainLoss: {:.6f}\tTrainAcc: {:.6f}'.format(
                     pid, epoch_num, batch_idx * len(batch), train_dataset_len,
-                                    100. * batch_idx / train_loader_len, avg_train_loss, running_train_acc))
+                                    100. * batch_idx / num_batches, batch_train_loss.item(), running_train_acc))
 
         return batch_stats
 

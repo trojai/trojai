@@ -126,6 +126,7 @@ class TestTrainingStatistics(unittest.TestCase):
         training_stats = tpm_ts.TrainingRunStatistics()
         training_stats.add_epoch(epoch1_stats)
         training_stats.add_epoch([epoch2_stats, epoch3_stats])
+        training_stats.add_num_epochs_trained(1)
         training_stats.autopopulate_final_summary_stats()
         training_stats.set_final_clean_data_test_acc(1)
         training_stats.set_final_triggered_data_test_acc(1)
@@ -172,7 +173,6 @@ class TestTrainingStatistics(unittest.TestCase):
 
         # delete file
         os.unlink(fname)
-
 
 
 if __name__ == '__main__':

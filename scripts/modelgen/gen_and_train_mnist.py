@@ -211,15 +211,12 @@ def train_and_save_mnist_model(experiment_path, triggered_train, clean_test, tri
         'tensorboard_output_dir': 'tensorboard_dir/',
         'experiment_name': 'badnets',
         'num_batches_per_metrics': 500,
-        'num_batches_ver_val_dataset_metrics': None,
         'num_epochs_per_metric': 10
     }
     logging_cfg = tpmc.ReportingConfig(num_batches_per_logmsg=logging_params['num_batches_per_logmsg'],
                                        tensorboard_output_dir=logging_params['tensorboard_output_dir'],
                                        experiment_name=logging_params['experiment_name'],
                                        num_batches_per_metrics=logging_params['num_batches_per_metrics'],
-                                       num_batches_ver_val_dataset_metrics=logging_params[
-                                           'num_batches_ver_val_dataset_metrics'],
                                        num_epochs_per_metric=logging_params['num_epochs_per_metric'])
 
     # Train clean model to use as a base for triggered model
@@ -317,7 +314,7 @@ if __name__ == "__main__":
             'console': {
                 'class': 'logging.StreamHandler',
                 'formatter': 'basic',
-                'level': 'INFO',
+                'level': 'WARNING',
             }
         },
         'loggers': {
