@@ -506,7 +506,7 @@ class DefaultOptimizer(OptimizerInterface):
         if self.device.type != 'cpu':
             pin_memory = True
         # drop_last=True is from: https://stackoverflow.com/questions/56576716
-        data_loader = DataLoader(clean_data, batch_size=self.batch_size, pin_memory=pin_memory, drop_last=True,
+        data_loader = DataLoader(clean_data, batch_size=1, pin_memory=pin_memory, drop_last=True,
                                  **data_loader_kwargs_in)
 
         # test type is classification accuracy on clean and triggered data
@@ -529,7 +529,7 @@ class DefaultOptimizer(OptimizerInterface):
             return test_data_statistics
 
         # drop_last=True is from: https://stackoverflow.com/questions/56576716
-        data_loader = DataLoader(triggered_data, batch_size=self.batch_size, pin_memory=pin_memory, drop_last=True)
+        data_loader = DataLoader(triggered_data, batch_size=1, pin_memory=pin_memory)
         test_n_correct = 0
         test_n_total = 0
         with torch.no_grad():
@@ -542,6 +542,6 @@ class DefaultOptimizer(OptimizerInterface):
                                                                    n_correct=test_n_correct)
         test_data_statistics['triggered_accuracy'] = test_acc
         test_data_statistics['triggered_n_total'] = test_n_total
-        logger.info("Accuracy on triggered test data: %0.02f" %
-                    (test_data_statistics['triggered_accuracy'],))
+        logger.info("Accuracy on triggered test data: %0.02f for n=%d" %
+                    (test_data_statistics['triggered_accuracy'], test_n_total))
         return test_data_statistics
