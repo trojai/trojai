@@ -186,7 +186,7 @@ class TrainingRunStatistics:
         if n is None or n > 0:
             self.final_triggered_data_n_total = n
         else:
-            msg = "Triggered dataset size must be > 0!"
+            msg = "Triggered dataset size must be > 0! - received dataset:size" + str(n)
             logger.error(msg)
             raise ValueError(msg)
 
