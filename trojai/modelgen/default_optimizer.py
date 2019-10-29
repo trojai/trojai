@@ -482,7 +482,7 @@ class DefaultOptimizer(OptimizerInterface):
             if batch_idx % self.num_batches_per_logmsg == 0:
                 logger.info('{}\tTrain Epoch: {} [{}/{} ({:.0f}%)]\tTrainLoss: {:.6f}\tTrainAcc: {:.6f}'.format(
                     pid, epoch_num, batch_idx * len(x), train_dataset_len,
-                                    100. * batch_idx / train_loader_len, batch_train_loss.item(), running_train_acc))
+                                    100. * batch_idx / num_batches, batch_train_loss.item(), running_train_acc))
 
         return batch_stats
 
