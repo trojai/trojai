@@ -279,14 +279,15 @@ class LSTMOptimizer(OptimizerInterface):
         best_validation_acc = -999
         best_training_acc = -999
 
-        val_acc_buffer = None
+        val_loss_buffer = None
         num_epochs_to_monitor = 1
         if self.optimizer_cfg.training_cfg.early_stopping is not None:
             num_epochs_to_monitor = self.optimizer_cfg.training_cfg.early_stopping.num_epochs
-            val_acc_buffer = np.ones(
-                num_epochs_to_monitor) * self.optimizer_cfg.training_cfg.early_stopping.val_acc_eps * 100
+            val_loss_buffer = collections.deque(maxlen=num_epochs_to_monitor+1)
 
-        for epoch in range(self.num_epochs):
+        epoch = 0
+        not_done = True
+        while not_done:
             compute_batch_stats = True if (epoch % self.num_epochs_per_metrics == 0 or epoch == self.num_epochs - 1) \
                 else False
             batches_stats = self.train_epoch(model, train_loader, val_loader, epoch, compute_batch_stats,
@@ -317,26 +318,40 @@ class LSTMOptimizer(OptimizerInterface):
                             best_model = model
                             best_validation_acc = final_batch_validation_acc
 
-                # early stopping
-                # record the val accuracy of the last batch in the epoch.  if every value in the buffer
-                # is less than
-                # the epsilon specified quit training
-                if self.optimizer_cfg.training_cfg.early_stopping is not None:
-                    val_acc_buffer[epoch % num_epochs_to_monitor] = batches_stats[
-                        -1].batch_validation_accuracy
-                    if np.all(np.abs(np.diff(val_acc_buffer)) <=
-                              self.optimizer_cfg.training_cfg.early_stopping.val_acc_eps):
-                        msg = "Exiting training loop early in epoch: %d - due to early stopping criterion " \
-                              "being " \
-                              "met!" % (epoch + 1,)
-                        logger.warning(msg)
-                        best_model = model
-                        break
+                            # early stopping
+                            # record the val accuracy of the last batch in the epoch.  if every value in the buffer
+                            # is less than
+                            # the epsilon specified quit training
+                            if self.optimizer_cfg.training_cfg.early_stopping is not None:
+                                val_loss_buffer.append(batches_stats[-1].batch_validation_loss)
+                                # ensure we've accumulated enough stats to trigger the early-stopping code
+                                if len(val_loss_buffer) == num_epochs_to_monitor + 1:
+                                    # compute diff between the first element, and the remaining elements
+                                    val_loss_nparr = np.asarray(val_loss_buffer)
+                                    val_loss_diff = val_loss_nparr[1:] - val_loss_nparr[0]
+                                    if np.all(
+                                        val_loss_diff >= -1 *
+                                        self.optimizer_cfg.training_cfg.early_stopping.val_loss_eps):
+                                        epoch += 1  # we do this b/c of the break to keep the accounting of epoch #
+                                        # returned to
+                                        # the user to be one based
+                                        msg = "Exiting training loop early in epoch: %d - due to early stopping " \
+                                              "criterion being " \
+                                              "met!" % (epoch,)
+                                        logger.warning(msg)
+                                        best_net = model
+                                        break
+
+            epoch += 1
+            if self.optimizer_cfg.training_cfg.early_stopping:
+                not_done = True
+            else:
+                not_done = True if epoch < self.num_epochs else False
 
         if self.save_best_model:
-            return best_model, all_epochs_stats, epoch+1
+            return best_model, all_epochs_stats, epoch
         else:
-            return model, all_epochs_stats, epoch+1
+            return model, all_epochs_stats, epoch
 
     def train_epoch(self, model: nn.Module, train_loader: TextDataIterator, val_loader: TextDataIterator,
                     epoch_num: int, compute_batch_stats: bool = True,

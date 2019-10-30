@@ -52,14 +52,14 @@ class EarlyStoppingConfig(ConfigInterface):
     """
     Defines configuration related to early stopping.
     """
-    def __init__(self, num_epochs: int = 5, val_acc_eps: float = 1e-3):
+    def __init__(self, num_epochs: int = 5, val_loss_eps: float = 1e-3):
         """
         :param num_epochs: the # of epochs for which to monitor the validation accuracy over
-        :param val_acc_eps: the difference between the validation accuracy for the # of epochs to monitor the
-                validation accuracy before deciding to perform early stopping
+        :param val_loss_eps: the threshold between the validation loss for the # of epochs to monitor the
+                before deciding to perform early stopping
         """
         self.num_epochs = num_epochs
-        self.val_acc_eps = val_acc_eps
+        self.val_loss_eps = val_loss_eps
 
         self.validate()
 
@@ -69,23 +69,23 @@ class EarlyStoppingConfig(ConfigInterface):
             logger.error(msg)
             raise ValueError(msg)
         try:
-            self.val_acc_eps = float(self.val_acc_eps)
+            self.val_loss_eps = float(self.val_loss_eps)
         except ValueError:
-            msg = "val_acc_eps must be a float"
+            msg = "val_loss_eps must be a float"
             logger.error(msg)
             raise ValueError(msg)
 
     def __deepcopy__(self, memodict={}):
-        return EarlyStoppingConfig(self.num_epochs, self.val_acc_eps)
+        return EarlyStoppingConfig(self.num_epochs, self.val_loss_eps)
 
     def __eq__(self, other):
-        if self.num_epochs == other.num_epochs and math.isclose(self.val_acc_eps, other.val_acc_eps):
+        if self.num_epochs == other.num_epochs and math.isclose(self.val_loss_eps, other.val_acc_eps):
             return True
         else:
             return False
 
     def __str__(self):
-        return "ES[%d:%0.02f]" % (self.num_epochs, self.val_acc_eps)
+        return "ES[%d:%0.02f]" % (self.num_epochs, self.val_loss_eps)
 
 
 class TrainingConfig(ConfigInterface):
