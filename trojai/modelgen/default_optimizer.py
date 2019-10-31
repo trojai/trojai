@@ -371,10 +371,9 @@ class DefaultOptimizer(OptimizerInterface):
         :return: a list of statistics for batches where statistics were computed
         """
 
-        loop = tqdm(train_loader, disable=progress_bar_disable)
-
         pid = os.getpid()
         train_dataset_len = len(train_loader.dataset)
+        loop = tqdm(train_loader, disable=progress_bar_disable)
 
         train_n_correct, train_n_total = 0, 0
         val_n_correct, val_n_total = 0, 0
