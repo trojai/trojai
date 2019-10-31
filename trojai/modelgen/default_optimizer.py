@@ -328,7 +328,9 @@ class DefaultOptimizer(OptimizerInterface):
             # record the val loss of the last batch in the epoch.  if N epochs after the best val_loss, we have not
             # improved the val-loss by atleast eps, we quit
             if self.optimizer_cfg.training_cfg.early_stopping:
-                if validation_stats.val_loss < (best_val_loss-self.optimizer_cfg.training_cfg.early_stopping.val_loss_eps):
+                # EarlyStoppingConfig validates that eps > 0 as well ..
+                if validation_stats.val_loss < (
+                        best_val_loss-np.abs(self.optimizer_cfg.training_cfg.early_stopping.val_loss_eps)):
                     best_val_loss = validation_stats.val_loss
                     best_val_loss_epoch = epoch
                     best_net = net

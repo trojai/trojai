@@ -300,7 +300,7 @@ class TestRunner(unittest.TestCase):
             optimizer.train_epoch = Mock(side_effect=train_epoch_side_effect)
             _, _, num_epochs_trained = optimizer.train(model, dataset)
             # TODO: explain why answer is 8
-            self.assertEqual(8, num_epochs_trained)
+            self.assertEqual(9, num_epochs_trained)
 
     def test_early_stopping3(self):
         """

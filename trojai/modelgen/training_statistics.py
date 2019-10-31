@@ -60,8 +60,15 @@ class EpochTrainStatistics:
         self.validate()
 
     def validate(self):
-        # TODO: finish
-        pass
+        if not isinstance(self.train_acc, float):
+            msg = "train_acc must be a float"
+            logger.error(msg)
+            raise ValueError(msg)
+
+        if not isinstance(self.train_loss, float):
+            msg = "train_loss must be a float"
+            logger.error(msg)
+            raise ValueError(msg)
 
     def get_train_acc(self):
         return self.train_acc
@@ -81,8 +88,15 @@ class EpochValidationStatistics:
         self.validate()
 
     def validate(self):
-        # TODO: finish
-        pass
+        if not isinstance(self.val_acc, float):
+            msg = "val_acc must be a float"
+            logger.error(msg)
+            raise ValueError(msg)
+
+        if not isinstance(self.val_loss, float):
+            msg = "val_loss must be a float"
+            logger.error(msg)
+            raise ValueError(msg)
 
     def get_val_acc(self):
         return self.val_acc
@@ -117,8 +131,18 @@ class EpochStatistics:
         return self.batch_training_stats
 
     def validate(self):
-        # TODO: finish
-        pass
+        if not isinstance(self.batch_training_stats, collections.abc.Sequence):
+            msg = "batch_training_stats must be a list of BatchTrainingStats objects!"
+            logger.error(msg)
+            raise ValueError(msg)
+        if not isinstance(self.epoch_training_stats, EpochTrainStatistics):
+            msg = "epoch_training_stats must be of type: EpochTrainingStatistics!"
+            logger.error(msg)
+            raise ValueError(msg)
+        if not isinstance(self.epoch_validation_stats, EpochValidationStatistics):
+            msg = "epoch_validation_stats must be of type: EpochValidationStatistics!"
+            logger.error(msg)
+            raise ValueError(msg)
 
     def get_epoch_num(self):
         return self.epoch_num
