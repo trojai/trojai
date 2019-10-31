@@ -5,7 +5,7 @@ import logging
 import torch.nn
 
 from .data_manager import CSVDataset
-from .training_statistics import EpochStatistics, EpochValidationStatistics
+from .training_statistics import EpochStatistics
 
 logger = logging.getLogger(__name__)
 
