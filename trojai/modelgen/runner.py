@@ -109,6 +109,8 @@ class Runner:
             for data, optimizer in zip(train_data, self.cfg.optimizer_generator):  # both are generators
                 model, epoch_training_stats, num_epochs_trained = optimizer.train(model, data,
                                                                                   self.progress_bar_disable,
+                                                                                  self.cfg.data.test_data_transform,
+                                                                                  self.cfg.data.train_data.transform,
                                                                                   torch_dataloader_kwargs)
                 model_stats.add_epoch(epoch_training_stats)
                 model_stats.add_num_epochs_trained(num_epochs_trained)

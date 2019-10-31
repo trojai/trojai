@@ -1,7 +1,7 @@
 import collections
 import logging
 import os
-from typing import Sequence
+from typing import Sequence, Callable
 import copy
 import cloudpickle as pickle
 
@@ -57,7 +57,8 @@ def _eval_acc(y_hat: torch.Tensor, y_truth: torch.Tensor, n_total: int = 0, n_co
     return acc, n_total, n_correct
 
 
-def train_val_dataset_split(dataset: torch.utils.data.Dataset, split_amt: float) \
+def train_val_dataset_split(dataset: torch.utils.data.Dataset, split_amt: float, val_data_transform: Callable,
+                            val_label_transform: Callable) \
         -> (torch.utils.data.Dataset, torch.utils.data.Dataset):
     """
     Splits a PyTorch dataset (of type: torch.utils.data.Dataset) into train/test
@@ -66,6 +67,9 @@ def train_val_dataset_split(dataset: torch.utils.data.Dataset, split_amt: float)
     :param dataset: the dataset to be split
     :param split_amt: fraction specificing the validation dataset size relative to the whole.  1-split_amt will
                       be the size of the training dataset
+    :param val_data_transform: (function: any -> any) how to transform the validation data to fit
+            into the desired model and objective function
+    :param val_label_transform: (function: any -> any) how to transform the validation labels
     :return: a tuple of the train and validation datasets
     """
 
@@ -79,6 +83,8 @@ def train_val_dataset_split(dataset: torch.utils.data.Dataset, split_amt: float)
     val_len = int(dataset_len - train_len)
     lengths = [train_len, val_len]
     train_dataset, val_dataset = torch.utils.data.random_split(dataset, lengths)
+    val_dataset.data_transform = val_data_transform
+    val_dataset.label_transform = val_label_transform
     return train_dataset, val_dataset
 
 
@@ -261,12 +267,17 @@ class DefaultOptimizer(OptimizerInterface):
         return train_loss
 
     def train(self, net: torch.nn.Module, dataset: torch.utils.data.Dataset, progress_bar_disable: bool = False,
+              val_data_transform: Callable = lambda x: x,
+              val_label_transform: Callable = lambda y: y,
               torch_dataloader_kwargs: dict = None) -> (torch.nn.Module, Sequence[EpochStatistics], int):
         """
         Train the network.
         :param net: the network to train
         :param dataset: the dataset to train the network on
         :param progress_bar_disable: if True, disables the progress bar
+        :param val_data_transform: (function: any -> any) how to transform the validation data to fit
+            into the desired model and objective function
+        :param val_label_transform: (function: any -> any) how to transform the validation labels
         :param torch_dataloader_kwargs: any additional kwargs to pass to PyTorch's native DataLoader
         :return: the trained network, and a list of EpochStatistics objects which contain the statistics for training,
                 and the # of epochs on which the net was trained
