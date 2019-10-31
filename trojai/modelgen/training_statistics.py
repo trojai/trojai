@@ -60,6 +60,7 @@ class EpochTrainStatistics:
         self.validate()
 
     def validate(self):
+        # TODO: finish
         pass
 
     def get_train_acc(self):
@@ -80,6 +81,7 @@ class EpochValidationStatistics:
         self.validate()
 
     def validate(self):
+        # TODO: finish
         pass
 
     def get_val_acc(self):
@@ -115,6 +117,7 @@ class EpochStatistics:
         return self.batch_training_stats
 
     def validate(self):
+        # TODO: finish
         pass
 
     def get_epoch_num(self):

@@ -328,28 +328,20 @@ class DefaultOptimizer(OptimizerInterface):
             # record the val loss of the last batch in the epoch.  if N epochs after the best val_loss, we have not
             # improved the val-loss by atleast eps, we quit
             if self.optimizer_cfg.training_cfg.early_stopping:
-                if validation_stats.val_loss < best_val_loss:
+                if validation_stats.val_loss < (best_val_loss-self.optimizer_cfg.training_cfg.early_stopping.val_loss_eps):
                     best_val_loss = validation_stats.val_loss
                     best_val_loss_epoch = epoch
                     best_net = net
                     logger.info('EarlyStopping - NewBest >> best_val_loss:%0.04f best_val_loss_epoch:%d' %
                                 (best_val_loss, best_val_loss_epoch))
-                else:
-                    if epoch >= best_val_loss_epoch + num_epochs_to_monitor:
-                        es_diff = validation_stats.val_loss - best_val_loss
-                        es_criterion = es_diff > -self.optimizer_cfg.training_cfg.early_stopping.val_loss_eps
-                        logger.info('EarlyStopping: best_val_loss_epoch:%d cur_epoch:%d best_val_loss=%0.04f '
-                                    'cur_val_loss=%0.04f diff=%0.04f criterion=%d' %
-                                    (best_val_loss_epoch, epoch, best_val_loss, validation_stats.val_loss,
-                                     es_diff, es_criterion))
-                        if es_criterion:
-                            epoch += 1  # we do this b/c of the break to keep the accounting of epoch # returned to
-                                        # the user to be one based
-                            msg = "Exiting training loop in epoch: %d - due to early stopping criterion being met!" \
-                                  % (epoch, )
-                            logger.warning(msg)
-                            best_net = net
-                            break
+                elif epoch >= (best_val_loss_epoch + num_epochs_to_monitor):
+                    epoch += 1  # we do this b/c of the break to keep the accounting of epoch # returned to
+                    # the user to be one based
+                    msg = "Exiting training loop in epoch: %d - due to early stopping criterion being met!" \
+                          % (epoch,)
+                    logger.warning(msg)
+                    best_net = net
+                    break
 
             epoch += 1
             if self.optimizer_cfg.training_cfg.early_stopping:
