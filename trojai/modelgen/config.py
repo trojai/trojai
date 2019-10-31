@@ -74,6 +74,10 @@ class EarlyStoppingConfig(ConfigInterface):
             msg = "val_loss_eps must be a float"
             logger.error(msg)
             raise ValueError(msg)
+        if self.val_loss_eps < 0:
+            msg = "val_loss_eps must be >= 0!"
+            logger.error(msg)
+            raise ValueError(msg)
 
     def __deepcopy__(self, memodict={}):
         return EarlyStoppingConfig(self.num_epochs, self.val_loss_eps)

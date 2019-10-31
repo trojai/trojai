@@ -307,8 +307,8 @@ class DefaultOptimizer(OptimizerInterface):
             num_epochs_to_monitor = self.optimizer_cfg.training_cfg.early_stopping.num_epochs
 
         epoch = 0
-        not_done = True
-        while not_done:
+        done = False
+        while not done:
             train_stats, validation_stats = self.train_epoch(net, train_loader, val_loader, epoch,
                                                              progress_bar_disable=progress_bar_disable)
             epoch_training_stats = EpochStatistics(epoch, train_stats, validation_stats)
@@ -340,15 +340,16 @@ class DefaultOptimizer(OptimizerInterface):
                     msg = "Exiting training loop in epoch: %d - due to early stopping criterion being met!" \
                           % (epoch,)
                     logger.warning(msg)
-                    best_net = net
-                    break
+                    done = True
 
             epoch += 1
             if self.optimizer_cfg.training_cfg.early_stopping:
                 # in case something goes wrong, we exit after training a long time ...
-                not_done = True if epoch < MAX_EPOCHS else False
+                if epoch >= MAX_EPOCHS:
+                    done = True
             else:
-                not_done = True if epoch < self.num_epochs else False
+                if epoch >= self.num_epochs:
+                    done = True
 
         if self.save_best_model or self.optimizer_cfg.training_cfg.early_stopping:
             return best_net, epoch_stats, epoch
