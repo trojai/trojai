@@ -136,13 +136,6 @@ class DefaultOptimizer(OptimizerInterface):
             self.num_epochs_per_metrics = 1
             logger.warning("Overriding num_epochs_per_metrics due to early-stopping or saving-best-model!")
 
-            # raise an error if the validation dataset size wasn't configured and early-stopping is on
-            if self.optimizer_cfg.training_cfg.train_val_split <= 0 or \
-                    self.optimizer_cfg.training_cfg.train_val_split >= 1:
-                msg = "if early_stopping is enabled or save_best_model is enabled, then 0 < train_val_split < 1!"
-                logger.error(msg)
-                raise ValueError(msg)
-
         if self.device.type == 'cpu' and self.num_batches_per_metrics is not None:
             logger.warning('Training will be VERY SLOW on a CPU with num_batches_per_metrics set to a '
                            'value other than None.  If validation dataset metrics are still desired, '
