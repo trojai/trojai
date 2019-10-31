@@ -13,25 +13,20 @@ Contains classes necessary for collecting statistics on the model during trainin
 
 class BatchStatistics:
     """
-    Represents the statistics collected from processing a batch
+    Represents the statistics collected from training a batch
+    NOTE: this is currently unused!
     """
     def __init__(self, batch_num: int,
                  batch_train_accuracy: float,
-                 batch_train_loss: float,
-                 batch_validation_accuracy: float,
-                 batch_validation_loss: float):
+                 batch_train_loss: float):
         """
         :param batch_num: (int) batch number of collected statistics
         :param batch_train_accuracy: (float) training set accuracy for this batch
         :param batch_train_loss: (float) training loss for this batch
-        :param batch_validation_accuracy: (float) validation set accuracy for this batch
-        :param batch_validation_loss: (float) validation set loss for this batch
         """
         self.batch_num = batch_num
         self.batch_train_accuracy = batch_train_accuracy
         self.batch_train_loss = batch_train_loss
-        self.batch_validation_accuracy = batch_validation_accuracy
-        self.batch_validation_loss = batch_validation_loss
 
     def get_batch_num(self):
         return self.batch_num
@@ -41,12 +36,6 @@ class BatchStatistics:
 
     def get_batch_train_loss(self):
         return self.batch_train_loss
-
-    def get_batch_validation_acc(self):
-        return self.batch_validation_accuracy
-
-    def get_batch_validation_loss(self):
-        return self.batch_validation_loss
 
     def set_batch_train_acc(self, acc):
         if 0 <= acc <= 100:
@@ -59,47 +48,94 @@ class BatchStatistics:
     def set_batch_train_loss(self, loss):
         self.batch_train_loss = loss
 
-    def set_batch_validation_acc(self, acc):
-        if acc is None or 0 <= acc <= 100:  # allow for None in case validation metrics are NOT computed for efficiency
-            self.batch_validation_accuracy = acc
-        else:
-            msg = "Batch validation accuracy should be between 0 and 100!"
-            logger.error(msg)
-            raise ValueError(msg)
 
-    def set_batch_validation_loss(self, loss):
-        self.batch_validation_loss = loss
+class EpochTrainStatistics:
+    """
+    Defines the training statistics for one epoch of training
+    """
+    def __init__(self, train_acc, train_loss):
+        self.train_acc = train_acc
+        self.train_loss = train_loss
+
+        self.validate()
+
+    def validate(self):
+        pass
+
+    def get_train_acc(self):
+        return self.train_acc
+
+    def get_train_loss(self):
+        return self.train_loss
+
+
+class EpochValidationStatistics:
+    """
+    Defines the validation statistics for one epoch of training
+    """
+    def __init__(self, val_acc, val_loss):
+        self.val_acc = val_acc
+        self.val_loss = val_loss
+
+        self.validate()
+
+    def validate(self):
+        pass
+
+    def get_val_acc(self):
+        return self.val_acc
+
+    def get_val_loss(self):
+        return self.val_loss
+
+    def __repr__(self):
+        return '(%0.04f, %0.04f)' % (self.val_acc, self.val_loss)
 
 
 class EpochStatistics:
     """
     Contains the statistics computed for an Epoch
     """
-    def __init__(self, epoch_num):
+    def __init__(self, epoch_num, training_stats=None, validation_stats=None, batch_training_stats=None):
         self.epoch_num = epoch_num
-        self.batch_stats_list = []
+        if not batch_training_stats:
+            self.batch_training_stats = []
+        self.epoch_training_stats = training_stats
+        self.epoch_validation_stats = validation_stats
 
-    def add_batch(self, batch_stats: Union[BatchStatistics, Sequence[BatchStatistics]]):
-        if isinstance(batch_stats, collections.abc.Sequence):
-            self.batch_stats_list.extend(batch_stats)
+        self.validate()
+
+    def add_batch(self, batches: Union[BatchStatistics, Sequence[BatchStatistics]]):
+        if isinstance(batches, collections.abc.Sequence):
+            self.batch_training_stats.extend(batches)
         else:
-            self.batch_stats_list.append(batch_stats)
+            self.batch_training_stats.append(batches)
+
+    def get_batch_stats(self):
+        return self.batch_training_stats
+
+    def validate(self):
+        pass
 
     def get_epoch_num(self):
         return self.epoch_num
 
-    def get_batch_stats(self):
-        return self.batch_stats_list
+    def get_epoch_training_stats(self):
+        return self.epoch_training_stats
+
+    def get_epoch_validation_stats(self):
+        return self.epoch_validation_stats
 
 
 class TrainingRunStatistics:
     """
-    Contains the statistics computed for an entire training run
+    Contains the statistics computed for an entire training run, a sequence of epochs
     TODO:
      [ ] - have another function which returns detailed statistics per epoch in an easily serialized manner
     """
     def __init__(self):
-        self.epoch_stats_list = []
+        self.stats_per_epoch_list = []
+
         self.num_epochs_trained_per_optimizer = []
 
         self.final_train_acc = 0.
@@ -114,15 +150,15 @@ class TrainingRunStatistics:
 
     def add_epoch(self, epoch_stats: Union[EpochStatistics, Sequence[EpochStatistics]]):
         if isinstance(epoch_stats, collections.abc.Sequence):
-            self.epoch_stats_list.extend(epoch_stats)
+            self.stats_per_epoch_list.extend(epoch_stats)
         else:
-            self.epoch_stats_list.append(epoch_stats)
+            self.stats_per_epoch_list.append(epoch_stats)
 
     def add_num_epochs_trained(self, num_epochs):
         self.num_epochs_trained_per_optimizer.append(num_epochs)
 
     def get_epochs_stats(self):
-        return self.epoch_stats_list
+        return self.stats_per_epoch_list
 
     def autopopulate_final_summary_stats(self):
         """
@@ -132,12 +168,12 @@ class TrainingRunStatistics:
             final_val_acc
             final_val_loss
         """
-        final_epoch_stats = self.epoch_stats_list[-1]
-        final_batch_stats = final_epoch_stats.get_batch_stats()[-1]
-        self.set_final_train_acc(final_batch_stats.get_batch_train_acc())
-        self.set_final_train_loss(final_batch_stats.get_batch_train_loss())
-        self.set_final_val_acc(final_batch_stats.get_batch_validation_acc())
-        self.set_final_val_loss(final_batch_stats.get_batch_validation_loss())
+        final_epoch_training_stats = self.stats_per_epoch_list[-1]
+
+        self.set_final_train_acc(final_epoch_training_stats.get_epoch_training_stats().get_train_acc())
+        self.set_final_train_loss(final_epoch_training_stats.get_epoch_training_stats().get_train_loss())
+        self.set_final_val_acc(final_epoch_training_stats.get_epoch_validation_stats().get_val_acc())
+        self.set_final_val_loss(final_epoch_training_stats.get_epoch_validation_stats().get_val_loss())
         self.final_optimizer_num_epochs_trained = self.num_epochs_trained_per_optimizer[-1]
 
     def set_final_train_acc(self, acc):
@@ -224,22 +260,19 @@ class TrainingRunStatistics:
         :param fname: filename to save the detailed information to
         :return: None
         """
-        output_data = []
-        for e in self.epoch_stats_list:
-            batches_stats = e.get_batch_stats()
-            for batch_num, batch_stats in enumerate(batches_stats):
-                row = dict(epoch_number=e.epoch_num,
-                           batch_num=batch_num,
-                           train_accuracy=batch_stats.get_batch_train_acc(),
-                           train_loss=batch_stats.get_batch_train_loss(),
-                           val_acc=batch_stats.get_batch_validation_acc(),
-                           val_loss=batch_stats.get_batch_validation_loss())
-                output_data.append(row)
-        # write it as a csv
-        if len(output_data) > 0:
-            keys = output_data[0].keys()
-            with open(fname, 'w') as output_file:
-                dict_writer = csv.DictWriter(output_file, keys)
-                dict_writer.writeheader()
-                dict_writer.writerows(output_data)
-            logger.info("Wrote detailed statistics to %s" % (fname, ))
+        keys = ['epoch_number', 'train_acc', 'train_loss', 'val_acc', 'val_loss']
+        with open(fname, 'w') as output_file:
+            # write header first
+            dict_writer = csv.DictWriter(output_file, keys)
+            dict_writer.writeheader()
+            for ii, e in enumerate(self.stats_per_epoch_list):
+                # TODO: we ignore batch_statistics for now, we may want to add this in in the future
+                epoch_training_stats = e.get_epoch_training_stats()
+                epoch_val_stats = e.get_epoch_validation_stats()
+                dict_writer.writerow(dict(epoch_number=e.get_epoch_num(),
+                                          train_acc=epoch_training_stats.get_train_acc(),
+                                          train_loss=epoch_training_stats.get_train_loss(),
+                                          val_acc=epoch_val_stats.get_val_acc(),
+                                          val_loss=epoch_val_stats.get_val_loss()))
+
+            logger.info("Wrote detailed statistics to %s" % (fname,))

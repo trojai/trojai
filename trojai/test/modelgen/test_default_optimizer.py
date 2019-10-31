@@ -7,7 +7,7 @@ import torch.nn as nn
 
 from trojai.modelgen.default_optimizer import DefaultOptimizer, _eval_acc, train_val_dataset_split
 from trojai.modelgen.config import DefaultOptimizerConfig, TrainingConfig, EarlyStoppingConfig
-from trojai.modelgen.training_statistics import BatchStatistics
+from trojai.modelgen.training_statistics import BatchStatistics, EpochValidationStatistics
 
 """
 Contains unittests related to 
@@ -235,30 +235,27 @@ class TestRunner(unittest.TestCase):
 
             # this function overrides the return value of train_epoch, so that we can simulate
             # when early-stopping is supposed to occur, and
-            def train_epoch_side_effect(net, train_loader, val_loader, epoch, compute_batch_stats,
-                                        progress_bar_disable=True):
+            def train_epoch_side_effect(net, train_loader, val_loader, epoch, progress_bar_disable=True):
                 # these variables are not consequential for the early-stopping code, so we just set them to
                 # constants
                 batch_num_no_op = 999
                 batch_train_acc_noop = 1
                 batch_train_loss_noop = 1
-                batch_val_acc_noop = 1
+                bs = [BatchStatistics(batch_num_no_op, batch_train_acc_noop, batch_train_loss_noop)]
+                val_acc_noop = 1
                 if epoch < 2:
-                    batch_val_loss = 10-epoch  # we keep the loss decreasing until the first 4 epochs
+                    val_loss = 10-epoch  # we keep the loss decreasing until the first 4 epochs
                                                # This prevents the early-stopping code from being activated,
                                                # since the loss is decreasing every epoch
-                    return [BatchStatistics(batch_num_no_op, batch_train_acc_noop, batch_train_loss_noop,
-                                            batch_val_acc_noop, batch_val_loss)]
+                    vs = EpochValidationStatistics(val_acc_noop, val_loss)
+                    return bs, vs
                 else:
-                    batch_val_loss = np.random.choice([5+eps/2., 5-eps/2.]) # we fix the loss from here on within eps,
-                                                                         # we expect it to quit in 5 epochs
-                    return [BatchStatistics(batch_num_no_op, batch_train_acc_noop, batch_train_loss_noop,
-                                            batch_val_acc_noop, batch_val_loss)]
+                    val_loss = 9-eps  # decrease the loss, but only by eps, so we quit
+                    vs = EpochValidationStatistics(val_acc_noop, val_loss)
+                    return bs, vs
             optimizer.train_epoch = Mock(side_effect=train_epoch_side_effect)
             _, _, num_epochs_trained = optimizer.train(model, dataset)
-            # 4 is when the early-stopping stats are modified
-            # 5 is the default # of epochs to monitor for early stopping
-            # see: EarlyStoppingConfig() for further details
+            # TODO: explain why this shoudl be 8
             self.assertEqual(8, num_epochs_trained)
 
     def test_early_stopping2(self):
@@ -281,80 +278,31 @@ class TestRunner(unittest.TestCase):
 
             # this function overrides the return value of train_epoch, so that we can simulate
             # when early-stopping is supposed to occur, and
-            def train_epoch_side_effect(net, train_loader, val_loader, epoch, compute_batch_stats,
-                                        progress_bar_disable=True):
+            def train_epoch_side_effect(net, train_loader, val_loader, epoch, progress_bar_disable=True):
                 # these variables are not consequential for the early-stopping code, so we just set them to
                 # constants
                 batch_num_no_op = 999
                 batch_train_acc_noop = 1
                 batch_train_loss_noop = 1
-                batch_val_acc_noop = 1
+                bs = [BatchStatistics(batch_num_no_op, batch_train_acc_noop, batch_train_loss_noop)]
+                val_acc_noop = 1
                 if epoch < 2:
-                    batch_val_loss = 10-epoch  # we keep the loss decreasing until the first 4 epochs
-                                               # This prevents the early-stopping code from being activated,
-                                               # since the loss is decreasing every epoch
-                    return [BatchStatistics(batch_num_no_op, batch_train_acc_noop, batch_train_loss_noop,
-                                            batch_val_acc_noop, batch_val_loss)]
+                    val_loss = 10-epoch  # we keep the loss decreasing until the first 4 epochs
+                                         # This prevents the early-stopping code from being activated,
+                                         # since the loss is decreasing every epoch
+                    vs = EpochValidationStatistics(val_acc_noop, val_loss)
+                    return bs, vs
                 else:
-                    batch_val_loss = epoch # we increase the loss from here on within eps,
-                                           # we expect it to quit in 5 epochs
-                    return [BatchStatistics(batch_num_no_op, batch_train_acc_noop, batch_train_loss_noop,
-                                            batch_val_acc_noop, batch_val_loss)]
+                    val_loss = epoch # we fix the loss from here on within eps,
+                                     # we expect it to quit in 5 epochs
+                    vs = EpochValidationStatistics(val_acc_noop, val_loss)
+                    return bs, vs
             optimizer.train_epoch = Mock(side_effect=train_epoch_side_effect)
             _, _, num_epochs_trained = optimizer.train(model, dataset)
-            # 4 is when the early-stopping stats are modified
-            # 5 is the default # of epochs to monitor for early stopping
-            # 3 is the # of epochs during training after which the loss stops decreasing
-            # see: EarlyStoppingConfig() for further details
+            # TODO: explain why answer is 8
             self.assertEqual(8, num_epochs_trained)
 
     def test_early_stopping3(self):
-        """
-        The purpose of this test is to ensure that the early stopping is activated.  The test works by Mocking the
-        train_epoch function.  After 2 epochs, the train_epoch function returns BatchStatistics with val_loss
-        decreases, but less than the threshold, so we should stop at 7 epochs
-        """
-        optimizer = DefaultOptimizer()
-        optimizer.optimizer_cfg.training_cfg.epochs = 10
-
-        optimizer.optimizer_cfg.training_cfg.early_stopping = EarlyStoppingConfig()
-        model = Mock(spec=nn.Module)
-        model.parameters = Mock()
-        dataset = Mock(spec=torch.utils.data.Dataset)
-
-        # patch disables import torch.optim, so we can skip creating models to test the optimizer
-        with patch('trojai.modelgen.default_optimizer.torch.optim.Adam') as patched_optimizer, \
-             patch('trojai.modelgen.default_optimizer.train_val_dataset_split', return_value=([], [])) as patched_train_val_split:
-
-            # this function overrides the return value of train_epoch, so that we can simulate
-            # when early-stopping is supposed to occur, and
-            def train_epoch_side_effect(net, train_loader, val_loader, epoch, compute_batch_stats,
-                                        progress_bar_disable=True):
-                # these variables are not consequential for the early-stopping code, so we just set them to
-                # constants
-                batch_num_no_op = 999
-                batch_train_acc_noop = 1
-                batch_train_loss_noop = 1
-                batch_val_acc_noop = 1
-                if epoch < 2:
-                    batch_val_loss = 10-epoch  # we keep the loss decreasing until the first 4 epochs
-                                               # This prevents the early-stopping code from being activated,
-                                               # since the loss is decreasing every epoch
-                    return [BatchStatistics(batch_num_no_op, batch_train_acc_noop, batch_train_loss_noop,
-                                            batch_val_acc_noop, batch_val_loss)]
-                else:
-                    batch_val_loss = 9-optimizer.optimizer_cfg.training_cfg.early_stopping.val_loss_eps
-                    return [BatchStatistics(batch_num_no_op, batch_train_acc_noop, batch_train_loss_noop,
-                                            batch_val_acc_noop, batch_val_loss)]
-            optimizer.train_epoch = Mock(side_effect=train_epoch_side_effect)
-            _, _, num_epochs_trained = optimizer.train(model, dataset)
-            # 4 is when the early-stopping stats are modified
-            # 5 is the default # of epochs to monitor for early stopping
-            # 3 is the # of epochs during training after which the loss stops decreasing
-            # see: EarlyStoppingConfig() for further details
-            self.assertEqual(7, num_epochs_trained)
-
-    def test_early_stopping4(self):
         """
         The purpose of this test is to ensure that the early stopping is not activated, when the configuration for
         EarlyStopping is set to None.  Even though we modify the val_acc as before, after epoch 4, EarlyStopping is
@@ -379,25 +327,25 @@ class TestRunner(unittest.TestCase):
 
             # this function overrides the return value of train_epoch, so that we can simulate
             # when early-stopping is supposed to occur, and
-            def train_epoch_side_effect(net, train_loader, val_loader, epoch, compute_batch_stats,
-                                        progress_bar_disable=True):
+            def train_epoch_side_effect(net, train_loader, val_loader, epoch, progress_bar_disable=True):
                 # these variables are not consequential for the early-stopping code, so we just set them to
                 # constants
                 batch_num_no_op = 999
                 batch_train_acc_noop = 1
                 batch_train_loss_noop = 1
-                batch_val_acc_noop = 1
+                bs = [BatchStatistics(batch_num_no_op, batch_train_acc_noop, batch_train_loss_noop)]
+                val_acc_noop = 1
                 if epoch < 2:
-                    batch_val_loss = 10 - epoch  # we keep the loss decreasing until the first 4 epochs
+                    val_loss = 10 - epoch  # we keep the loss decreasing until the first 4 epochs
                     # This prevents the early-stopping code from being activated,
                     # since the loss is decreasing every epoch
-                    return [BatchStatistics(batch_num_no_op, batch_train_acc_noop, batch_train_loss_noop,
-                                            batch_val_acc_noop, batch_val_loss)]
+                    vs = EpochValidationStatistics(val_acc_noop, val_loss)
+                    return bs, vs
                 else:
-                    batch_val_loss = np.random.choice([5 + 1e-4, 5 - 1e-4])  # we fix the loss from here on within eps,
+                    val_loss = epoch  # we fix the loss from here on within eps,
                     # we expect it to quit in 5 epochs
-                    return [BatchStatistics(batch_num_no_op, batch_train_acc_noop, batch_train_loss_noop,
-                                            batch_val_acc_noop, batch_val_loss)]
+                    vs = EpochValidationStatistics(val_acc_noop, val_loss)
+                    return bs, vs
 
             optimizer.train_epoch = Mock(side_effect=train_epoch_side_effect)
             _, _, num_epochs_trained = optimizer.train(model, dataset)

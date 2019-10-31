@@ -168,6 +168,7 @@ class TrainingConfig(ConfigInterface):
             msg = "objective must be a callable, or one of the following:" + str(VALID_LOSS_FUNCTIONS)
             logger.error(msg)
             raise ValueError(msg)
+
         if not isinstance(self.save_best_model, bool):
             msg = "save_best_model must be a boolean!"
             logger.error(msg)
@@ -181,13 +182,14 @@ class TrainingConfig(ConfigInterface):
                 msg = "train_val_split must be between 0 and 1, inclusive"
                 logger.error(msg)
                 raise ValueError(msg)
-        if self.early_stopping is not None and not isinstance(self.early_stopping, EarlyStoppingConfig):
+        if self.early_stopping and not isinstance(self.early_stopping, EarlyStoppingConfig):
             msg = "early_stopping must be of type EarlyStoppingConfig or None"
             logger.error(msg)
             raise ValueError(msg)
-        # ensure that train/val split is > 0 if early_stopping is enabled
-        if self.early_stopping and (self.train_val_split <= 0 or self.train_val_split >= 1):
-            msg = "if early_stopping is enabled, then 0 < train_val_split < 1"
+
+        # disallow early-stopping and save best model to both be turned on - that doesn't make logical sense
+        if self.early_stopping and self.save_best_model:
+            msg = "early-stopping and save best model cannot both be on at the same time!"
             logger.error(msg)
             raise ValueError(msg)
 
