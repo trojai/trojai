@@ -299,7 +299,8 @@ class DefaultOptimizer(OptimizerInterface):
         data_loader_kwargs_in = {} if torch_dataloader_kwargs is None else torch_dataloader_kwargs
         logger.info('DataLoader[Train/Val] kwargs=' + str(torch_dataloader_kwargs))
 
-        train_dataset, val_dataset = train_val_dataset_split(dataset, self.optimizer_cfg.training_cfg.train_val_split)
+        train_dataset, val_dataset = train_val_dataset_split(dataset, self.optimizer_cfg.training_cfg.train_val_split,
+                                                             val_data_transform, val_label_transform)
         # drop_last=True is from: https://stackoverflow.com/questions/56576716
         train_loader = DataLoader(train_dataset, batch_size=self.batch_size, pin_memory=pin_memory, drop_last=True,
                                   **data_loader_kwargs_in)

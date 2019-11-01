@@ -1,4 +1,5 @@
 import unittest
+import tempfile
 import os
 
 import pandas as pd
@@ -7,43 +8,36 @@ from trojai.modelgen.data_manager import DataManager
 from trojai.modelgen.datasets import CSVDataset
 
 
+def create_df(path, test_filename, empty_filename):
+    df = pd.DataFrame([[1, 0, 0], [0, 1, 1]], [0, 1], ['col1', 'col2', 'train_label'])
+    df.to_csv(os.path.join(path, test_filename), index=False)
+    empty_df = pd.DataFrame([], [], ['col1', 'col2', 'train_label'])
+    empty_df.to_csv(os.path.join(path, empty_filename), index=False)
+
+
 class TestDataManager(unittest.TestCase):
+    tmp_dir = None
 
     @classmethod
     def setUpClass(cls):
-        try:
-            os.mkdir("./test_dir/")
-        except IOError:
-            pass
-        df = pd.DataFrame([[1, 0, 0], [0, 1, 1]], [0, 1], ['col1', 'col2', 'train_label'])
-        df.to_csv('./test_dir/test_file.csv', index=False)
-        empty_df = pd.DataFrame([], [], ['col1', 'col2', 'train_label'])
-        empty_df.to_csv('./test_dir/empty_file.csv', index=False)
+        pass
 
     @classmethod
     def tearDownClass(cls):
-        try:
-            os.remove("./test_dir/test_file.csv")
-        except IOError:
-            pass
-        try:
-            os.remove("./test_dir/empty_file.csv")
-        except IOError:
-            pass
-        try:
-            os.rmdir("./test_dir/")
-        except IOError:
-            pass
+        pass
 
     def setUp(self):
-        self.path = './test_dir/'
+        self.tmp_dir = tempfile.TemporaryDirectory()
+        self.path = self.tmp_dir.name
         self.file = 'test_file.csv'
         self.empty_file = "empty_file.csv"
+        create_df(self.path, self.file, self.empty_file)
+
         self.bad_path = './bad_dir'
         self.bad_file = 'bad_file.csv'
 
     def tearDown(self):
-        pass
+        self.tmp_dir.cleanup()
 
     def test_good_params(self):
         # basic version
@@ -64,8 +58,10 @@ class TestDataManager(unittest.TestCase):
         # complex example
         tdm = DataManager(self.path, self.file, self.file,
                           triggered_test_file=self.file,
-                          data_transform=lambda x: x + 1,
-                          label_transform=lambda x: x - 1,
+                          train_data_transform=lambda x: x + 1,
+                          train_label_transform=lambda x: x - 1,
+                          test_data_transform=lambda x: x*2,
+                          test_label_transform=lambda x: x**2,
                           file_loader=lambda x: str(x),
                           shuffle_train=False,
                           shuffle_clean_test=True,
@@ -75,8 +71,10 @@ class TestDataManager(unittest.TestCase):
         self.assertEqual(tdm.train_file, [self.file])
         self.assertEqual(tdm.clean_test_file, self.file)
         self.assertEqual(tdm.triggered_test_file, self.file)
-        self.assertEqual(tdm.data_transform(1), 2)
-        self.assertEqual(tdm.label_transform(1), 0)
+        self.assertEqual(tdm.train_data_transform(1), 2)
+        self.assertEqual(tdm.train_label_transform(1), 0)
+        self.assertEqual(tdm.test_data_transform(2), 4)
+        self.assertEqual(tdm.test_label_transform(3), 9)
         self.assertEqual(tdm.data_loader(19), '19')
         self.assertFalse(tdm.shuffle_train)
         self.assertTrue(tdm.shuffle_clean_test)
@@ -89,8 +87,8 @@ class TestDataManager(unittest.TestCase):
     def test_load_data(self):
         tdm = DataManager(self.path, self.file, self.file,
                           triggered_test_file=self.file,
-                          data_transform=lambda x: x + 1,
-                          label_transform=lambda x: x - 1,
+                          train_data_transform=lambda x: x + 1,
+                          train_label_transform=lambda x: x - 1,
                           file_loader=lambda x: str(x),
                           shuffle_train=False,
                           shuffle_clean_test=False,
@@ -136,11 +134,15 @@ class TestDataManager(unittest.TestCase):
         self.assertRaises((TypeError, FileNotFoundError), DataManager, self.path, self.file, self.file,
                           triggered_test_file=0)
         self.assertRaises(TypeError, DataManager, self.path, self.file, self.file,
-                          data_transform=object())
+                          train_data_transform=object())
+        self.assertRaises(TypeError, DataManager, self.path, self.file, self.file,
+                          test_data_transform=object())
         self.assertRaises(TypeError, DataManager, self.path, self.file, self.file,
                           data_loader=0)
         self.assertRaises(TypeError, DataManager, self.path, self.file, self.file,
-                          label_transform='string')
+                          train_label_transform='string')
+        self.assertRaises(TypeError, DataManager, self.path, self.file, self.file,
+                          test_label_transform='string')
         self.assertRaises(TypeError, DataManager, self.path, self.file, self.file,
                           shuffle_train='string')
         self.assertRaises(TypeError, DataManager, self.path, self.file, self.file,
