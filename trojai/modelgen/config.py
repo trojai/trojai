@@ -52,14 +52,14 @@ class EarlyStoppingConfig(ConfigInterface):
     """
     Defines configuration related to early stopping.
     """
-    def __init__(self, num_epochs: int = 5, val_acc_eps: float = 1e-3):
+    def __init__(self, num_epochs: int = 5, val_loss_eps: float = 1e-3):
         """
         :param num_epochs: the # of epochs for which to monitor the validation accuracy over
-        :param val_acc_eps: the difference between the validation accuracy for the # of epochs to monitor the
-                validation accuracy before deciding to perform early stopping
+        :param val_loss_eps: the threshold between the validation loss for the # of epochs to monitor the
+                before deciding to perform early stopping
         """
         self.num_epochs = num_epochs
-        self.val_acc_eps = val_acc_eps
+        self.val_loss_eps = val_loss_eps
 
         self.validate()
 
@@ -69,23 +69,27 @@ class EarlyStoppingConfig(ConfigInterface):
             logger.error(msg)
             raise ValueError(msg)
         try:
-            self.val_acc_eps = float(self.val_acc_eps)
+            self.val_loss_eps = float(self.val_loss_eps)
         except ValueError:
-            msg = "val_acc_eps must be a float"
+            msg = "val_loss_eps must be a float"
+            logger.error(msg)
+            raise ValueError(msg)
+        if self.val_loss_eps < 0:
+            msg = "val_loss_eps must be >= 0!"
             logger.error(msg)
             raise ValueError(msg)
 
     def __deepcopy__(self, memodict={}):
-        return EarlyStoppingConfig(self.num_epochs, self.val_acc_eps)
+        return EarlyStoppingConfig(self.num_epochs, self.val_loss_eps)
 
     def __eq__(self, other):
-        if self.num_epochs == other.num_epochs and math.isclose(self.val_acc_eps, other.val_acc_eps):
+        if self.num_epochs == other.num_epochs and math.isclose(self.val_loss_eps, other.val_acc_eps):
             return True
         else:
             return False
 
     def __str__(self):
-        return "ES[%d:%0.02f]" % (self.num_epochs, self.val_acc_eps)
+        return "ES[%d:%0.02f]" % (self.num_epochs, self.val_loss_eps)
 
 
 class TrainingConfig(ConfigInterface):
@@ -168,6 +172,7 @@ class TrainingConfig(ConfigInterface):
             msg = "objective must be a callable, or one of the following:" + str(VALID_LOSS_FUNCTIONS)
             logger.error(msg)
             raise ValueError(msg)
+
         if not isinstance(self.save_best_model, bool):
             msg = "save_best_model must be a boolean!"
             logger.error(msg)
@@ -181,13 +186,14 @@ class TrainingConfig(ConfigInterface):
                 msg = "train_val_split must be between 0 and 1, inclusive"
                 logger.error(msg)
                 raise ValueError(msg)
-        if self.early_stopping is not None and not isinstance(self.early_stopping, EarlyStoppingConfig):
+        if self.early_stopping and not isinstance(self.early_stopping, EarlyStoppingConfig):
             msg = "early_stopping must be of type EarlyStoppingConfig or None"
             logger.error(msg)
             raise ValueError(msg)
-        # ensure that train/val split is > 0 if early_stopping is enabled
-        if self.early_stopping and (self.train_val_split <= 0 or self.train_val_split >= 1):
-            msg = "if early_stopping is enabled, then 0 < train_val_split < 1"
+
+        # disallow early-stopping and save best model to both be turned on - that doesn't make logical sense
+        if self.early_stopping and self.save_best_model:
+            msg = "early-stopping and save best model cannot both be on at the same time!"
             logger.error(msg)
             raise ValueError(msg)
 

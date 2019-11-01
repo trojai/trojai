@@ -82,7 +82,7 @@ class TestRunner(unittest.TestCase):
         mock_runner_config.arch_factory_kwargs_generator = None
         mock_runner_config.parallel = False
 
-        test_batch_stats = BatchStatistics(1, 1, 1, 1, 1)
+        test_batch_stats = BatchStatistics(1, 1, 1)
         e = EpochStatistics(1)
         e.add_batch(test_batch_stats)
 
@@ -141,7 +141,7 @@ class TestRunner(unittest.TestCase):
         mock_runner_config.optimizer_generator = (mock_optimizer1 for _ in range(3))
         mock_runner_config.parallel = False
 
-        test_batch_stats = BatchStatistics(1, 1, 1, 1, 1)
+        test_batch_stats = BatchStatistics(1, 1, 1)
         e = EpochStatistics(1)
         e.add_batch(test_batch_stats)
 
@@ -210,7 +210,7 @@ class TestRunner(unittest.TestCase):
         mock_optimizer3.get_cfg_as_dict.return_value = mock_training_cfg3
         mock_runner_config.optimizer_generator = (mo for mo in [mock_optimizer1, mock_optimizer2, mock_optimizer3])
 
-        test_batch_stats = BatchStatistics(1, 1, 1, 1, 1)
+        test_batch_stats = BatchStatistics(1, 1, 1)
         e = EpochStatistics(1)
         e.add_batch(test_batch_stats)
 
