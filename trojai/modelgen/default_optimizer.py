@@ -14,10 +14,10 @@ from torch.utils.data import Dataset
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from .training_statistics import BatchStatistics, EpochStatistics
+from .training_statistics import EpochStatistics, EpochValidationStatistics, EpochTrainStatistics
 from .optimizer_interface import OptimizerInterface
 from .config import DefaultOptimizerConfig
-from .constants import VALID_OPTIMIZERS
+from .constants import VALID_OPTIMIZERS, MAX_EPOCHS
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +58,7 @@ def _eval_acc(y_hat: torch.Tensor, y_truth: torch.Tensor, n_total: int = 0, n_co
 
 
 def train_val_dataset_split(dataset: torch.utils.data.Dataset, split_amt: float) \
-        -> (torch.utils.data.Dataset, torch.utils.data.Dataset):
+                            -> (torch.utils.data.Dataset, torch.utils.data.Dataset):
     """
     Splits a PyTorch dataset (of type: torch.utils.data.Dataset) into train/test
     TODO:
@@ -130,20 +130,11 @@ class DefaultOptimizer(OptimizerInterface):
         self.num_epochs_per_metrics = self.optimizer_cfg.reporting_cfg.num_epochs_per_metrics
         self.num_batches_per_metrics = self.optimizer_cfg.reporting_cfg.num_batches_per_metrics
 
-        # override num_epochs_per_metrics and num_batches_per_metrics if early-stopping is turned on. We need to do
-        # in case the user has not configured recording validation dataset metrics, which would be turned off by
-        # default and prevent early stopping from working properly.
-        if self.optimizer_cfg.training_cfg.early_stopping is not None:
+        # raise error if train/val split is not set properly for either saving best model
+        # or for early stopping
+        if self.optimizer_cfg.training_cfg.early_stopping or self.save_best_model:
             self.num_epochs_per_metrics = 1
-            msg = "Overriding reporting configuration due to early stopping criterion being specified!"
-            logger.warning(msg)
-
-            # raise an error if the validation dataset size wasn't configured and early-stopping is on
-            if self.optimizer_cfg.training_cfg.train_val_split <= 0 or \
-               self.optimizer_cfg.training_cfg.train_val_split >= 1:
-                msg = "if early_stopping is enabled, then 0 < train_val_split < 1"
-                logger.error(msg)
-                raise ValueError(msg)
+            logger.warning("Overriding num_epochs_per_metrics due to early-stopping or saving-best-model!")
 
         if self.device.type == 'cpu' and self.num_batches_per_metrics is not None:
             logger.warning('Training will be VERY SLOW on a CPU with num_batches_per_metrics set to a '
@@ -194,11 +185,11 @@ class DefaultOptimizer(OptimizerInterface):
                 # we still check the derived attributes to ensure that they remained the same after
                 # after construction
                 if self.device.type == other.device.type and self.loss_function_str == other.loss_function_str and \
-                        self.lr == other.lr and self.optimizer_str == other.optimizer_str and \
-                        self.batch_size == other.batch_size and self.num_epochs == other.num_epochs and \
-                        self.str_description == other.str_description and \
-                        self.num_batches_per_logmsg == other.num_batches_per_logmsg and \
-                        self.num_epochs_per_metrics == other.num_epochs_per_metrics and \
+                    self.lr == other.lr and self.optimizer_str == other.optimizer_str and \
+                    self.batch_size == other.batch_size and self.num_epochs == other.num_epochs and \
+                    self.str_description == other.str_description and \
+                    self.num_batches_per_logmsg == other.num_batches_per_logmsg and \
+                    self.num_epochs_per_metrics == other.num_epochs_per_metrics and \
                         self.num_batches_per_metrics == other.num_batches_per_metrics:
                     if self.tb_writer is not None:
                         if other.tb_writer is not None:
@@ -304,71 +295,71 @@ class DefaultOptimizer(OptimizerInterface):
         val_loader = DataLoader(val_dataset, batch_size=self.batch_size, pin_memory=pin_memory, drop_last=True,
                                 **data_loader_kwargs_in)
 
-        # use validation in training? provide as option?
-        all_epochs_stats = []
+        # stores training & val data statistics for every epoch
+        epoch_stats = []
         best_net = None
         best_validation_acc = -999
-        best_training_acc = -999
+        best_val_loss = np.inf
+        best_val_loss_epoch = -1
 
-        val_acc_buffer = None
         num_epochs_to_monitor = 1
-        if self.optimizer_cfg.training_cfg.early_stopping is not None:
+        if self.optimizer_cfg.training_cfg.early_stopping:
             num_epochs_to_monitor = self.optimizer_cfg.training_cfg.early_stopping.num_epochs
-            val_acc_buffer = np.ones(num_epochs_to_monitor)*self.optimizer_cfg.training_cfg.early_stopping.val_acc_eps*100
 
-        for epoch in range(self.num_epochs):
-            # this will evaluate to True every epoch if EarlyStopping is turned on, or if it is the last epoch
-            compute_batch_stats = True if (epoch % self.num_epochs_per_metrics == 0 or epoch == self.num_epochs-1) \
-                else False
-            batches_stats = self.train_epoch(net, train_loader, val_loader, epoch, compute_batch_stats,
-                                             progress_bar_disable=progress_bar_disable)
+        epoch = 0
+        done = False
+        while not done:
+            train_stats, validation_stats = self.train_epoch(net, train_loader, val_loader, epoch,
+                                                             progress_bar_disable=progress_bar_disable)
+            epoch_training_stats = EpochStatistics(epoch, train_stats, validation_stats)
+            epoch_stats.append(epoch_training_stats)
 
-            if compute_batch_stats and len(batches_stats) > 0:
-                epoch_training_stats = EpochStatistics(epoch)
-                epoch_training_stats.add_batch(batches_stats)
-                all_epochs_stats.append(epoch_training_stats)
+            # TODO: save best model should use same criterion as early stopping (val-loss rather than val-acc)?
+            if self.save_best_model:
+                # use validation accuracy as the metric for deciding the best model
+                if validation_stats.val_acc >= best_validation_acc:
+                    msg = "Updating best model with epoch:[%d] accuracy[%0.02f].  Previous best validation " \
+                          "accuracy was: %0.02f" % (epoch, validation_stats.val_acc, best_validation_acc)
+                    logger.info(msg)
+                    best_net = net
+                    best_validation_acc = validation_stats.val_acc
 
-                if self.save_best_model:
-                    if self.optimizer_cfg.training_cfg.train_val_split == 0.0:
-                        # use training accuracy as the metric for deciding the best model
-                        final_batch_training_acc = batches_stats[-1].batch_train_accuracy
-                        if final_batch_training_acc >= best_training_acc:
-                            msg = "Updating best model with epoch:[%d] accuracy[%0.02f].  Previous best training " \
-                                  "accuracy was: %0.02f" % (epoch, final_batch_training_acc, best_training_acc)
-                            logger.info(msg)
-                            best_net = net
-                            best_training_acc = final_batch_training_acc
-                    else:
-                        # use validation accuracy as the metric for deciding the best model
-                        final_batch_validation_acc = batches_stats[-1].batch_validation_accuracy
-                        if final_batch_validation_acc >= best_validation_acc:
-                            msg = "Updating best model with epoch:[%d] accuracy[%0.02f].  Previous best validation " \
-                                  "accuracy was: %0.02f" % (epoch, final_batch_validation_acc, best_validation_acc)
-                            logger.info(msg)
-                            best_net = net
-                            best_validation_acc = final_batch_validation_acc
+            # early stopping
+            # record the val loss of the last batch in the epoch.  if N epochs after the best val_loss, we have not
+            # improved the val-loss by atleast eps, we quit
+            if self.optimizer_cfg.training_cfg.early_stopping:
+                # EarlyStoppingConfig validates that eps > 0 as well ..
+                if validation_stats.val_loss < (
+                        best_val_loss-np.abs(self.optimizer_cfg.training_cfg.early_stopping.val_loss_eps)):
+                    best_val_loss = validation_stats.val_loss
+                    best_val_loss_epoch = epoch
+                    best_net = net
+                    logger.info('EarlyStopping - NewBest >> best_val_loss:%0.04f best_val_loss_epoch:%d' %
+                                (best_val_loss, best_val_loss_epoch))
+                elif epoch >= (best_val_loss_epoch + num_epochs_to_monitor):
+                    epoch += 1  # we do this b/c of the break to keep the accounting of epoch # returned to
+                    # the user to be one based
+                    msg = "Exiting training loop in epoch: %d - due to early stopping criterion being met!" \
+                          % (epoch,)
+                    logger.warning(msg)
+                    done = True
 
-                # early stopping
-                # record the val accuracy of the last batch in the epoch.  if every value in the buffer is less than
-                # the epsilon specified quit training
-                if self.optimizer_cfg.training_cfg.early_stopping is not None:
-                    val_acc_buffer[epoch % num_epochs_to_monitor] = batches_stats[-1].batch_validation_accuracy
-                    if np.all(np.abs(np.diff(val_acc_buffer)) <=
-                              self.optimizer_cfg.training_cfg.early_stopping.val_acc_eps):
-                        msg = "Exiting training loop early in epoch: %d - due to early stopping criterion being " \
-                              "met!" % (epoch+1, )
-                        logger.warning(msg)
-                        best_net = net
-                        break
+            epoch += 1
+            if self.optimizer_cfg.training_cfg.early_stopping:
+                # in case something goes wrong, we exit after training a long time ...
+                if epoch >= MAX_EPOCHS:
+                    done = True
+            else:
+                if epoch >= self.num_epochs:
+                    done = True
 
-        if self.save_best_model:
-            return best_net, all_epochs_stats, epoch+1
+        if self.save_best_model or self.optimizer_cfg.training_cfg.early_stopping:
+            return best_net, epoch_stats, epoch
         else:
-            return net, all_epochs_stats, epoch+1
+            return net, epoch_stats, epoch
 
     def train_epoch(self, model: nn.Module, train_loader: DataLoader, val_loader: DataLoader,
-                    epoch_num: int, compute_batch_stats: bool = True,
-                    progress_bar_disable: bool = False):
+                    epoch_num: int, progress_bar_disable: bool = False):
         """
         Runs one epoch of training on the specified model
 
@@ -376,20 +367,18 @@ class DefaultOptimizer(OptimizerInterface):
         :param train_loader: a DataLoader object pointing to the training dataset
         :param val_loader: a DataLoader object pointing to the validation dataset
         :param epoch_num: the epoch number that is being trained
-        :param compute_batch_stats: if True, computes statistics for the batch based on the reporting configuration
-                specified in the initialization of the optimizer
         :param progress_bar_disable: if True, disables the progress bar
         :return: a list of statistics for batches where statistics were computed
         """
-        loop = tqdm(train_loader, disable=progress_bar_disable)
 
         pid = os.getpid()
         train_dataset_len = len(train_loader.dataset)
+        loop = tqdm(train_loader, disable=progress_bar_disable)
 
         train_n_correct, train_n_total = 0, 0
         val_n_correct, val_n_total = 0, 0
-        val_acc, val_loss = None, None
-        batch_stats = []
+        sum_batchmean_train_loss = 0
+        running_train_acc = 0
         num_batches = len(train_loader)
         for batch_idx, (x, y_truth) in enumerate(loop):
             x = x.to(self.device)
@@ -404,6 +393,7 @@ class DefaultOptimizer(OptimizerInterface):
 
             # compute metrics
             batch_train_loss = self._eval_loss_function(y_hat, y_truth)
+            sum_batchmean_train_loss += batch_train_loss.item()
             running_train_acc, train_n_total, train_n_correct = _eval_acc(y_hat, y_truth,
                                                                           n_total=train_n_total,
                                                                           n_correct=train_n_correct)
@@ -411,47 +401,6 @@ class DefaultOptimizer(OptimizerInterface):
             # compute gradient
             batch_train_loss.backward()
             self.optimizer.step()
-            last_batch = (batch_idx == num_batches-1)
-            # if we have validation data, and either this is time to compute on validation set as defined by user,
-            # or it is the last batch, we compute on the validation dataset
-
-            val_loss = 0.
-            val_acc = 0.
-            if len(val_loader) > 0 and ((self.num_batches_per_metrics is not None and
-                                         batch_idx % self.num_batches_per_metrics == 0) or last_batch):
-                # last condition ensures metrics are computed for storage put model into evaluation mode
-                model.eval()
-                # turn off auto-grad for validation set computation
-                with torch.no_grad():
-                    for val_batch_idx, (x_eval, y_truth_eval) in enumerate(val_loader):
-                        x_eval = x_eval.to(self.device)
-                        y_truth_eval = y_truth_eval.to(self.device)
-                        y_hat_eval = model(x_eval)
-
-                        val_loss_tensor = self._eval_loss_function(y_hat_eval, y_truth_eval)
-                        batch_val_loss = val_loss_tensor.item()
-                        batch_val_acc, val_n_total, val_n_correct = _eval_acc(y_hat_eval, y_truth_eval,
-                                                                              n_total=val_n_total,
-                                                                              n_correct=val_n_correct)
-                        val_acc += batch_val_acc
-                        val_loss += batch_val_loss
-                    val_acc /= len(val_loader)
-                    val_loss /= len(val_loader)
-                    logger.info('{}\tTrain Epoch: {} [{}/{} ({:.0f}%)]\tValidationLoss: '
-                                '{:.6f}\tValidationAcc: {:.6f}'.format(
-                                        pid, epoch_num, batch_idx * len(x_eval), train_dataset_len,
-                                        100. * batch_idx / num_batches, val_loss,
-                                        val_acc))
-
-                if self.tb_writer is not None:
-                    try:
-                        self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
-                                                  '-validation_loss', val_loss)
-                        self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
-                                                  '-validation_acc', val_acc)
-                    except:
-                        # TODO: catch specific expcetions
-                        pass
 
             loop.set_description('Epoch {}/{}'.format(epoch_num + 1, self.num_epochs))
             loop.set_postfix(avg_train_loss=batch_train_loss.item())
@@ -463,28 +412,53 @@ class DefaultOptimizer(OptimizerInterface):
                                               batch_train_loss.item())
                     self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name + '-running_train_acc',
                                               running_train_acc)
-                    if len(val_loader) > 0 and self.num_batches_per_metrics is not None:
-                        self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
-                                                  '-validation_loss', val_loss)
-                        self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
-                                                  '-validation_acc', val_acc)
                 except:
                     # TODO: catch specific expcetions
                     pass
-
-            # save batch statistics
-            if compute_batch_stats and ((self.num_batches_per_metrics is not None and
-                                         batch_idx % self.num_batches_per_metrics == 0) or last_batch):
-                batch_stat = BatchStatistics(batch_idx, running_train_acc, batch_train_loss.item(),
-                                             val_acc, val_loss)
-                batch_stats.append(batch_stat)
 
             if batch_idx % self.num_batches_per_logmsg == 0:
                 logger.info('{}\tTrain Epoch: {} [{}/{} ({:.0f}%)]\tTrainLoss: {:.6f}\tTrainAcc: {:.6f}'.format(
                     pid, epoch_num, batch_idx * len(x), train_dataset_len,
                                     100. * batch_idx / num_batches, batch_train_loss.item(), running_train_acc))
+        train_stats = EpochTrainStatistics(running_train_acc, sum_batchmean_train_loss / float(num_batches))
 
-        return batch_stats
+        # if we have validation data, we compute on the validation dataset
+        validation_stats = None
+        num_val_batches = len(val_loader)
+        if num_val_batches > 0:
+            # last condition ensures metrics are computed for storage put model into evaluation mode
+            model.eval()
+            # turn off auto-grad for validation set computation
+            val_loss = 0.
+            with torch.no_grad():
+                for val_batch_idx, (x_eval, y_truth_eval) in enumerate(val_loader):
+                    x_eval = x_eval.to(self.device)
+                    y_truth_eval = y_truth_eval.to(self.device)
+                    y_hat_eval = model(x_eval)
+
+                    val_loss_tensor = self._eval_loss_function(y_hat_eval, y_truth_eval)
+                    batch_val_loss = val_loss_tensor.item()
+                    running_val_acc, val_n_total, val_n_correct = _eval_acc(y_hat_eval, y_truth_eval,
+                                                                            n_total=val_n_total,
+                                                                            n_correct=val_n_correct)
+                    val_loss += batch_val_loss
+            val_loss /= float(num_val_batches)
+            validation_stats = EpochValidationStatistics(running_val_acc, val_loss)
+
+            logger.info('{}\tTrain Epoch: {} \tValLoss: {:.6f}\tValAcc: {:.6f}'.format(
+                        pid, epoch_num, val_loss, running_val_acc))
+
+            if self.tb_writer is not None:
+                try:
+                    self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
+                                              '-validation_loss', val_loss)
+                    self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
+                                              '-validation_acc', running_val_acc)
+                except:
+                    # TODO: catch specific expcetions
+                    pass
+
+        return train_stats, validation_stats
 
     def test(self, net: nn.Module, clean_data: Dataset, triggered_data: Dataset,
              progress_bar_disable: bool = False, torch_dataloader_kwargs: dict = None) -> dict:

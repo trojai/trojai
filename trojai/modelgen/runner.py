@@ -107,19 +107,17 @@ class Runner:
         t1 = time.time()
         if isinstance(train_data, types.GeneratorType):
             for data, optimizer in zip(train_data, self.cfg.optimizer_generator):  # both are generators
-                model, epoch_training_stats, num_epochs_trained = optimizer.train(model, data,
-                                                                                  self.progress_bar_disable,
-                                                                                  torch_dataloader_kwargs)
-                model_stats.add_epoch(epoch_training_stats)
+                model, training_stats, num_epochs_trained = \
+                    optimizer.train(model, data, self.progress_bar_disable, torch_dataloader_kwargs)
+                model_stats.add_epoch(training_stats)
                 model_stats.add_num_epochs_trained(num_epochs_trained)
                 # add training configuration information to data to be saved
                 training_cfg_list.append(self._get_training_cfg(optimizer))
         else:
             optimizer = next(self.cfg.optimizer_generator)
-            model, epoch_training_stats, num_epochs_trained = optimizer.train(model, train_data,
-                                                                              self.progress_bar_disable,
-                                                                              torch_dataloader_kwargs)
-            model_stats.add_epoch(epoch_training_stats)
+            model, training_stats, num_epochs_trained = \
+                optimizer.train(model, train_data, self.progress_bar_disable, torch_dataloader_kwargs)
+            model_stats.add_epoch(training_stats)
             model_stats.add_num_epochs_trained(num_epochs_trained)
             # add training configuration information to data to be saved
             training_cfg_list.append(self._get_training_cfg(optimizer))

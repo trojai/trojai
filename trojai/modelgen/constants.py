@@ -12,3 +12,5 @@ VALID_OPTIMIZERS = ['adam']
 """ Defines the valid types of data that the modelgen pipeline can handle
 """
 VALID_DATA_TYPES = ['image', 'text', 'custom']
+
+MAX_EPOCHS = int(1e6)
