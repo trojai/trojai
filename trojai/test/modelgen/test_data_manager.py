@@ -52,8 +52,10 @@ class TestDataManager(unittest.TestCase):
         self.assertEqual(tdm.train_file, [self.file])  # data manager coverts training filename to a list
         self.assertEqual(tdm.clean_test_file, self.file)
         self.assertIsNone(tdm.triggered_test_file)
-        self.assertEqual(tdm.data_transform(1), 1)
-        self.assertEqual(tdm.label_transform(1), 1)
+        self.assertEqual(tdm.train_data_transform(1), 1)
+        self.assertEqual(tdm.train_label_transform(1), 1)
+        self.assertEqual(tdm.test_data_transform(1), 1)
+        self.assertEqual(tdm.test_label_transform(1), 1)
         self.assertEqual(tdm.data_loader, 'default_image_loader')
         self.assertTrue(tdm.shuffle_train)
         self.assertFalse(tdm.shuffle_clean_test)

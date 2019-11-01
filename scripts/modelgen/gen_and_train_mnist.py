@@ -225,7 +225,7 @@ def train_and_save_mnist_model(experiment_path, triggered_train, clean_test, tri
                                    triggered_train,
                                    clean_test,
                                    triggered_test_file=triggered_test,
-                                   data_transform=img_transform,
+                                   train_data_transform=img_transform,
                                    shuffle_train=True)
 
     class MyArchFactory(tpm_af.ArchitectureFactory):
