@@ -8,7 +8,7 @@ with open("README.md", "r") as fh:
 __author__ = 'Kiran Karra, Chace Ashcraft, Nat Kavaler, Neil Fendley, Nathan Drenkow, Cash Costello'
 __email__ = 'kiran.karra@jhuapl.edu,chace.ashcraft@jhuapl.edu,nathaniel.kavaler@jhaupl.edu,' \
             'neil.fendley@jhuapl.edu,nathan.drenkow@jhuapl.edu,cash.costello@jhuapl.edu'
-__version__ = '0.2.8'
+__version__ = '0.2.9'
 
 
 setuptools.setup(
