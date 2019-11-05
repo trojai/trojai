@@ -199,7 +199,7 @@ class CSVTextDataset(torchtext.data.Dataset, DatasetInterface):
                                                    pad_idx=self.text_field.vocab.stoi[self.text_field.pad_token])
 
 
-def csv_dataset_from_df(data_df, true_label=False, shuffle=False,
+def csv_dataset_from_df(path_to_data, data_df, true_label=False, shuffle=False,
                         random_state: Union[int, RandomState]=None,
                         data_loader: Union[str, Callable] = 'default_image_loader',
                         data_transform=lambda x: x, label_transform=lambda l: l):
@@ -222,8 +222,8 @@ def csv_dataset_from_df(data_df, true_label=False, shuffle=False,
     # write df to a temp file
     data_df.to_csv(tmp_filename, sep=',', index=None)
     # load it as a CSVDataset
-    csv_dataset = CSVDataset(os.path.dirname(tmp_filename), os.path.basename(tmp_filename), true_label=true_label,
-                             shuffle=shuffle, random_state=random_state, data_loader=data_loader,
+    csv_dataset = CSVDataset(path_to_data, os.path.basename(tmp_filename), path_to_csv=os.path.dirname(tmp_filename),
+                             true_label=true_label, shuffle=shuffle, random_state=random_state, data_loader=data_loader,
                              data_transform=data_transform, label_transform=label_transform)
     # delete tempfile
     os.remove(tmp_filename)

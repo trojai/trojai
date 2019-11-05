@@ -193,9 +193,11 @@ class DataManager:
             # as another metric of interest
             if self.clean_test_file and self.triggered_test_file:
                 triggered_classes = triggered_test_dataset.data_df['true_label'].unique()
+
                 clean_test_df_triggered_classes_only = clean_test_dataset.data_df[
                     clean_test_dataset.data_df['true_label'].isin(triggered_classes)]
-                clean_test_triggered_classes_dataset = csv_dataset_from_df(clean_test_df_triggered_classes_only,
+                clean_test_triggered_classes_dataset = csv_dataset_from_df(self.experiment_path,
+                                                                           clean_test_df_triggered_classes_only,
                                                                            data_transform=self.test_data_transform,
                                                                            label_transform=self.test_label_transform,
                                                                            data_loader=self.data_loader,

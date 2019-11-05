@@ -204,6 +204,9 @@ class Runner:
         torch.save(model, model_output_fname)
         model_training_stats_dict = stats.get_summary()
         for i, cfg in enumerate(training_cfg_list):
+            # remove function handles from the training_cfg which have been copied over
+            cfg.pop('val_data_transform', None)
+            cfg.pop('val_label_transform', None)
             model_training_stats_dict.update({"optimizer_"+str(i): cfg})
         # add experiment configuration to the dictionary which gets printed
         model_training_stats_dict.update(self.persist_info)
