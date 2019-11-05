@@ -135,21 +135,20 @@ class DefaultOptimizer(OptimizerInterface):
         self.num_epochs_per_metrics = self.optimizer_cfg.reporting_cfg.num_epochs_per_metrics
         self.num_batches_per_metrics = self.optimizer_cfg.reporting_cfg.num_batches_per_metrics
 
-        # override num_epochs_per_metrics and num_batches_per_metrics if early-stopping is turned on. We need to do
-        # in case the user has not configured recording validation dataset metrics, which would be turned off by
-        # default and prevent early stopping from working properly.
-        if self.optimizer_cfg.training_cfg.early_stopping is not None:
+        # raise error if train/val split is not set properly for either saving best model
+        # or for early stopping
+        if self.optimizer_cfg.training_cfg.early_stopping or self.save_best_model:
             self.num_epochs_per_metrics = 1
             logger.warning("Overriding num_epochs_per_metrics due to early-stopping or saving-best-model!")
 
-        if self.device.type == 'cpu' and self.num_batches_per_metrics is not None:
+        if self.device.type == 'cpu' and self.num_batches_per_metrics:
             logger.warning('Training will be VERY SLOW on a CPU with num_batches_per_metrics set to a '
                            'value other than None.  If validation dataset metrics are still desired, '
                            'consider increasing this value to speed up training')
 
         tensorboard_output_dir = self.optimizer_cfg.reporting_cfg.tensorboard_output_dir
         self.tb_writer = None
-        if tensorboard_output_dir is not None:
+        if tensorboard_output_dir:
             self.tb_writer = SummaryWriter(tensorboard_output_dir)
 
         optimizer_cfg_str = 'Optimizer[%s] Configured as: loss[%s], learning-rate[%.5e], batch-size[%d] ' \
@@ -158,7 +157,7 @@ class DefaultOptimizer(OptimizerInterface):
                              self.device.type)
         reporting_cfg_str = 'Reporting Configured as: num_batches_per_log_message[%d] tensorboard_dir[%s]' % \
                             (self.num_batches_per_logmsg, tensorboard_output_dir)
-        nbpm_print = self.num_batches_per_metrics if self.num_batches_per_metrics is not None else -1
+        nbpm_print = self.num_batches_per_metrics if self.num_batches_per_metrics else -1
         metrics_capture_str = 'Metrics capturing configured as: num_epochs_per_metric[%d] ' \
                               'num_batches_per_epoch_per_metric[%d]' % \
                               (self.num_epochs_per_metrics, nbpm_print)
@@ -177,13 +176,7 @@ class DefaultOptimizer(OptimizerInterface):
                                                        optimizer_cfg_copy.reporting_cfg))
 
     def get_cfg_as_dict(self) -> dict:
-        output_dict = dict(device=str(self.device.type),
-                           epochs=self.num_epochs,
-                           batch_size=self.batch_size,
-                           learning_rate=self.lr,
-                           optim=self.optimizer_str,
-                           objective=self.loss_function_str)
-        return output_dict
+        return self.optimizer_cfg.training_cfg.get_cfg_as_dict()
 
     def __eq__(self, other) -> bool:
         try:
@@ -197,8 +190,8 @@ class DefaultOptimizer(OptimizerInterface):
                     self.num_batches_per_logmsg == other.num_batches_per_logmsg and \
                     self.num_epochs_per_metrics == other.num_epochs_per_metrics and \
                         self.num_batches_per_metrics == other.num_batches_per_metrics:
-                    if self.tb_writer is not None:
-                        if other.tb_writer is not None:
+                    if self.tb_writer:
+                        if other.tb_writer:
                             if self.tb_writer.log_dir == other.tb_writer.log_dir:
                                 return True
                             else:
@@ -206,7 +199,7 @@ class DefaultOptimizer(OptimizerInterface):
                         else:
                             return False
                     else:
-                        if other.tb_writer is not None:
+                        if other.tb_writer:
                             return False
                         else:
                             # both are None
@@ -419,7 +412,7 @@ class DefaultOptimizer(OptimizerInterface):
             loop.set_postfix(avg_train_loss=batch_train_loss.item())
 
             # report batch statistics to tensorflow
-            if self.tb_writer is not None:
+            if self.tb_writer:
                 try:
                     self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name + '-train_loss',
                                               batch_train_loss.item())
@@ -461,7 +454,7 @@ class DefaultOptimizer(OptimizerInterface):
             logger.info('{}\tTrain Epoch: {} \tValLoss: {:.6f}\tValAcc: {:.6f}'.format(
                         pid, epoch_num, val_loss, running_val_acc))
 
-            if self.tb_writer is not None:
+            if self.tb_writer:
                 try:
                     self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
                                               '-validation_loss', val_loss)
