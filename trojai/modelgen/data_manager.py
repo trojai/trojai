@@ -191,7 +191,7 @@ class DataManager:
 
             # figure out which classes are triggered, and subset the clean dataset for just those classes,
             # as another metric of interest
-            if self.clean_test_file and self.triggered_test_file:
+            if clean_test_dataset and triggered_test_dataset:
                 triggered_classes = triggered_test_dataset.data_df['true_label'].unique()
 
                 clean_test_df_triggered_classes_only = clean_test_dataset.data_df[
@@ -265,7 +265,7 @@ class DataManager:
 
             # figure out which classes are triggered, and subset the clean dataset for just those classes,
             # as another metric of interest
-            if self.clean_test_file and self.triggered_test_file:
+            if clean_test_dataset and triggered_test_dataset:
                 triggered_classes = triggered_test_dataset.data_df['true_label'].unique()
                 clean_test_df_triggered_classes_only = clean_test_dataset.data_df[
                     clean_test_dataset.data_df['true_label'].isin(triggered_classes)]
