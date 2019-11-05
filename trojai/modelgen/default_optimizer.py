@@ -18,6 +18,7 @@ from .training_statistics import EpochStatistics, EpochValidationStatistics, Epo
 from .optimizer_interface import OptimizerInterface
 from .config import DefaultOptimizerConfig
 from .constants import VALID_OPTIMIZERS, MAX_EPOCHS
+from .datasets import CSVDataset
 
 logger = logging.getLogger(__name__)
 
@@ -251,7 +252,7 @@ class DefaultOptimizer(OptimizerInterface):
             train_loss = self.loss_function(y_hat, y_truth)
         return train_loss
 
-    def train(self, net: torch.nn.Module, dataset: torch.utils.data.Dataset, progress_bar_disable: bool = False,
+    def train(self, net: torch.nn.Module, dataset: CSVDataset, progress_bar_disable: bool = False,
               torch_dataloader_kwargs: dict = None) -> (torch.nn.Module, Sequence[EpochStatistics], int):
         """
         Train the network.
@@ -460,8 +461,9 @@ class DefaultOptimizer(OptimizerInterface):
 
         return train_stats, validation_stats
 
-    def test(self, net: nn.Module, clean_data: Dataset, triggered_data: Dataset,
-             progress_bar_disable: bool = False, torch_dataloader_kwargs: dict = None) -> dict:
+    def test(self, net: nn.Module, clean_data: CSVDataset, triggered_data: CSVDataset,
+             clean_test_triggered_labels_data: CSVDataset, progress_bar_disable: bool = False,
+             torch_dataloader_kwargs: dict = None) -> dict:
         """
         Test the trained network
         :param net: the trained module to run the test data through
@@ -518,4 +520,22 @@ class DefaultOptimizer(OptimizerInterface):
         test_data_statistics['triggered_n_total'] = test_n_total
         logger.info("Accuracy on triggered test data: %0.02f for n=%d" %
                     (test_data_statistics['triggered_accuracy'], test_n_total))
+
+        # now compute the accuracy of the clean data for triggered labels only
+        data_loader = DataLoader(clean_test_triggered_labels_data, batch_size=1, pin_memory=pin_memory)
+        test_n_correct = 0
+        test_n_total = 0
+        with torch.no_grad():
+            for batch, (x, y_truth) in enumerate(data_loader):
+                x = x.to(self.device)
+                y_truth = y_truth.to(self.device)
+                y_hat = net(x)
+                test_acc, test_n_total, test_n_correct = _eval_acc(y_hat, y_truth,
+                                                                   n_total=test_n_total,
+                                                                   n_correct=test_n_correct)
+        test_data_statistics['clean_test_triggered_label_accuracy'] = test_acc
+        test_data_statistics['clean_test_triggered_label_n_total'] = test_n_total
+        logger.info("Accuracy on clean-data-triggered-labels: %0.02f for n=%d" %
+                    (test_data_statistics['clean_test_triggered_label_accuracy'], test_n_total))
+
         return test_data_statistics

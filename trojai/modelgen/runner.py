@@ -84,8 +84,9 @@ class Runner:
 
     def run(self) -> None:
         """Trains a model and saves it and the associated model statistics"""
-        train_data, clean_test_data, triggered_test_data, \
-            train_dataset_desc, clean_test_dataset_desc, triggered_test_dataset_desc = self.cfg.data.load_data()
+        train_data, clean_test_data, triggered_test_data, clean_test_triggered_labels_data, \
+            train_dataset_desc, clean_test_dataset_desc, triggered_test_dataset_desc, clean_test_triggered_labels_desc \
+            = self.cfg.data.load_data()
         arch_factory_kwargs = {} if self.cfg.arch_factory_kwargs is None else self.cfg.arch_factory_kwargs
         torch_dataloader_kwargs = {} if self.cfg.data.torch_dataloader_kwargs is None else \
             self.cfg.data.torch_dataloader_kwargs
@@ -125,8 +126,8 @@ class Runner:
         # NOTE: The test function used here is one corresponding to the last optimizer used for training. An exception
         #  will be raised if no training occurred, but validation code prior to this line should prevent this from
         #  ever happening.
-        test_acc = optimizer.test(model, clean_test_data, triggered_test_data, self.progress_bar_disable,
-                                  torch_dataloader_kwargs)
+        test_acc = optimizer.test(model, clean_test_data, triggered_test_data, clean_test_triggered_labels_data,
+                                  self.progress_bar_disable, torch_dataloader_kwargs)
         t3 = time.time()
 
         # Save model train/test statistics and other relevant information

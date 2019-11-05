@@ -8,7 +8,7 @@ import pandas as pd
 from torch.utils.data import Dataset
 
 from .constants import VALID_DATA_TYPES
-from .datasets import CSVDataset, CSVTextDataset
+from .datasets import CSVDataset, CSVTextDataset, csv_dataset_from_df, csv_textdataset_from_df
 from .data_descriptions import DataDescription
 from .data_configuration import DataConfiguration
 
@@ -137,7 +137,7 @@ class DataManager:
                                                                       shuffle=self.shuffle_train)
                              for ii in range(len(self.train_file)))
 
-            if self.clean_test_file is not None:
+            if self.clean_test_file:
                 clean_test_dataset = CSVDataset(self.experiment_path, self.clean_test_file,
                                                 data_transform=self.data_transform,
                                                 label_transform=self.label_transform,
@@ -151,7 +151,7 @@ class DataManager:
                 clean_test_dataset = None
                 msg = 'Clean Test Dataset was empty and will be skipped...'
                 logger.info(msg)
-            if self.triggered_test_file is not None:
+            if self.triggered_test_file:
                 triggered_test_dataset = CSVDataset(self.experiment_path, self.triggered_test_file,
                                                     data_transform=self.data_transform,
                                                     label_transform=self.label_transform,
@@ -166,16 +166,30 @@ class DataManager:
                 msg = 'Triggered Dataset was empty, testing on triggered data will be skipped...'
                 logger.info(msg)
 
+            # figure out which classes are triggered, and subset the clean dataset for just those classes,
+            # as another metric of interest
+            if self.clean_test_file and self.triggered_test_file:
+                triggered_classes = triggered_test_dataset.data_df['label'].unique()
+                clean_test_df_triggered_classes_only = clean_test_dataset.data_df[
+                    clean_test_dataset.data_df['label'].isin(triggered_classes)]
+                clean_test_triggered_classes_dataset = csv_dataset_from_df(clean_test_df_triggered_classes_only,
+                                                                           data_transform=self.data_transform,
+                                                                           label_transform=self.label_transform,
+                                                                           data_loader=self.data_loader,
+                                                                           shuffle=self.shuffle_triggered_test)
+            else:
+                clean_test_triggered_classes_dataset = None
+
             # nothing to fill in at the moment for image, we can update as needed
             if isinstance(train_dataset, types.GeneratorType):
                 train_dataset_desc = first_dataset.get_data_description()
             else:
                 train_dataset_desc = train_dataset.get_data_description()
-            if clean_test_dataset is not None:
+            if clean_test_dataset:
                 clean_test_dataset_desc = clean_test_dataset.get_data_description()
             else:
                 clean_test_dataset_desc = None
-            if triggered_test_dataset is not None:
+            if triggered_test_dataset:
                 triggered_test_dataset_desc = triggered_test_dataset.get_data_description()
             else:
                 triggered_test_dataset_desc = None
@@ -197,8 +211,7 @@ class DataManager:
                                       self.data_configuration.max_vocab_size)
             # pass in the learned vocabulary from the training data to the clean test dataset
 
-            clean_test_dataset = None
-            if self.clean_test_file is not None:
+            if self.clean_test_file:
                 clean_test_dataset = CSVTextDataset(self.experiment_path, self.clean_test_file,
                                                     text_field=train_dataset.text_field,
                                                     label_field=train_dataset.label_field,
@@ -207,10 +220,11 @@ class DataManager:
                     msg = 'Clean Test Dataset was empty and will be skipped...'
                     logger.info(msg)
             else:
+                clean_test_dataset = None
                 msg = 'Clean Test Dataset was empty and will be skipped...'
                 logger.info(msg)
-            triggered_test_dataset = None
-            if self.triggered_test_file is not None:
+
+            if self.triggered_test_file:
                 logger.info("Loading Triggered Test Dataset")
                 # pass in the learned vocabulary from the training data to the triggered test dataset
                 triggered_test_dataset = CSVTextDataset(self.experiment_path, self.triggered_test_file,
@@ -224,40 +238,59 @@ class DataManager:
             else:
                 triggered_test_dataset = None
 
+            # figure out which classes are triggered, and subset the clean dataset for just those classes,
+            # as another metric of interest
+            if self.clean_test_file and self.triggered_test_file:
+                triggered_classes = triggered_test_dataset.data_df['label'].unique()
+                clean_test_df_triggered_classes_only = clean_test_dataset.data_df[
+                    clean_test_dataset.data_df['label'].isin(triggered_classes)]
+                clean_test_triggered_classes_dataset = csv_textdataset_from_df(clean_test_df_triggered_classes_only,
+                                                                               text_field=train_dataset.text_field,
+                                                                               label_field=train_dataset.label_field,
+                                                                               shuffle=self.shuffle_triggered_test)
+            else:
+                clean_test_triggered_classes_dataset = None
+
             train_dataset_desc = train_dataset.get_data_description()
-            if clean_test_dataset is not None and len(clean_test_dataset) > 0:
+            if clean_test_dataset and len(clean_test_dataset) > 0:
                 clean_test_dataset_desc = clean_test_dataset.get_data_description()
             else:
                 clean_test_dataset_desc = None
-            if triggered_test_dataset is not None and len(triggered_test_dataset) > 0:
+            if triggered_test_dataset and len(triggered_test_dataset) > 0:
                 triggered_test_dataset_desc = triggered_test_dataset.get_data_description()
             else:
                 triggered_test_dataset_desc = None
+
         elif self.data_type == 'custom':
             train_dataset = self.datasets['train']
             clean_test_dataset = self.datasets['clean_test']
-            # using the "get" function to get elements from dictionary ensures that we return None if the keys were
-            # not provided
             triggered_test_dataset = self.datasets.get('triggered_test')
-            if train_dataset is not None:
+            clean_test_triggered_classes_dataset = self.datasets.get('clean_test_triggered_classes_dataset')
+            if train_dataset:
                 train_dataset_desc = train_dataset.get_data_description()
             else:
                 train_dataset_desc = None
-            if clean_test_dataset is not None:
+            if clean_test_dataset:
                 clean_test_dataset_desc = clean_test_dataset.get_data_description()
             else:
                 clean_test_dataset_desc = None
-            if triggered_test_dataset is not None:
+            if triggered_test_dataset:
                 triggered_test_dataset_desc = triggered_test_dataset.get_data_description()
             else:
                 triggered_test_dataset_desc = None
+
         else:
             msg = "Unsupported data_type argument provided"
             logger.error(msg)
             raise NotImplementedError(msg)
 
-        return train_dataset, clean_test_dataset, triggered_test_dataset, \
-            train_dataset_desc, clean_test_dataset_desc, triggered_test_dataset_desc
+        if clean_test_triggered_classes_dataset:
+            clean_test_triggered_classes_dataset_desc = clean_test_triggered_classes_dataset.get_data_description()
+        else:
+            clean_test_triggered_classes_dataset_desc = None
+
+        return train_dataset, clean_test_dataset, triggered_test_dataset, clean_test_triggered_classes_dataset, \
+            train_dataset_desc, clean_test_dataset_desc, triggered_test_dataset_desc, clean_test_triggered_classes_dataset_desc
 
     def validate(self) -> None:
         """
