@@ -111,7 +111,7 @@ class TestRunner(unittest.TestCase):
 
             # check if correct functions were called with correct arguments and the correct number of times
             mock_runner_config.data.load_data.assert_called_once_with()
-            mock_optimizer1.train.assert_called_once_with(arch, train_mock, False, None, None, {})
+            mock_optimizer1.train.assert_called_once_with(arch, train_mock, False, {})
             mock_optimizer1.test.assert_called_once_with(arch, ctest, ttest, False, {})
             mock_save_model.assert_called_once_with(arch, p(), [mock_training_cfg1])
 
@@ -163,9 +163,9 @@ class TestRunner(unittest.TestCase):
         mock_save_model = Mock()
         runner._save_model_and_stats = mock_save_model
 
-        calls = [unittest.mock.call(arch, train1, False, None, None, {}),
-                 unittest.mock.call(arch, train2, False, None, None, {}),
-                 unittest.mock.call(arch, train3, False, None, None, {})]
+        calls = [unittest.mock.call(arch, train1, False, {}),
+                 unittest.mock.call(arch, train2, False, {}),
+                 unittest.mock.call(arch, train3, False, {})]
 
         # run function
         with patch("trojai.modelgen.runner.TrainingRunStatistics") as p:
@@ -242,11 +242,11 @@ class TestRunner(unittest.TestCase):
         with patch("trojai.modelgen.runner.TrainingRunStatistics") as p:
             runner.run()
 
-            mock_optimizer1.train.assert_called_once_with(arch, train1, False, None, None, {})
+            mock_optimizer1.train.assert_called_once_with(arch, train1, False, {})
             mock_optimizer1.test.assert_not_called()
-            mock_optimizer2.train.assert_called_once_with(arch, train2, False, None, None, {})
+            mock_optimizer2.train.assert_called_once_with(arch, train2, False, {})
             mock_optimizer2.test.assert_not_called()
-            mock_optimizer3.train.assert_called_once_with(arch, train3, False, None, None, {})
+            mock_optimizer3.train.assert_called_once_with(arch, train3, False, {})
             mock_optimizer3.test.assert_called_once_with(arch, ctest, ttest, False, {})
 
     def test_get_training_cfg(self):

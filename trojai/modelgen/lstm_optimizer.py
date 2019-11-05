@@ -1,7 +1,6 @@
-import collections
 import logging
 import os
-from typing import Sequence, Any
+from typing import Sequence, Any, Callable
 import copy
 import cloudpickle as pickle
 import numpy as np
@@ -182,7 +181,8 @@ class LSTMOptimizer(OptimizerInterface):
         return train_loss
 
     @staticmethod
-    def train_val_dataset_split(dataset: torchtext.data.Dataset, split_amt: float) \
+    def train_val_dataset_split(dataset: torchtext.data.Dataset, split_amt: float, val_data_transform: Callable,
+                                val_label_transform: Callable) \
             -> (torchtext.data.Dataset, torchtext.data.Dataset):
         """
         Splits a torchtext dataset (of type: torchtext.data.Dataset) into train/test.
@@ -193,6 +193,9 @@ class LSTMOptimizer(OptimizerInterface):
         :param dataset: the dataset to be split
         :param split_amt: fraction specificing the validation dataset size relative to the whole.  1-split_amt will
                           be the size of the training dataset
+        :param val_data_transform: (function: any -> any) how to transform the validation data to fit
+                into the desired model and objective function
+        :param val_label_transform: (function: any -> any) how to transform the validation labels
         :return: a tuple of the train and validation datasets
         """
 
@@ -205,6 +208,8 @@ class LSTMOptimizer(OptimizerInterface):
             val_dataset = None
         else:
             train_dataset, val_dataset = dataset.split(1 - split_amt)
+        val_dataset.data_transform = val_data_transform
+        val_dataset.label_transform = val_label_transform
         return train_dataset, val_dataset
 
     def convert_dataset_to_dataiterator(self, dataset: CSVTextDataset) -> TextDataIterator:
@@ -247,7 +252,12 @@ class LSTMOptimizer(OptimizerInterface):
 
         # split into train & validation datasets, and setup data loaders according to their type
         train_dataset, val_dataset = LSTMOptimizer.train_val_dataset_split(dataset,
-                                                                           self.optimizer_cfg.training_cfg.train_val_split)
+                                                                           self.optimizer_cfg.training_cfg.
+                                                                           train_val_split,
+                                                                           self.optimizer_cfg.training_cfg.
+                                                                           val_data_transform,
+                                                                           self.optimizer_cfg.training_cfg.
+                                                                           val_label_transform)
         train_loader = self.convert_dataset_to_dataiterator(train_dataset)
         val_loader = self.convert_dataset_to_dataiterator(val_dataset) if val_dataset is not None else None
 

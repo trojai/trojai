@@ -14,8 +14,6 @@ class OptimizerInterface(ABC):
     """Object that performs training and testing of TrojAI models."""
     @abstractmethod
     def train(self, model: torch.nn.Module, data: CSVDataset, progress_bar_disable: bool,
-              val_data_transform: Callable = None,
-              val_label_transform: Callable = None,
               torch_dataloader_kwargs: dict = None) \
             -> (torch.nn.Module, Sequence[EpochStatistics], int):
         """
@@ -23,9 +21,6 @@ class OptimizerInterface(ABC):
         :param model: (torch.nn.Module) The untrained Pytorch model
         :param data: (CSVDataset) Object containing training data, output 0 from TrojaiDataManager.load_data()
         :param progress_bar_disable: (bool) Don't display the progress bar if True
-        :param val_data_transform: (function: any -> any) how to transform the validation data to fit
-            into the desired model and objective function
-        :param val_label_transform: (function: any -> any) how to transform the validation labels
         :param torch_dataloader_kwargs: additional arguments to pass to PyTorch's DataLoader class
         :return: (torch.nn.Module, EpochStatistics) trained model, a sequence of EpochStatistics objects (one for
             each epoch), and the # of epochs with which the model was trained (useful for early stopping).
