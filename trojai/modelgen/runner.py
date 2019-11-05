@@ -136,6 +136,8 @@ class Runner:
         model_stats.set_final_clean_data_n_total(test_acc['clean_n_total'])
         model_stats.set_final_triggered_data_test_acc(test_acc.get('triggered_accuracy', None))
         model_stats.set_final_triggered_data_n_total(test_acc.get('triggered_n_total', None))
+        model_stats.set_final_clean_data_triggered_label_test_acc(test_acc.get('clean_test_triggered_label_accuracy', None))
+        model_stats.set_final_clean_data_triggered_label_n(test_acc.get('clean_test_triggered_label_n_total', None))
 
         # add training/test wall-times to stats
         self.persist_info['training_wall_time_sec'] = t2-t1

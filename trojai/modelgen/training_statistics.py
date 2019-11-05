@@ -173,6 +173,8 @@ class TrainingRunStatistics:
         self.final_clean_data_n_total = 0
         self.final_triggered_data_test_acc = None
         self.final_triggered_data_n_total = None
+        self.final_clean_data_triggered_labels_test_acc = None
+        self.final_clean_data_triggered_labels_n_total = None
         self.final_optimizer_num_epochs_trained = 0
 
     def add_epoch(self, epoch_stats: Union[EpochStatistics, Sequence[EpochStatistics]]):
@@ -242,12 +244,28 @@ class TrainingRunStatistics:
             logger.error(msg)
             raise ValueError(msg)
 
+    def set_final_clean_data_triggered_label_test_acc(self, acc):
+        if 0 <= acc <= 100:
+            self.final_clean_data_triggered_labels_test_acc = acc
+        else:
+            msg = "Final clean data test accuracy should be between 0 and 100!"
+            logger.error(msg)
+            raise ValueError(msg)
+
     def set_final_clean_data_n_total(self, n):
         self.final_clean_data_n_total = n
 
     def set_final_triggered_data_n_total(self, n):
         if n is None or n > 0:
             self.final_triggered_data_n_total = n
+        else:
+            msg = "Triggered dataset size must be > 0! - received dataset.size()=" + str(n)
+            logger.error(msg)
+            raise ValueError(msg)
+
+    def set_final_clean_data_triggered_label_n(self, n):
+        if n is None or n > 0:
+            self.final_clean_data_triggered_labels_n_total = n
         else:
             msg = "Triggered dataset size must be > 0! - received dataset.size()=" + str(n)
             logger.error(msg)
@@ -266,6 +284,8 @@ class TrainingRunStatistics:
         summary_dict['final_triggered_data_test_acc'] = self.final_triggered_data_test_acc
         summary_dict['final_clean_data_n_total'] = self.final_clean_data_n_total
         summary_dict['final_triggered_data_n_total'] = self.final_triggered_data_n_total
+        summary_dict['clean_test_triggered_label_accuracy'] = self.final_clean_data_triggered_labels_test_acc
+        summary_dict['clean_test_triggered_label_n_total'] = self.final_clean_data_triggered_labels_n_total
         summary_dict['final_optimizer_num_epochs_trained'] = self.num_epochs_trained_per_optimizer
 
         return summary_dict
