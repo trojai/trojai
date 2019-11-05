@@ -248,7 +248,7 @@ class TrainingRunStatistics:
             raise ValueError(msg)
 
     def set_final_clean_data_triggered_label_test_acc(self, acc):
-        if 0 <= acc <= 100:
+        if acc is None or 0 <= acc <= 100:
             self.final_clean_data_triggered_labels_test_acc = acc
         else:
             msg = "Final clean data test accuracy should be between 0 and 100!"
