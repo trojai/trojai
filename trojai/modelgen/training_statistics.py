@@ -53,7 +53,7 @@ class EpochTrainStatistics:
     """
     Defines the training statistics for one epoch of training
     """
-    def __init__(self, train_acc, train_loss):
+    def __init__(self, train_acc: float, train_loss: float):
         self.train_acc = train_acc
         self.train_loss = train_loss
 
@@ -61,12 +61,12 @@ class EpochTrainStatistics:
 
     def validate(self):
         if not isinstance(self.train_acc, float):
-            msg = "train_acc must be a float"
+            msg = "train_acc must be a float, got type {}".format(type(self.train_acc))
             logger.error(msg)
             raise ValueError(msg)
 
         if not isinstance(self.train_loss, float):
-            msg = "train_loss must be a float"
+            msg = "train_loss must be a float, got type {}".format(type(self.train_loss))
             logger.error(msg)
             raise ValueError(msg)
 
@@ -89,12 +89,12 @@ class EpochValidationStatistics:
 
     def validate(self):
         if not isinstance(self.val_acc, float):
-            msg = "val_acc must be a float"
+            msg = "val_acc must be a float, got type {}".format(type(self.val_acc))
             logger.error(msg)
             raise ValueError(msg)
 
         if not isinstance(self.val_loss, float):
-            msg = "val_loss must be a float"
+            msg = "val_loss must be a float, got type {}".format(type(self.val_loss))
             logger.error(msg)
             raise ValueError(msg)
 
@@ -132,15 +132,18 @@ class EpochStatistics:
 
     def validate(self):
         if not isinstance(self.batch_training_stats, collections.abc.Sequence):
-            msg = "batch_training_stats must be a list of BatchTrainingStats objects!"
+            msg = "batch_training_stats must be None or a list of BatchTrainingStats objects! " \
+                  "Got {}".format(self.batch_training_stats)
             logger.error(msg)
             raise ValueError(msg)
-        if not isinstance(self.epoch_training_stats, EpochTrainStatistics):
-            msg = "epoch_training_stats must be of type: EpochTrainingStatistics!"
+        if self.epoch_training_stats and not isinstance(self.epoch_training_stats, EpochTrainStatistics):
+            msg = "training_stats must be None or of type: EpochTrainStatistics!, got type " \
+                  "{}".format(type(self.epoch_training_stats))
             logger.error(msg)
             raise ValueError(msg)
-        if not isinstance(self.epoch_validation_stats, EpochValidationStatistics):
-            msg = "epoch_validation_stats must be of type: EpochValidationStatistics!"
+        if self.epoch_validation_stats and not isinstance(self.epoch_validation_stats, EpochValidationStatistics):
+            msg = "validation_stats must be None or of type: EpochValidationStatistics! Instead got type " \
+                  "{}".format(type(self.epoch_validation_stats))
             logger.error(msg)
             raise ValueError(msg)
 

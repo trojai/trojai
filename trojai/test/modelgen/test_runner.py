@@ -70,6 +70,8 @@ class TestRunner(unittest.TestCase):
         mock_runner_config.data.load_data = Mock()
         mock_runner_config.data.load_data.return_value = (train, ctest, ttest, dd1, dd2, dd3)
         mock_runner_config.data.torch_dataloader_kwargs = None
+        mock_runner_config.data.test_data_transform = None
+        mock_runner_config.data.test_label_transform = None
         mock_runner_config.optimizer = Mock(spec=OptimizerInterface)
         mock_optimizer1 = Mock(spec=DefaultOptimizer)
         mock_optimizer1.train = Mock()
@@ -109,8 +111,7 @@ class TestRunner(unittest.TestCase):
 
             # check if correct functions were called with correct arguments and the correct number of times
             mock_runner_config.data.load_data.assert_called_once_with()
-            mock_optimizer1.train.assert_called_once_with(arch, train_mock,
-                                                          False, {})
+            mock_optimizer1.train.assert_called_once_with(arch, train_mock, False, {})
             mock_optimizer1.test.assert_called_once_with(arch, ctest, ttest, False, {})
             mock_save_model.assert_called_once_with(arch, p(), [mock_training_cfg1])
 
@@ -127,6 +128,8 @@ class TestRunner(unittest.TestCase):
         mock_runner_config.data.iterable_training = True
         mock_runner_config.data.load_data = Mock()
         mock_runner_config.data.load_data.return_value = (train, ctest, ttest, dd1, dd2, dd3)
+        mock_runner_config.data.test_data_transform = None
+        mock_runner_config.data.test_label_transform = None
         mock_runner_config.arch_factory = Mock(spec=ArchitectureFactory)
         mock_runner_config.arch_factory.new_architecture = Mock()
         arch = Mock(spec=nn.Module)
@@ -187,6 +190,8 @@ class TestRunner(unittest.TestCase):
         mock_runner_config.data.iterable_training = True
         mock_runner_config.data.load_data = Mock()
         mock_runner_config.data.load_data.return_value = (train, ctest, ttest, dd1, dd2, dd3)
+        mock_runner_config.data.test_data_transform = None
+        mock_runner_config.data.test_label_transform = None
         mock_runner_config.arch_factory = Mock(spec=ArchitectureFactory)
         mock_runner_config.arch_factory.new_architecture = Mock()
         arch = Mock(spec=nn.Module)

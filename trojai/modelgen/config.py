@@ -106,6 +106,8 @@ class TrainingConfig(ConfigInterface):
                  objective: Union[str, Callable] = 'cross_entropy_loss',
                  save_best_model: bool = False,
                  train_val_split: float = 0.,
+                 val_data_transform: Callable[[Any], Any] = lambda x: x,
+                 val_label_transform: Callable[[int], int] = lambda y: y,
                  early_stopping: EarlyStoppingConfig = None) -> None:
         """
         Initializes a TrainingConfig object
@@ -123,6 +125,11 @@ class TrainingConfig(ConfigInterface):
                                 training
         :param train_val_split: (float) if > 0, then splits the training dataset and uses it as validation.  If 0
             the training dataset is not split and validation is not computed
+        :param val_data_transform: (function: any -> any) how to transform the validation data (e.g. an image) to fit
+            into the desired model and objective function; optional
+            NOTE: Currently - this argument is only used if data_type='image'
+        :param val_label_transform: (function: int->int) how to transform the label to the validation data; optional
+            NOTE: Currently - this argument is only used if data_type='image'
         :param early_stopping: configuration for early stopping
         TODO:
          [ ] - allow user to configure what the "best" model is
@@ -136,6 +143,8 @@ class TrainingConfig(ConfigInterface):
         self.save_best_model = save_best_model
         self.train_val_split = train_val_split
         self.early_stopping = early_stopping
+        self.val_data_transform = val_data_transform
+        self.val_label_transform = val_label_transform
 
         self.validate()
 
@@ -197,6 +206,13 @@ class TrainingConfig(ConfigInterface):
             logger.error(msg)
             raise ValueError(msg)
 
+        if not callable(self.val_data_transform):
+            raise TypeError("Expected a function for argument 'val_data_transform', "
+                            "instead got type: {}".format(type(self.val_data_transform)))
+        if not callable(self.val_label_transform):
+            raise TypeError("Expected a function for argument 'val_label_transform', "
+                            "instead got type: {}".format(type(self.val_label_transform)))
+
     def get_cfg_as_dict(self):
         """
         Returns a dictionary representation of the configuration
@@ -209,14 +225,18 @@ class TrainingConfig(ConfigInterface):
                            optim=self.optim,
                            objective=self.objective,
                            save_best_model=self.save_best_model,
-                           early_stopping=str(self.early_stopping))
+                           early_stopping=str(self.early_stopping),
+                           val_data_transform=self.val_data_transform,
+                           val_label_transform=self.val_label_transform)
         return output_dict
 
     def __str__(self):
         str_repr = "TrainingConfig: device[%s], num_epochs[%d], batch_size[%d], learning_rate[%.5e], optimizer[%s], " \
-                   "objective[%s] train_val_split[%0.02f] early_stopping[%s]" % \
+                   "objective[%s], train_val_split[%0.02f], val_data_transform[%s], " \
+                   "val_label_transform[%s], early_stopping[%s]" % \
                    (str(self.device.type), self.epochs, self.batch_size, self.lr,
-                    str(self.optim), str(self.objective), self.train_val_split, str(self.early_stopping))
+                    str(self.optim), str(self.objective), self.train_val_split, str(self.val_data_transform),
+                    str(self.val_label_transform), str(self.early_stopping))
         return str_repr
 
     def __deepcopy__(self, memodict={}):
@@ -229,6 +249,8 @@ class TrainingConfig(ConfigInterface):
         save_best_model = self.save_best_model
         train_val_split = self.train_val_split
         early_stopping = copy.deepcopy(self.early_stopping)
+        val_data_transform = copy.deepcopy(self.val_data_transform)
+        val_label_transform = copy.deepcopy(self.val_label_transform)
         if isinstance(self.optim, str):
             optim = self.optim
         elif isinstance(self.optim, OptimizerInterface):
@@ -246,14 +268,16 @@ class TrainingConfig(ConfigInterface):
             logger.error(msg)
             raise ValueError(msg)
         return TrainingConfig(new_device, epochs, batch_size, lr, optim, objective, save_best_model,
-                              train_val_split, early_stopping)
+                              train_val_split, val_data_transform, val_label_transform, early_stopping)
 
     def __eq__(self, other):
         if self.device.type == other.device.type and self.epochs == other.epochs and \
            self.batch_size == other.batch_size and self.lr == other.lr and \
            self.save_best_model == other.save_best_model and \
            self.train_val_split == other.train_val_split and \
-           self.early_stopping == other.early_stopping:
+           self.early_stopping == other.early_stopping and \
+           self.val_data_transform == other.val_data_transform and \
+           self.val_label_transform == other.val_label_transform:
             # now check the objects
             if self.optim == other.optim and self.objective == other.objective:
                 return True

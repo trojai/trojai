@@ -17,11 +17,14 @@ logger = logging.getLogger(__name__)
 
 class DataManager:
     """ Manages data from an experiment from trogai.datagen. """
+
     def __init__(self, experiment_path: str, train_file: Union[str, Sequence[str]], clean_test_file: str,
                  triggered_test_file: str = None,
                  data_type: str = 'image',
-                 data_transform: Callable[[Any], Any] = (lambda x: x),
-                 label_transform: Callable[[int], int] = lambda y: y,
+                 train_data_transform: Callable[[Any], Any] = lambda x: x,
+                 train_label_transform: Callable[[int], int] = lambda y: y,
+                 test_data_transform: Callable[[Any], Any] = None,
+                 test_label_transform: Callable[[int], int] = None,
                  file_loader: Union[Callable[[str], Any], str] = 'default_image_loader',
                  shuffle_train=True, shuffle_clean_test=False, shuffle_triggered_test=False,
                  data_configuration: DataConfiguration = None,
@@ -36,10 +39,16 @@ class DataManager:
         :param triggered_test_file: (str) csv file name of the triggered test data.
         :param data_type: (str) can be 'image', 'text', or 'custom'.  The TrojaiDataManager uses this to determine how
                           to load the actual data and prepare it to be fed into the optimizer.
-        :param data_transform: (function: any -> any) how to transform the data (e.g. and image) to fit into the
-            desired model and objective function; optional
+        :param train_data_transform: (function: any -> any) how to transform the training data (e.g. an image) to fit
+            into the desired model and objective function; optional
             NOTE: Currently - this argument is only used if data_type='image'
-        :param label_transform: (function: int->int) how to transform the label to the data; optional
+        :param train_label_transform: (function: int->int) how to transform the label to the training data; optional
+            NOTE: Currently - this argument is only used if data_type='image'
+        :param test_data_transform: (function: any -> any) same as train_data_transform, but applied to validation and
+            test data instead; passing None will set the to same function as train_data_transform
+            NOTE: Currently - this argument is only used if data_type='image'
+        :param test_label_transform: (function: int->int) same as train_label_transform, but applied to validation and
+            test data instead; passing None will set the to same function as train_label_transform
             NOTE: Currently - this argument is only used if data_type='image'
         :param file_loader: (function: str->any or str) how to create the data object to pass into an architecture
             from a file path, or default loader to use. Options include: 'default_image_loader'
@@ -73,8 +82,17 @@ class DataManager:
 
         self.data_type = data_type
         self.data_loader = file_loader
-        self.data_transform = data_transform
-        self.label_transform = label_transform
+        self.train_data_transform = train_data_transform
+        self.train_label_transform = train_label_transform
+        # if test transforms are not given, set to the same as the train transforms
+        if test_data_transform:
+            self.test_data_transform = test_data_transform
+        else:
+            self.test_data_transform = train_data_transform
+        if test_label_transform:
+            self.test_label_transform = test_label_transform
+        else:
+            self.test_label_transform = train_label_transform
 
         self.shuffle_train = shuffle_train
         self.shuffle_clean_test = shuffle_clean_test
@@ -88,21 +106,26 @@ class DataManager:
 
     def __deepcopy__(self, memodict={}):
         return DataManager(self.experiment_path, self.train_file, self.clean_test_file,
-                           self.triggered_test_file, self.data_type, copy.deepcopy(self.data_transform),
-                           copy.deepcopy(self.label_transform), copy.deepcopy(self.data_loader),
+                           self.triggered_test_file, self.data_type, copy.deepcopy(self.train_data_transform),
+                           copy.deepcopy(self.train_label_transform), copy.deepcopy(self.test_data_transform),
+                           copy.deepcopy(self.test_label_transform), copy.deepcopy(self.data_loader),
                            self.shuffle_train, self.shuffle_clean_test, self.shuffle_triggered_test,
                            self.data_configuration, self.datasets, self.torch_dataloader_kwargs)
 
     def __eq__(self, other):
         if self.experiment_path == other.experiment_path and self.train_file == other.train_file and \
-           self.clean_test_file == other.clean_test_file and self.triggered_test_file == other.triggered_test_file and \
-           self.data_type == other.data_type and \
-           self.data_transform == other.data_transform and self.label_transform == other.label_transform and \
-           self.data_loader == other.data_loader and self.shuffle_train == other.shuffle_train and \
-           self.shuffle_clean_test == other.shuffle_clean_test and \
-           self.shuffle_triggered_test == other.shuffle_triggered_test and \
-           self.data_configuration == other.data_configuration and \
-           self.torch_dataloader_kwargs == other.torch_dataloader_kwargs:
+                self.clean_test_file == other.clean_test_file and \
+                self.triggered_test_file == other.triggered_test_file and \
+                self.data_type == other.data_type and \
+                self.train_data_transform == other.train_data_transform and \
+                self.train_label_transform == other.train_label_transform and \
+                self.test_data_transform == other.test_data_transform and \
+                self.test_label_transform == other.test_label_transform and \
+                self.data_loader == other.data_loader and self.shuffle_train == other.shuffle_train and \
+                self.shuffle_clean_test == other.shuffle_clean_test and \
+                self.shuffle_triggered_test == other.shuffle_triggered_test and \
+                self.data_configuration == other.data_configuration and \
+                self.torch_dataloader_kwargs == other.torch_dataloader_kwargs:
             # Note: when we compare callables, we simply compare whether the callable is the same reference in memory
             #  or not.  This means that if two callables are functionally equivalent, but are different object
             #  references then the equality comparison will fail
@@ -126,21 +149,21 @@ class DataManager:
         if self.data_type == 'image':
             logger.info("Loading Training Dataset")
             first_dataset = CSVDataset(self.experiment_path, self.train_file[0],
-                                       data_transform=self.data_transform,
-                                       label_transform=self.label_transform,
+                                       data_transform=self.train_data_transform,
+                                       label_transform=self.train_label_transform,
                                        data_loader=self.data_loader,
                                        shuffle=self.shuffle_train)
             train_dataset = (first_dataset if ii == 0 else CSVDataset(self.experiment_path, self.train_file[ii],
-                                                                      data_transform=self.data_transform,
-                                                                      label_transform=self.label_transform,
+                                                                      data_transform=self.train_data_transform,
+                                                                      label_transform=self.train_label_transform,
                                                                       data_loader=self.data_loader,
                                                                       shuffle=self.shuffle_train)
                              for ii in range(len(self.train_file)))
 
             if self.clean_test_file:
                 clean_test_dataset = CSVDataset(self.experiment_path, self.clean_test_file,
-                                                data_transform=self.data_transform,
-                                                label_transform=self.label_transform,
+                                                data_transform=self.test_data_transform,
+                                                label_transform=self.test_label_transform,
                                                 data_loader=self.data_loader,
                                                 shuffle=self.shuffle_clean_test)
                 if len(clean_test_dataset) == 0:
@@ -153,8 +176,8 @@ class DataManager:
                 logger.info(msg)
             if self.triggered_test_file:
                 triggered_test_dataset = CSVDataset(self.experiment_path, self.triggered_test_file,
-                                                    data_transform=self.data_transform,
-                                                    label_transform=self.label_transform,
+                                                    data_transform=self.test_data_transform,
+                                                    label_transform=self.test_label_transform,
                                                     data_loader=self.data_loader,
                                                     shuffle=self.shuffle_triggered_test)
                 if len(triggered_test_dataset) == 0:
@@ -363,12 +386,18 @@ class DataManager:
             if self.triggered_test_file is not None and type(self.triggered_test_file) != str:
                 raise TypeError("Expected type 'string' for argument 'triggered_test_file', "
                                 "instead got type: {}".format(type(self.triggered_test_file)))
-            if not callable(self.data_transform):
-                raise TypeError("Expected a function for argument 'data_transform', "
-                                "instead got type: {}".format(type(self.data_transform)))
-            if not callable(self.label_transform):
-                raise TypeError("Expected a function for argument 'label_transform', "
-                                "instead got type: {}".format(type(self.label_transform)))
+            if not callable(self.train_data_transform):
+                raise TypeError("Expected a function for argument 'train_data_transform', "
+                                "instead got type: {}".format(type(self.train_data_transform)))
+            if not callable(self.train_label_transform):
+                raise TypeError("Expected a function for argument 'train_label_transform', "
+                                "instead got type: {}".format(type(self.train_label_transform)))
+            if not callable(self.test_data_transform):
+                raise TypeError("Expected a function for argument 'test_data_transform', "
+                                "instead got type: {}".format(type(self.test_data_transform)))
+            if not callable(self.test_label_transform):
+                raise TypeError("Expected a function for argument 'test_label_transform', "
+                                "instead got type: {}".format(type(self.test_label_transform)))
             if not callable(self.data_loader) and type(self.data_loader) != str:
                 raise TypeError("Expected a function or string for argument 'data_loader', "
                                 "instead got type: {}".format(type(self.data_loader)))
