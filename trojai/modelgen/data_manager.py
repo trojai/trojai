@@ -192,12 +192,12 @@ class DataManager:
             # figure out which classes are triggered, and subset the clean dataset for just those classes,
             # as another metric of interest
             if self.clean_test_file and self.triggered_test_file:
-                triggered_classes = triggered_test_dataset.data_df['label'].unique()
+                triggered_classes = triggered_test_dataset.data_df['true_label'].unique()
                 clean_test_df_triggered_classes_only = clean_test_dataset.data_df[
-                    clean_test_dataset.data_df['label'].isin(triggered_classes)]
+                    clean_test_dataset.data_df['true_label'].isin(triggered_classes)]
                 clean_test_triggered_classes_dataset = csv_dataset_from_df(clean_test_df_triggered_classes_only,
-                                                                           data_transform=self.data_transform,
-                                                                           label_transform=self.label_transform,
+                                                                           data_transform=self.test_data_transform,
+                                                                           label_transform=self.test_label_transform,
                                                                            data_loader=self.data_loader,
                                                                            shuffle=self.shuffle_triggered_test)
             else:
@@ -264,9 +264,9 @@ class DataManager:
             # figure out which classes are triggered, and subset the clean dataset for just those classes,
             # as another metric of interest
             if self.clean_test_file and self.triggered_test_file:
-                triggered_classes = triggered_test_dataset.data_df['label'].unique()
+                triggered_classes = triggered_test_dataset.data_df['true_label'].unique()
                 clean_test_df_triggered_classes_only = clean_test_dataset.data_df[
-                    clean_test_dataset.data_df['label'].isin(triggered_classes)]
+                    clean_test_dataset.data_df['true_label'].isin(triggered_classes)]
                 clean_test_triggered_classes_dataset = csv_textdataset_from_df(clean_test_df_triggered_classes_only,
                                                                                text_field=train_dataset.text_field,
                                                                                label_field=train_dataset.label_field,

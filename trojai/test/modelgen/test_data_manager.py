@@ -9,9 +9,9 @@ from trojai.modelgen.datasets import CSVDataset
 
 
 def create_df(path, test_filename, empty_filename):
-    df = pd.DataFrame([[1, 0, 0], [0, 1, 1]], [0, 1], ['col1', 'col2', 'train_label'])
+    df = pd.DataFrame([[1, 0, 0, 0], [0, 1, 1, 1]], [0, 1], ['col1', 'col2', 'train_label', 'true_label'])
     df.to_csv(os.path.join(path, test_filename), index=False)
-    empty_df = pd.DataFrame([], [], ['col1', 'col2', 'train_label'])
+    empty_df = pd.DataFrame([], [], ['col1', 'col2', 'train_label', 'true_label'])
     empty_df.to_csv(os.path.join(path, empty_filename), index=False)
 
 
@@ -93,12 +93,13 @@ class TestDataManager(unittest.TestCase):
                           shuffle_train=False,
                           shuffle_clean_test=False,
                           shuffle_triggered_test=False)
-        d1, d2, d3, dd1, dd2, dd3 = tdm.load_data()
+        d1, d2, d3, d4, dd1, dd2, dd3, dd4 = tdm.load_data()
         d1 = d1.__next__()
         self.assertIsInstance(d1, CSVDataset)
         self.assertIsInstance(d2, CSVDataset)
         self.assertIsInstance(d3, CSVDataset)
-        df = pd.DataFrame([[1, 0, 0], [0, 1, 1]], [0, 1], ['col1', 'col2', 'train_label'])
+        self.assertIsInstance(d4, CSVDataset)
+        df = pd.DataFrame([[1, 0, 0, 0], [0, 1, 1, 1]], [0, 1], ['col1', 'col2', 'train_label', 'true_label'])
         self.assertTrue(d1.data_df.equals(df))
         self.assertTrue(d2.data_df.equals(df))
         self.assertTrue(d3.data_df.equals(df))
@@ -108,7 +109,7 @@ class TestDataManager(unittest.TestCase):
 
         # with iterable training
         tdm = DataManager(self.path, [self.file, self.file, self.file], self.file)
-        d1, d2, d3, dd1, dd2, dd3 = tdm.load_data()
+        d1, d2, d3, d4, dd1, dd2, dd3, dd4 = tdm.load_data()
         for d in d1:
             self.assertIsInstance(d, CSVDataset)
         self.assertIsInstance(d2, CSVDataset)
