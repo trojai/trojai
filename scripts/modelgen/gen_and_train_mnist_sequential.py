@@ -219,8 +219,6 @@ def train_and_save_mnist_model(experiment_path, clean_train, triggered_train, cl
                                        tensorboard_output_dir=logging_params['tensorboard_output_dir'],
                                        experiment_name=logging_params['experiment_name'],
                                        num_batches_per_metrics=logging_params['num_batches_per_metrics'],
-                                       num_batches_ver_val_dataset_metrics=logging_params[
-                                           'num_batches_ver_val_dataset_metrics'],
                                        num_epochs_per_metric=logging_params['num_epochs_per_metric'])
 
     # Train clean model to use as a base for triggered model
@@ -229,7 +227,7 @@ def train_and_save_mnist_model(experiment_path, clean_train, triggered_train, cl
                                    [clean_train, triggered_train],
                                    clean_test,
                                    triggered_test_file=triggered_test,
-                                   data_transform=img_transform,
+                                   train_data_transform=img_transform,
                                    shuffle_train=True)
 
     class MyArchFactory(tpm_af.ArchitectureFactory):
@@ -352,8 +350,8 @@ if __name__ == "__main__":
     if not os.path.isdir(data_dir):
         download_mnist(train, test, data_dir)
 
-    # Generate triggered data and experiment files for mnist
-    generate_mnist_experiment(train, test, data_dir, train_output_csv, test_output_csv)
+        # Generate triggered data and experiment files for mnist
+        generate_mnist_experiment(train, test, data_dir, train_output_csv, test_output_csv)
 
     model_save_loc = os.path.join(data_dir, a.models_output, "mnist_alphatrigger_0.2/")
 

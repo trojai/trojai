@@ -1,7 +1,6 @@
-import collections
 import logging
 import os
-from typing import Sequence, Any
+from typing import Sequence, Any, Callable
 import copy
 import cloudpickle as pickle
 import numpy as np
@@ -75,18 +74,18 @@ class LSTMOptimizer(OptimizerInterface):
 
         # raise error if train/val split is not set properly for either saving best model
         # or for early stopping
-        if self.optimizer_cfg.training_cfg.early_stopping is not None:
+        if self.optimizer_cfg.training_cfg.early_stopping or self.save_best_model:
             self.num_epochs_per_metrics = 1
             logger.warning("Overriding num_epochs_per_metrics due to early-stopping or saving-best-model!")
 
-        if self.device.type == 'cpu' and self.num_batches_per_metrics is not None:
+        if self.device.type == 'cpu' and self.num_batches_per_metrics:
             logger.warning('Training will be VERY SLOW on a CPU with num_batches_per_val_dataset_metrics set to a '
                            'value other than None.  If validation dataset metrics are still desired, '
                            'consider increasing this value to speed up training')
 
         tensorboard_output_dir = self.optimizer_cfg.reporting_cfg.tensorboard_output_dir
         self.tb_writer = None
-        if tensorboard_output_dir is not None:
+        if tensorboard_output_dir:
             self.tb_writer = SummaryWriter(tensorboard_output_dir)
 
         optimizer_cfg_str = 'Optimizer[%s] Configured as: loss[%s], learning-rate[%.5e], batch-size[%d] ' \
@@ -95,7 +94,7 @@ class LSTMOptimizer(OptimizerInterface):
                              self.device.type)
         reporting_cfg_str = 'Reporting Configured as: num_batches_per_log_message[%d] tensorboard_dir[%s]' % \
                             (self.num_batches_per_logmsg, tensorboard_output_dir)
-        nbpm_print = self.num_batches_per_metrics if self.num_batches_per_metrics is not None else -1
+        nbpm_print = self.num_batches_per_metrics if self.num_batches_per_metrics else -1
         metrics_capture_str = 'Metrics capturing configured as: num_epochs_per_metric[%d] ' \
                               'num_batches_per_epoch_per_metric[%d]' % \
                               (self.num_epochs_per_metrics, nbpm_print)
@@ -133,13 +132,7 @@ class LSTMOptimizer(OptimizerInterface):
             return False
 
     def get_cfg_as_dict(self) -> dict:
-        output_dict = dict(device=str(self.device.type),
-                           epochs=self.num_epochs,
-                           batch_size=self.batch_size,
-                           learning_rate=self.lr,
-                           optim=self.optimizer_str,
-                           objective=self.loss_function_str)
-        return output_dict
+        return self.optimizer_cfg.training_cfg.get_cfg_as_dict()
 
     def get_device_type(self) -> str:
         """
@@ -182,7 +175,8 @@ class LSTMOptimizer(OptimizerInterface):
         return train_loss
 
     @staticmethod
-    def train_val_dataset_split(dataset: torchtext.data.Dataset, split_amt: float) \
+    def train_val_dataset_split(dataset: torchtext.data.Dataset, split_amt: float, val_data_transform: Callable,
+                                val_label_transform: Callable) \
             -> (torchtext.data.Dataset, torchtext.data.Dataset):
         """
         Splits a torchtext dataset (of type: torchtext.data.Dataset) into train/test.
@@ -193,6 +187,9 @@ class LSTMOptimizer(OptimizerInterface):
         :param dataset: the dataset to be split
         :param split_amt: fraction specificing the validation dataset size relative to the whole.  1-split_amt will
                           be the size of the training dataset
+        :param val_data_transform: (function: any -> any) how to transform the validation data to fit
+                into the desired model and objective function
+        :param val_label_transform: (function: any -> any) how to transform the validation labels
         :return: a tuple of the train and validation datasets
         """
 
@@ -205,6 +202,8 @@ class LSTMOptimizer(OptimizerInterface):
             val_dataset = None
         else:
             train_dataset, val_dataset = dataset.split(1 - split_amt)
+        val_dataset.data_transform = val_data_transform
+        val_dataset.label_transform = val_label_transform
         return train_dataset, val_dataset
 
     def convert_dataset_to_dataiterator(self, dataset: CSVTextDataset) -> TextDataIterator:
@@ -247,9 +246,14 @@ class LSTMOptimizer(OptimizerInterface):
 
         # split into train & validation datasets, and setup data loaders according to their type
         train_dataset, val_dataset = LSTMOptimizer.train_val_dataset_split(dataset,
-                                                                           self.optimizer_cfg.training_cfg.train_val_split)
+                                                                           self.optimizer_cfg.training_cfg.
+                                                                           train_val_split,
+                                                                           self.optimizer_cfg.training_cfg.
+                                                                           val_data_transform,
+                                                                           self.optimizer_cfg.training_cfg.
+                                                                           val_label_transform)
         train_loader = self.convert_dataset_to_dataiterator(train_dataset)
-        val_loader = self.convert_dataset_to_dataiterator(val_dataset) if val_dataset is not None else None
+        val_loader = self.convert_dataset_to_dataiterator(val_dataset) if val_dataset else None
 
         # before training - we should transfer the embedding to the model weights
         pretrained_embeddings = dataset.text_field.vocab.vectors
@@ -272,7 +276,7 @@ class LSTMOptimizer(OptimizerInterface):
         best_val_loss_epoch = -1
 
         num_epochs_to_monitor = 1
-        if self.optimizer_cfg.training_cfg.early_stopping is not None:
+        if self.optimizer_cfg.training_cfg.early_stopping:
             num_epochs_to_monitor = self.optimizer_cfg.training_cfg.early_stopping.num_epochs
 
         epoch = 0
@@ -373,7 +377,7 @@ class LSTMOptimizer(OptimizerInterface):
             loop.set_postfix(avg_train_loss=batch_train_loss.item())
 
             # report batch statistics to tensorboard
-            if self.tb_writer is not None:
+            if self.tb_writer:
                 try:
                     self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name + '-train_loss',
                                               batch_train_loss.item())
@@ -414,7 +418,7 @@ class LSTMOptimizer(OptimizerInterface):
             logger.info('{}\tTrain Epoch: {} \tValLoss: {:.6f}\tValAcc: {:.6f}'.format(
                 pid, epoch_num, val_loss, running_val_acc))
 
-            if self.tb_writer is not None:
+            if self.tb_writer:
                 try:
                     self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
                                               '-validation_loss', val_loss)

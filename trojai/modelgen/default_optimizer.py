@@ -1,7 +1,6 @@
-import collections
 import logging
 import os
-from typing import Sequence
+from typing import Sequence, Callable
 import copy
 import cloudpickle as pickle
 
@@ -57,8 +56,9 @@ def _eval_acc(y_hat: torch.Tensor, y_truth: torch.Tensor, n_total: int = 0, n_co
     return acc, n_total, n_correct
 
 
-def train_val_dataset_split(dataset: torch.utils.data.Dataset, split_amt: float) \
-                            -> (torch.utils.data.Dataset, torch.utils.data.Dataset):
+def train_val_dataset_split(dataset: torch.utils.data.Dataset, split_amt: float, val_data_transform: Callable,
+                            val_label_transform: Callable) \
+        -> (torch.utils.data.Dataset, torch.utils.data.Dataset):
     """
     Splits a PyTorch dataset (of type: torch.utils.data.Dataset) into train/test
     TODO:
@@ -66,6 +66,9 @@ def train_val_dataset_split(dataset: torch.utils.data.Dataset, split_amt: float)
     :param dataset: the dataset to be split
     :param split_amt: fraction specificing the validation dataset size relative to the whole.  1-split_amt will
                       be the size of the training dataset
+    :param val_data_transform: (function: any -> any) how to transform the validation data to fit
+            into the desired model and objective function
+    :param val_label_transform: (function: any -> any) how to transform the validation labels
     :return: a tuple of the train and validation datasets
     """
 
@@ -79,6 +82,8 @@ def train_val_dataset_split(dataset: torch.utils.data.Dataset, split_amt: float)
     val_len = int(dataset_len - train_len)
     lengths = [train_len, val_len]
     train_dataset, val_dataset = torch.utils.data.random_split(dataset, lengths)
+    val_dataset.data_transform = val_data_transform
+    val_dataset.label_transform = val_label_transform
     return train_dataset, val_dataset
 
 
@@ -136,14 +141,14 @@ class DefaultOptimizer(OptimizerInterface):
             self.num_epochs_per_metrics = 1
             logger.warning("Overriding num_epochs_per_metrics due to early-stopping or saving-best-model!")
 
-        if self.device.type == 'cpu' and self.num_batches_per_metrics is not None:
+        if self.device.type == 'cpu' and self.num_batches_per_metrics:
             logger.warning('Training will be VERY SLOW on a CPU with num_batches_per_metrics set to a '
                            'value other than None.  If validation dataset metrics are still desired, '
                            'consider increasing this value to speed up training')
 
         tensorboard_output_dir = self.optimizer_cfg.reporting_cfg.tensorboard_output_dir
         self.tb_writer = None
-        if tensorboard_output_dir is not None:
+        if tensorboard_output_dir:
             self.tb_writer = SummaryWriter(tensorboard_output_dir)
 
         optimizer_cfg_str = 'Optimizer[%s] Configured as: loss[%s], learning-rate[%.5e], batch-size[%d] ' \
@@ -152,7 +157,7 @@ class DefaultOptimizer(OptimizerInterface):
                              self.device.type)
         reporting_cfg_str = 'Reporting Configured as: num_batches_per_log_message[%d] tensorboard_dir[%s]' % \
                             (self.num_batches_per_logmsg, tensorboard_output_dir)
-        nbpm_print = self.num_batches_per_metrics if self.num_batches_per_metrics is not None else -1
+        nbpm_print = self.num_batches_per_metrics if self.num_batches_per_metrics else -1
         metrics_capture_str = 'Metrics capturing configured as: num_epochs_per_metric[%d] ' \
                               'num_batches_per_epoch_per_metric[%d]' % \
                               (self.num_epochs_per_metrics, nbpm_print)
@@ -171,13 +176,7 @@ class DefaultOptimizer(OptimizerInterface):
                                                        optimizer_cfg_copy.reporting_cfg))
 
     def get_cfg_as_dict(self) -> dict:
-        output_dict = dict(device=str(self.device.type),
-                           epochs=self.num_epochs,
-                           batch_size=self.batch_size,
-                           learning_rate=self.lr,
-                           optim=self.optimizer_str,
-                           objective=self.loss_function_str)
-        return output_dict
+        return self.optimizer_cfg.training_cfg.get_cfg_as_dict()
 
     def __eq__(self, other) -> bool:
         try:
@@ -191,8 +190,8 @@ class DefaultOptimizer(OptimizerInterface):
                     self.num_batches_per_logmsg == other.num_batches_per_logmsg and \
                     self.num_epochs_per_metrics == other.num_epochs_per_metrics and \
                         self.num_batches_per_metrics == other.num_batches_per_metrics:
-                    if self.tb_writer is not None:
-                        if other.tb_writer is not None:
+                    if self.tb_writer:
+                        if other.tb_writer:
                             if self.tb_writer.log_dir == other.tb_writer.log_dir:
                                 return True
                             else:
@@ -200,7 +199,7 @@ class DefaultOptimizer(OptimizerInterface):
                         else:
                             return False
                     else:
-                        if other.tb_writer is not None:
+                        if other.tb_writer:
                             return False
                         else:
                             # both are None
@@ -287,7 +286,9 @@ class DefaultOptimizer(OptimizerInterface):
         data_loader_kwargs_in = {} if torch_dataloader_kwargs is None else torch_dataloader_kwargs
         logger.info('DataLoader[Train/Val] kwargs=' + str(torch_dataloader_kwargs))
 
-        train_dataset, val_dataset = train_val_dataset_split(dataset, self.optimizer_cfg.training_cfg.train_val_split)
+        train_dataset, val_dataset = train_val_dataset_split(dataset, self.optimizer_cfg.training_cfg.train_val_split,
+                                                             self.optimizer_cfg.training_cfg.val_data_transform,
+                                                             self.optimizer_cfg.training_cfg.val_label_transform)
         # drop_last=True is from: https://stackoverflow.com/questions/56576716
         train_loader = DataLoader(train_dataset, batch_size=self.batch_size, pin_memory=pin_memory, drop_last=True,
                                   **data_loader_kwargs_in)
@@ -406,7 +407,7 @@ class DefaultOptimizer(OptimizerInterface):
             loop.set_postfix(avg_train_loss=batch_train_loss.item())
 
             # report batch statistics to tensorflow
-            if self.tb_writer is not None:
+            if self.tb_writer:
                 try:
                     self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name + '-train_loss',
                                               batch_train_loss.item())
@@ -448,7 +449,7 @@ class DefaultOptimizer(OptimizerInterface):
             logger.info('{}\tTrain Epoch: {} \tValLoss: {:.6f}\tValAcc: {:.6f}'.format(
                         pid, epoch_num, val_loss, running_val_acc))
 
-            if self.tb_writer is not None:
+            if self.tb_writer:
                 try:
                     self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
                                               '-validation_loss', val_loss)

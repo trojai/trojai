@@ -82,8 +82,10 @@ class TestCopyImplementations(unittest.TestCase):
         def label_xform(y): return y*y*y
         data = tpmd.DataManager(self.experiment_path, self.train_file, self.clean_test_file,
                                 triggered_test_file=self.triggered_file,
-                                data_transform=data_xform,
-                                label_transform=label_xform,
+                                train_data_transform=data_xform,
+                                train_label_transform=label_xform,
+                                test_data_transform=data_xform,
+                                test_label_transform=label_xform,
                                 file_loader='image',
                                 shuffle_train=True,
                                 shuffle_clean_test=False,
@@ -99,22 +101,30 @@ class TestCopyImplementations(unittest.TestCase):
         self.assertEqual(opt1, opt2)
 
     def test_data_manager_copy(self):
-        def data_xform(x): return x*x
-        def label_xform(y): return y*y*y
+        def train_data_xform(x): return x*x
+        def train_label_xform(y): return y*y*y
+        def test_data_xform(x): return x**2
+        def test_label_xform(y): return y + 2
         dat1 = tpmd.DataManager(self.experiment_path, self.train_file, self.clean_test_file,
                                 triggered_test_file=self.triggered_file,
-                                data_transform=data_xform,
-                                label_transform=label_xform,
+                                train_data_transform=train_data_xform,
+                                train_label_transform=train_label_xform,
+                                test_data_transform=test_data_xform,
+                                test_label_transform=test_label_xform,
                                 file_loader='image',
                                 shuffle_train=True,
                                 shuffle_clean_test=False,
                                 shuffle_triggered_test=False)
         dat2 = copy.deepcopy(dat1)
         self.assertEqual(dat1, dat2)
-        self.assertEqual(data_xform, dat1.data_transform)
-        self.assertEqual(data_xform, dat2.data_transform)
-        self.assertEqual(label_xform, dat1.label_transform)
-        self.assertEqual(label_xform, dat2.label_transform)
+        self.assertEqual(train_data_xform, dat1.train_data_transform)
+        self.assertEqual(train_data_xform, dat2.train_data_transform)
+        self.assertEqual(train_label_xform, dat1.train_label_transform)
+        self.assertEqual(train_label_xform, dat2.train_label_transform)
+        self.assertEqual(test_data_xform, dat1.test_data_transform)
+        self.assertEqual(test_data_xform, dat2.test_data_transform)
+        self.assertEqual(test_label_xform, dat1.test_label_transform)
+        self.assertEqual(test_label_xform, dat2.test_label_transform)
 
 
 if __name__ == '__main__':

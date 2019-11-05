@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Sequence
+from typing import Sequence, Callable
 import logging
 
 import torch.nn
@@ -13,13 +13,14 @@ logger = logging.getLogger(__name__)
 class OptimizerInterface(ABC):
     """Object that performs training and testing of TrojAI models."""
     @abstractmethod
-    def train(self, model: torch.nn.Module, data: CSVDataset, train_val_split: float, torch_dataloader_kwargs) \
+    def train(self, model: torch.nn.Module, data: CSVDataset, progress_bar_disable: bool,
+              torch_dataloader_kwargs: dict = None) \
             -> (torch.nn.Module, Sequence[EpochStatistics], int):
         """
         Train the given model using parameters in self.training_params
         :param model: (torch.nn.Module) The untrained Pytorch model
         :param data: (CSVDataset) Object containing training data, output 0 from TrojaiDataManager.load_data()
-        :param train_val_split: (float) percentage of data that should be used for validation
+        :param progress_bar_disable: (bool) Don't display the progress bar if True
         :param torch_dataloader_kwargs: additional arguments to pass to PyTorch's DataLoader class
         :return: (torch.nn.Module, EpochStatistics) trained model, a sequence of EpochStatistics objects (one for
             each epoch), and the # of epochs with which the model was trained (useful for early stopping).
