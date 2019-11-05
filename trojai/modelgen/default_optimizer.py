@@ -251,17 +251,12 @@ class DefaultOptimizer(OptimizerInterface):
         return train_loss
 
     def train(self, net: torch.nn.Module, dataset: torch.utils.data.Dataset, progress_bar_disable: bool = False,
-              val_data_transform: Callable = lambda x: x,
-              val_label_transform: Callable = lambda y: y,
               torch_dataloader_kwargs: dict = None) -> (torch.nn.Module, Sequence[EpochStatistics], int):
         """
         Train the network.
         :param net: the network to train
         :param dataset: the dataset to train the network on
         :param progress_bar_disable: if True, disables the progress bar
-        :param val_data_transform: (function: any -> any) how to transform the validation data to fit
-            into the desired model and objective function
-        :param val_label_transform: (function: any -> any) how to transform the validation labels
         :param torch_dataloader_kwargs: any additional kwargs to pass to PyTorch's native DataLoader
         :return: the trained network, and a list of EpochStatistics objects which contain the statistics for training,
                 and the # of epochs on which the net was trained
