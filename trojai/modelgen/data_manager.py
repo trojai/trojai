@@ -23,8 +23,8 @@ class DataManager:
                  data_type: str = 'image',
                  train_data_transform: Callable[[Any], Any] = lambda x: x,
                  train_label_transform: Callable[[int], int] = lambda y: y,
-                 test_data_transform: Callable[[Any], Any] = None,
-                 test_label_transform: Callable[[int], int] = None,
+                 test_data_transform: Callable[[Any], Any] = lambda x: x,
+                 test_label_transform: Callable[[int], int] = lambda y: y,
                  file_loader: Union[Callable[[str], Any], str] = 'default_image_loader',
                  shuffle_train=True, shuffle_clean_test=False, shuffle_triggered_test=False,
                  data_configuration: DataConfiguration = None,
@@ -45,10 +45,10 @@ class DataManager:
         :param train_label_transform: (function: int->int) how to transform the label to the training data; optional
             NOTE: Currently - this argument is only used if data_type='image'
         :param test_data_transform: (function: any -> any) same as train_data_transform, but applied to validation and
-            test data instead; passing None will set the to same function as train_data_transform
+            test data instead
             NOTE: Currently - this argument is only used if data_type='image'
         :param test_label_transform: (function: int->int) same as train_label_transform, but applied to validation and
-            test data instead; passing None will set the to same function as train_label_transform
+            test data instead
             NOTE: Currently - this argument is only used if data_type='image'
         :param file_loader: (function: str->any or str) how to create the data object to pass into an architecture
             from a file path, or default loader to use. Options include: 'default_image_loader'
@@ -84,15 +84,8 @@ class DataManager:
         self.data_loader = file_loader
         self.train_data_transform = train_data_transform
         self.train_label_transform = train_label_transform
-        # if test transforms are not given, set to the same as the train transforms
-        if test_data_transform:
-            self.test_data_transform = test_data_transform
-        else:
-            self.test_data_transform = train_data_transform
-        if test_label_transform:
-            self.test_label_transform = test_label_transform
-        else:
-            self.test_label_transform = train_label_transform
+        self.test_data_transform = test_data_transform
+        self.test_label_transform = test_label_transform
 
         self.shuffle_train = shuffle_train
         self.shuffle_clean_test = shuffle_clean_test
