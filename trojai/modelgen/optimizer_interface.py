@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Sequence, Callable
+from typing import Sequence
 import logging
 
 import torch.nn

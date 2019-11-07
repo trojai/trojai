@@ -69,9 +69,8 @@ class TestRunner(unittest.TestCase):
         mock_runner_config.data = Mock(spec=DataManager)
         mock_runner_config.data.load_data = Mock()
         mock_runner_config.data.load_data.return_value = (train, ctest, ttest, dd1, dd2, dd3)
-        mock_runner_config.data.torch_dataloader_kwargs = None
-        mock_runner_config.data.test_data_transform = None
-        mock_runner_config.data.test_label_transform = None
+        mock_runner_config.data.train_dataloader_kwargs = None
+        mock_runner_config.data.test_dataloader_kwargs = None
         mock_runner_config.optimizer = Mock(spec=OptimizerInterface)
         mock_optimizer1 = Mock(spec=DefaultOptimizer)
         mock_optimizer1.train = Mock()
@@ -111,8 +110,8 @@ class TestRunner(unittest.TestCase):
 
             # check if correct functions were called with correct arguments and the correct number of times
             mock_runner_config.data.load_data.assert_called_once_with()
-            mock_optimizer1.train.assert_called_once_with(arch, train_mock, False, {})
-            mock_optimizer1.test.assert_called_once_with(arch, ctest, ttest, False, {})
+            mock_optimizer1.train.assert_called_once_with(arch, train_mock, False, None)
+            mock_optimizer1.test.assert_called_once_with(arch, ctest, ttest, False, None)
             mock_save_model.assert_called_once_with(arch, p(), [mock_training_cfg1])
 
     def test_run_with_iterable_data(self):
@@ -128,8 +127,8 @@ class TestRunner(unittest.TestCase):
         mock_runner_config.data.iterable_training = True
         mock_runner_config.data.load_data = Mock()
         mock_runner_config.data.load_data.return_value = (train, ctest, ttest, dd1, dd2, dd3)
-        mock_runner_config.data.test_data_transform = None
-        mock_runner_config.data.test_label_transform = None
+        mock_runner_config.data.train_dataloader_kwargs = None
+        mock_runner_config.data.test_dataloader_kwargs = None
         mock_runner_config.arch_factory = Mock(spec=ArchitectureFactory)
         mock_runner_config.arch_factory.new_architecture = Mock()
         arch = Mock(spec=nn.Module)
@@ -163,9 +162,9 @@ class TestRunner(unittest.TestCase):
         mock_save_model = Mock()
         runner._save_model_and_stats = mock_save_model
 
-        calls = [unittest.mock.call(arch, train1, False, {}),
-                 unittest.mock.call(arch, train2, False, {}),
-                 unittest.mock.call(arch, train3, False, {})]
+        calls = [unittest.mock.call(arch, train1, False, None),
+                 unittest.mock.call(arch, train2, False, None),
+                 unittest.mock.call(arch, train3, False, None)]
 
         # run function
         with patch("trojai.modelgen.runner.TrainingRunStatistics") as p:
@@ -174,7 +173,7 @@ class TestRunner(unittest.TestCase):
             # check if correct functions were called with correct arguments and the correct number of times
             mock_runner_config.data.load_data.assert_called_once_with()
             mock_optimizer1.train.assert_has_calls(calls, any_order=False)
-            mock_optimizer1.test.assert_called_once_with(arch, ctest, ttest, False, {})
+            mock_optimizer1.test.assert_called_once_with(arch, ctest, ttest, False, None)
             mock_save_model.assert_called_once_with(arch, p(), [mock_training_cfg1, mock_training_cfg1,
                                                                 mock_training_cfg1])
 
@@ -190,8 +189,8 @@ class TestRunner(unittest.TestCase):
         mock_runner_config.data.iterable_training = True
         mock_runner_config.data.load_data = Mock()
         mock_runner_config.data.load_data.return_value = (train, ctest, ttest, dd1, dd2, dd3)
-        mock_runner_config.data.test_data_transform = None
-        mock_runner_config.data.test_label_transform = None
+        mock_runner_config.data.train_dataloader_kwargs = None
+        mock_runner_config.data.test_dataloader_kwargs = None
         mock_runner_config.arch_factory = Mock(spec=ArchitectureFactory)
         mock_runner_config.arch_factory.new_architecture = Mock()
         arch = Mock(spec=nn.Module)
@@ -242,12 +241,12 @@ class TestRunner(unittest.TestCase):
         with patch("trojai.modelgen.runner.TrainingRunStatistics") as p:
             runner.run()
 
-            mock_optimizer1.train.assert_called_once_with(arch, train1, False, {})
+            mock_optimizer1.train.assert_called_once_with(arch, train1, False, None)
             mock_optimizer1.test.assert_not_called()
-            mock_optimizer2.train.assert_called_once_with(arch, train2, False, {})
+            mock_optimizer2.train.assert_called_once_with(arch, train2, False, None)
             mock_optimizer2.test.assert_not_called()
-            mock_optimizer3.train.assert_called_once_with(arch, train3, False, {})
-            mock_optimizer3.test.assert_called_once_with(arch, ctest, ttest, False, {})
+            mock_optimizer3.train.assert_called_once_with(arch, train3, False, None)
+            mock_optimizer3.test.assert_called_once_with(arch, ctest, ttest, False, None)
 
     def test_get_training_cfg(self):
         mock_default_optimizer_cfg = Mock(spec=DefaultOptimizerConfig)

@@ -29,7 +29,8 @@ class DataManager:
                  shuffle_train=True, shuffle_clean_test=False, shuffle_triggered_test=False,
                  data_configuration: DataConfiguration = None,
                  custom_datasets: dict = None,
-                 torch_dataloader_kwargs: dict = None):
+                 train_dataloader_kwargs: dict = None,
+                 test_dataloader_kwargs: dict = None):
         """
         Initializes the DataManager object
         :param experiment_path: (str) absolute path to experiment data.
@@ -67,6 +68,16 @@ class DataManager:
                         'clean_test': torch.utils.data.Dataset,
                         'triggered_test': Union[torch.utils.data.Dataset, None]
                     }
+        :param train_dataloader_kwargs: (dict) Keyword arguments to pass to the torch DataLoader object during training.
+            See https://pytorch.org/docs/stable/_modules/torch/utils/data/dataloader.html for more documentation. If
+            None, defaults will be used. Defaults depend on the optimizer used, but are likely something like:
+                {batch_size: <batch size given in training config>, shuffle: True, pin_memory=<decided by optimizer>,
+                 drop_last=True}
+            NOTE: Setting values in this dictionary that are normally set by the optimizer will override them during
+                training. Use with caution. We recommend only using the following keys: 'shuffle', 'num_workers',
+                'pin_memory', and 'drop_last'.
+        :param test_dataloader_kwargs: (dict) Similar to train_dataloader_kwargs, but for testing. Also, the default
+            values for batch_size and shuffle will likely be 1 and False, respectively.
         """
 
         self.experiment_path = experiment_path
@@ -100,7 +111,8 @@ class DataManager:
 
         self.data_configuration = data_configuration
         self.datasets = custom_datasets
-        self.torch_dataloader_kwargs = torch_dataloader_kwargs
+        self.train_dataloader_kwargs = train_dataloader_kwargs
+        self.test_dataloader_kwargs = test_dataloader_kwargs
 
         self.validate()
 
@@ -110,7 +122,8 @@ class DataManager:
                            copy.deepcopy(self.train_label_transform), copy.deepcopy(self.test_data_transform),
                            copy.deepcopy(self.test_label_transform), copy.deepcopy(self.data_loader),
                            self.shuffle_train, self.shuffle_clean_test, self.shuffle_triggered_test,
-                           self.data_configuration, self.datasets, self.torch_dataloader_kwargs)
+                           self.data_configuration, self.datasets, self.train_dataloader_kwargs,
+                           self.test_dataloader_kwargs)
 
     def __eq__(self, other):
         if self.experiment_path == other.experiment_path and self.train_file == other.train_file and \
@@ -125,7 +138,8 @@ class DataManager:
                 self.shuffle_clean_test == other.shuffle_clean_test and \
                 self.shuffle_triggered_test == other.shuffle_triggered_test and \
                 self.data_configuration == other.data_configuration and \
-                self.torch_dataloader_kwargs == other.torch_dataloader_kwargs:
+                self.train_dataloader_kwargs == other.train_dataloader_kwargs and \
+                self.test_dataloader_kwargs == other.test_dataloader_kwargs:
             # Note: when we compare callables, we simply compare whether the callable is the same reference in memory
             #  or not.  This means that if two callables are functionally equivalent, but are different object
             #  references then the equality comparison will fail
@@ -291,8 +305,12 @@ class DataManager:
          [ ] - think about whether the contents of the files passed into the DataManager should be validated,
                in addition to simply checking for existence, which is what is done now
         """
-        if self.torch_dataloader_kwargs is not None and not isinstance(self.torch_dataloader_kwargs, dict):
-            msg = "torch_dataloader_kwargs must be a dictionary!"
+        if self.train_dataloader_kwargs is not None and not isinstance(self.train_dataloader_kwargs, dict):
+            msg = "train_dataloader_kwargs must be a dictionary!"
+            logger.error(msg)
+            raise ValueError(msg)
+        if self.test_dataloader_kwargs is not None and not isinstance(self.test_dataloader_kwargs, dict):
+            msg = "train_dataloader_kwargs must be a dictionary!"
             logger.error(msg)
             raise ValueError(msg)
 

@@ -87,8 +87,8 @@ class Runner:
         train_data, clean_test_data, triggered_test_data, \
             train_dataset_desc, clean_test_dataset_desc, triggered_test_dataset_desc = self.cfg.data.load_data()
         arch_factory_kwargs = {} if self.cfg.arch_factory_kwargs is None else self.cfg.arch_factory_kwargs
-        torch_dataloader_kwargs = {} if self.cfg.data.torch_dataloader_kwargs is None else \
-            self.cfg.data.torch_dataloader_kwargs
+        train_dataloader_kwargs = self.cfg.data.train_dataloader_kwargs
+        test_dataloader_kwargs = self.cfg.data.test_dataloader_kwargs
 
         if self.cfg.arch_factory_kwargs_generator is not None:
             arch_factory_kwargs.update(self.cfg.arch_factory_kwargs_generator(train_dataset_desc,
@@ -109,7 +109,7 @@ class Runner:
             for data, optimizer in zip(train_data, self.cfg.optimizer_generator):  # both are generators
                 model, epoch_training_stats, num_epochs_trained = optimizer.train(model, data,
                                                                                   self.progress_bar_disable,
-                                                                                  torch_dataloader_kwargs)
+                                                                                  train_dataloader_kwargs)
                 model_stats.add_epoch(epoch_training_stats)
                 model_stats.add_num_epochs_trained(num_epochs_trained)
                 # add training configuration information to data to be saved
@@ -117,7 +117,7 @@ class Runner:
         else:
             optimizer = next(self.cfg.optimizer_generator)
             model, training_stats, num_epochs_trained = \
-                optimizer.train(model, train_data, self.progress_bar_disable, torch_dataloader_kwargs)
+                optimizer.train(model, train_data, self.progress_bar_disable, train_dataloader_kwargs)
             model_stats.add_epoch(training_stats)
             model_stats.add_num_epochs_trained(num_epochs_trained)
             # add training configuration information to data to be saved
@@ -127,7 +127,7 @@ class Runner:
         #  will be raised if no training occurred, but validation code prior to this line should prevent this from
         #  ever happening.
         test_acc = optimizer.test(model, clean_test_data, triggered_test_data, self.progress_bar_disable,
-                                  torch_dataloader_kwargs)
+                                  test_dataloader_kwargs)
         t3 = time.time()
 
         # Save model train/test statistics and other relevant information

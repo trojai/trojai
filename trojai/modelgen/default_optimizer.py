@@ -283,18 +283,26 @@ class DefaultOptimizer(OptimizerInterface):
             pin_memory = True
 
         # split into train & validation datasets, and setup data loaders
-        data_loader_kwargs_in = {} if torch_dataloader_kwargs is None else torch_dataloader_kwargs
+        if torch_dataloader_kwargs:
+            data_loader_kwargs_in = torch_dataloader_kwargs
+        else:
+            data_loader_kwargs_in = dict(batch_size=self.batch_size, pin_memory=pin_memory, drop_last=True,
+                                         shuffle=True)
+        if self.optimizer_cfg.training_cfg.val_dataloader_kwargs:
+            val_data_loader_kwargs_in = self.optimizer_cfg.training_cfg.val_dataloader_kwargs
+        else:
+            val_data_loader_kwargs_in = dict(batch_size=self.batch_size, pin_memory=pin_memory, drop_last=True,
+                                             shuffle=False)
+
         logger.info('DataLoader[Train/Val] kwargs=' + str(torch_dataloader_kwargs))
 
         train_dataset, val_dataset = train_val_dataset_split(dataset, self.optimizer_cfg.training_cfg.train_val_split,
                                                              self.optimizer_cfg.training_cfg.val_data_transform,
                                                              self.optimizer_cfg.training_cfg.val_label_transform)
         # drop_last=True is from: https://stackoverflow.com/questions/56576716
-        train_loader = DataLoader(train_dataset, batch_size=self.batch_size, pin_memory=pin_memory, drop_last=True,
-                                  **data_loader_kwargs_in)
+        train_loader = DataLoader(train_dataset, **data_loader_kwargs_in)
         # drop_last=True is from: https://stackoverflow.com/questions/56576716
-        val_loader = DataLoader(val_dataset, batch_size=self.batch_size, pin_memory=pin_memory, drop_last=True,
-                                **data_loader_kwargs_in)
+        val_loader = DataLoader(val_dataset, **val_data_loader_kwargs_in)
 
         # stores training & val data statistics for every epoch
         epoch_stats = []
@@ -474,15 +482,18 @@ class DefaultOptimizer(OptimizerInterface):
         """
         test_data_statistics = {}
         net.eval()
-        data_loader_kwargs_in = {} if torch_dataloader_kwargs is None else torch_dataloader_kwargs
-        logger.info('DataLoader[Test] kwargs=' + str(torch_dataloader_kwargs))
 
         pin_memory = False
         if self.device.type != 'cpu':
             pin_memory = True
+
         # drop_last=True is from: https://stackoverflow.com/questions/56576716
-        data_loader = DataLoader(clean_data, batch_size=1, pin_memory=pin_memory, drop_last=True,
-                                 **data_loader_kwargs_in)
+        if torch_dataloader_kwargs:
+            data_loader_kwargs_in = torch_dataloader_kwargs
+        else:
+            data_loader_kwargs_in = dict(batch_size=1, pin_memory=pin_memory, drop_last=True, shuffle=False)
+        logger.info('DataLoader[Test] kwargs=' + str(torch_dataloader_kwargs))
+        data_loader = DataLoader(clean_data, **data_loader_kwargs_in)
 
         # test type is classification accuracy on clean and triggered data
         test_n_correct = 0

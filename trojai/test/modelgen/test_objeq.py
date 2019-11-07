@@ -53,29 +53,40 @@ class TestEqImplementations(unittest.TestCase):
         shuffle_train = True
         shuffle_clean_test = True
         shuffle_triggered_test = True
+        train_dataloader_kwargs1 = {"a": 1}
+        train_dataloader_kwargs2 = {"b": 2, "c": 3}
+        test_dataloader_kwargs1 = {"d": 4}
+        test_dataloader_kwargs2 = {"e": 5}
 
         dm1 = tpmdm.DataManager(exp1, train1, clean1, trig1, data_type, data_xform, label_xform,
                                 data_loader, shuffle_train, shuffle_clean_test,
-                                shuffle_triggered_test)
+                                shuffle_triggered_test, train_dataloader_kwargs1, test_dataloader_kwargs1)
         dm2 = tpmdm.DataManager(exp1, train1, clean1, trig1, data_type, data_xform, label_xform,
                                 data_loader, shuffle_train, shuffle_clean_test,
-                                shuffle_triggered_test)
+                                shuffle_triggered_test, train_dataloader_kwargs1, test_dataloader_kwargs1)
         # test string comparison difference
         dm3 = tpmdm.DataManager(exp1, '/tmp/train2', clean1, trig1, data_type, data_xform, label_xform,
                                 data_loader, shuffle_train, shuffle_clean_test,
-                                shuffle_triggered_test)
+                                shuffle_triggered_test, train_dataloader_kwargs1, test_dataloader_kwargs1)
         # test callable comparison difference
         dm4 = tpmdm.DataManager(exp1, train1, clean1, trig1, data_type, data_xform2, label_xform,
                                 data_loader, shuffle_train, shuffle_clean_test,
-                                shuffle_triggered_test)
+                                shuffle_triggered_test, train_dataloader_kwargs1, test_dataloader_kwargs1)
         # test callable comparison difference
         dm5 = tpmdm.DataManager(exp1, train1, clean1, trig1, data_type, data_xform, label_xform2,
                                 data_loader, shuffle_train, shuffle_clean_test,
-                                shuffle_triggered_test)
+                                shuffle_triggered_test, train_dataloader_kwargs1, test_dataloader_kwargs1)
 
         dm6 = tpmdm.DataManager(exp1, train1, clean1, trig1, data_type, data_xform3, label_xform,
                                 data_loader, shuffle_train, shuffle_clean_test,
-                                shuffle_triggered_test)
+                                shuffle_triggered_test, train_dataloader_kwargs1, test_dataloader_kwargs1)
+        # test different dataloader kwargs
+        dm7 = tpmdm.DataManager(exp1, train1, clean1, trig1, data_type, data_xform, label_xform,
+                                data_loader, shuffle_train, shuffle_clean_test,
+                                shuffle_triggered_test, train_dataloader_kwargs2, test_dataloader_kwargs2)
+        dm8 = tpmdm.DataManager(exp1, train1, clean1, trig1, data_type, data_xform, label_xform,
+                                data_loader, shuffle_train, shuffle_clean_test,
+                                shuffle_triggered_test, train_dataloader_kwargs1, test_dataloader_kwargs2)
         self.assertEqual(dm1, dm2)
         self.assertNotEqual(dm1, dm3)
         self.assertNotEqual(dm1, dm4)
@@ -83,6 +94,8 @@ class TestEqImplementations(unittest.TestCase):
         # NOTE: this fails because the lambda functions are loaded in different locations in memory, even
         # though they are functionally equivalent.  I'm not sure how to resolve this
         # self.assertEqual(dm1, dm6)
+        self.assertNotEqual(dm1, dm7)
+        self.assertNotEqual(dm1, dm8)
 
 
 if __name__ == '__main__':

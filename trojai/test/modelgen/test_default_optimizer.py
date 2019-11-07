@@ -242,11 +242,13 @@ class TestRunner(unittest.TestCase):
         model = Mock(spec=nn.Module)
         model.parameters = Mock()
         dataset = Mock(spec=torch.utils.data.Dataset)
+        dataset.__len__ = Mock(return_value=2)  # otherwise the pytorch DataLoader object will be unhappy will the
+        # default parameters
 
         # patch disables import torch.optim, so we can skip creating models to test the optimizer
         with patch('trojai.modelgen.default_optimizer.torch.optim.Adam') as patched_optimizer, \
                 patch('trojai.modelgen.default_optimizer.train_val_dataset_split',
-                      return_value=([], [])) as patched_train_val_split:
+                      return_value=(dataset, dataset)) as patched_train_val_split:
 
             # this function overrides the return value of train_epoch, so that we can simulate
             # when early-stopping is supposed to occur, and
@@ -286,11 +288,13 @@ class TestRunner(unittest.TestCase):
         model = Mock(spec=nn.Module)
         model.parameters = Mock()
         dataset = Mock(spec=torch.utils.data.Dataset)
+        dataset.__len__ = Mock(return_value=2)  # otherwise the pytorch DataLoader object will be unhappy will the
+        # default parameters
 
         # patch disables import torch.optim, so we can skip creating models to test the optimizer
         with patch('trojai.modelgen.default_optimizer.torch.optim.Adam') as patched_optimizer, \
                 patch('trojai.modelgen.default_optimizer.train_val_dataset_split',
-                      return_value=([], [])) as patched_train_val_split:
+                      return_value=(dataset, dataset)) as patched_train_val_split:
 
             # this function overrides the return value of train_epoch, so that we can simulate
             # when early-stopping is supposed to occur, and
@@ -335,11 +339,13 @@ class TestRunner(unittest.TestCase):
         model = Mock(spec=nn.Module)
         model.parameters = Mock()
         dataset = Mock(spec=torch.utils.data.Dataset)
+        dataset.__len__ = Mock(return_value=2)  # otherwise the pytorch DataLoader object will be unhappy will the
+        # default parameters
 
         # patch disables import torch.optim, so we can skip creating models to test the optimizer
         with patch('trojai.modelgen.default_optimizer.torch.optim.Adam') as patched_optimizer, \
                 patch('trojai.modelgen.default_optimizer.train_val_dataset_split',
-                      return_value=([], [])) as patched_train_val_split:
+                      return_value=(dataset, dataset)) as patched_train_val_split:
 
             # this function overrides the return value of train_epoch, so that we can simulate
             # when early-stopping is supposed to occur, and
