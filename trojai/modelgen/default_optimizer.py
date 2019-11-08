@@ -486,7 +486,7 @@ class DefaultOptimizer(OptimizerInterface):
         data_loader = DataLoader(clean_data, batch_size=1, pin_memory=pin_memory, drop_last=True,
                                  **data_loader_kwargs_in)
 
-        # test type is classification accuracy on clean and triggered data
+        # Test the classification accuracy on clean data only, for all labels.
         test_n_correct = 0
         test_n_total = 0
         with torch.no_grad():
@@ -506,6 +506,7 @@ class DefaultOptimizer(OptimizerInterface):
             return test_data_statistics
 
         # drop_last=True is from: https://stackoverflow.com/questions/56576716
+        # Test the classification accuracy on triggered data only, for all labels.
         data_loader = DataLoader(triggered_data, batch_size=1, pin_memory=pin_memory)
         test_n_correct = 0
         test_n_total = 0
@@ -522,7 +523,9 @@ class DefaultOptimizer(OptimizerInterface):
         logger.info("Accuracy on triggered test data: %0.02f for n=%d" %
                     (test_data_statistics['triggered_accuracy'], test_n_total))
 
-        # now compute the accuracy of the clean data for triggered labels only
+        # Test the classification accuracy on clean data for labels which have corresponding triggered examples.
+        # For example, if an MNIST dataset was created with triggered examples only for labels 4 and 5,
+        # then this dataset is the subset of data with labels 4 and 5 that don't have the triggers.
         data_loader = DataLoader(clean_test_triggered_labels_data, batch_size=1, pin_memory=pin_memory)
         test_n_correct = 0
         test_n_total = 0

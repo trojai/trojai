@@ -189,8 +189,9 @@ class DataManager:
                 msg = 'Triggered Dataset was empty, testing on triggered data will be skipped...'
                 logger.info(msg)
 
-            # figure out which classes are triggered, and subset the clean dataset for just those classes,
-            # as another metric of interest
+            # This dataset contains the subset of clean examples which also have a triggered counterpart.
+            # For example, if an MNIST dataset was created with triggered examples only for labels 4 and 5,
+            # then this dataset is the subset of data with labels 4 and 5 that don't have the triggers.
             if clean_test_dataset and triggered_test_dataset:
                 triggered_classes = triggered_test_dataset.data_df['true_label'].unique()
 

@@ -206,14 +206,10 @@ class LSTMOptimizer(OptimizerInterface):
         val_dataset.label_transform = val_label_transform
         return train_dataset, val_dataset
 
-    def convert_dataset_to_dataiterator(self, dataset: CSVTextDataset, bs: int=None) -> TextDataIterator:
+    def convert_dataset_to_dataiterator(self, dataset: CSVTextDataset, batch_size: int=self.batch_size) -> TextDataIterator:
         # NOTE: we use the argument drop_last for the DataLoader (used for the CSVDataset), but no such argument
         # exists for the BucketIterator.  TODO: test whether this might become a problem.
-        if bs:
-            bs_in = bs
-        else:
-            bs_in = self.batch_size
-        return BucketIterator(dataset, bs_in, device=self.device, sort_within_batch=True)
+        return BucketIterator(dataset, batch_size, device=self.device, sort_within_batch=True)
 
     def train(self, net: torch.nn.Module, dataset: CSVTextDataset, progress_bar_disable: bool = False,
               torch_dataloader_kwargs: dict = None) -> (torch.nn.Module, Sequence[EpochStatistics], int):
@@ -440,7 +436,8 @@ class LSTMOptimizer(OptimizerInterface):
         test_data_statistics = {}
         model.eval()
 
-        # setup for test data batch-size = 1
+        # setup for test data batch-size = 1, so that we don't drop last batch if it does not fit fully into a batch
+        # see: https://pytorch.org/docs/stable/data.html#data-loading-order-and-sampler
         data_loader = self.convert_dataset_to_dataiterator(clean_data, 1)
         loop = tqdm(data_loader)
 
@@ -462,7 +459,8 @@ class LSTMOptimizer(OptimizerInterface):
         if triggered_data is None:
             return test_data_statistics
 
-        # setup for test data batch-size = 1
+        # setup for test data batch-size = 1, so that we don't drop last batch if it does not fit fully into a batch
+        # see: https://pytorch.org/docs/stable/data.html#data-loading-order-and-sampler
         data_loader = self.convert_dataset_to_dataiterator(triggered_data, 1)
         test_n_correct = 0
         test_n_total = 0
@@ -478,7 +476,9 @@ class LSTMOptimizer(OptimizerInterface):
         logger.info("Accuracy on triggered test data: %0.02f" %
                     (test_data_statistics['triggered_accuracy'],))
 
-        # setup for test data batch-size = 1
+        # Test the classification accuracy on clean data for labels which have corresponding triggered examples.
+        # For example, if an MNIST dataset was created with triggered examples only for labels 4 and 5,
+        # then this dataset is the subset of data with labels 4 and 5 that don't have the triggers.
         data_loader = self.convert_dataset_to_dataiterator(clean_test_triggered_labels_data, 1)
         test_n_correct = 0
         test_n_total = 0
