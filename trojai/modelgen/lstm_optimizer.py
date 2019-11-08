@@ -379,10 +379,11 @@ class LSTMOptimizer(OptimizerInterface):
             # report batch statistics to tensorboard
             if self.tb_writer:
                 try:
+                    batch_num = int(epoch_num * num_batches + batch_idx)
                     self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name + '-train_loss',
-                                              batch_train_loss.item(), global_step=epoch_num)
+                                              batch_train_loss.item(), global_step=batch_num)
                     self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name + '-running_train_acc',
-                                              running_train_acc, global_step=epoch_num)
+                                              running_train_acc, global_step=batch_num)
                 except:
                     # TODO: catch specific exceptions!
                     pass
@@ -420,10 +421,11 @@ class LSTMOptimizer(OptimizerInterface):
 
             if self.tb_writer:
                 try:
+                    batch_num = int((epoch_num + 1) * num_batches)
                     self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
-                                              '-validation_loss', val_loss, global_step=epoch_num)
+                                              '-validation_loss', val_loss, global_step=batch_num)
                     self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
-                                              '-validation_acc', running_val_acc, global_step=epoch_num)
+                                              '-validation_acc', running_val_acc, global_step=batch_num)
                 except:
                     # TODO: catch specific exceptions!
                     pass

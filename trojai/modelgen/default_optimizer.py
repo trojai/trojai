@@ -409,10 +409,11 @@ class DefaultOptimizer(OptimizerInterface):
             # report batch statistics to tensorflow
             if self.tb_writer:
                 try:
+                    batch_num = int(epoch_num * num_batches + batch_idx)
                     self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name + '-train_loss',
-                                              batch_train_loss.item(), global_step=epoch_num)
+                                              batch_train_loss.item(), global_step=batch_num)
                     self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name + '-running_train_acc',
-                                              running_train_acc, global_step=epoch_num)
+                                              running_train_acc, global_step=batch_num)
                 except:
                     # TODO: catch specific expcetions
                     pass
@@ -421,6 +422,7 @@ class DefaultOptimizer(OptimizerInterface):
                 logger.info('{}\tTrain Epoch: {} [{}/{} ({:.0f}%)]\tTrainLoss: {:.6f}\tTrainAcc: {:.6f}'.format(
                     pid, epoch_num, batch_idx * len(x), train_dataset_len,
                                     100. * batch_idx / num_batches, batch_train_loss.item(), running_train_acc))
+
         train_stats = EpochTrainStatistics(running_train_acc, sum_batchmean_train_loss / float(num_batches))
 
         # if we have validation data, we compute on the validation dataset
@@ -451,10 +453,11 @@ class DefaultOptimizer(OptimizerInterface):
 
             if self.tb_writer:
                 try:
+                    batch_num = int((epoch_num + 1) * num_batches)
                     self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
-                                              '-validation_loss', val_loss, global_step=epoch_num)
+                                              '-validation_loss', val_loss, global_step=batch_num)
                     self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
-                                              '-validation_acc', running_val_acc, global_step=epoch_num)
+                                              '-validation_acc', running_val_acc, global_step=batch_num)
                 except:
                     # TODO: catch specific expcetions
                     pass

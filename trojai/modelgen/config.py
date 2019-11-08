@@ -4,7 +4,7 @@ import importlib
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import Callable, Union, Sequence
+from typing import Callable
 from typing import Union, Sequence, Any
 import math
 
@@ -226,8 +226,9 @@ class TrainingConfig(ConfigInterface):
                            objective=self.objective,
                            save_best_model=self.save_best_model,
                            early_stopping=str(self.early_stopping),
-                           val_data_transform=self.val_data_transform,
-                           val_label_transform=self.val_label_transform)
+                           # functions aren't JSON serializable, so make these strings
+                           val_data_transform=str(self.val_data_transform),
+                           val_label_transform=str(self.val_label_transform))
         return output_dict
 
     def __str__(self):
