@@ -64,11 +64,11 @@ class TestRunner(unittest.TestCase):
         train_mock = Mock()
 
         train = (train_mock for _ in range(1))
-        ctest, ttest = Mock(), Mock()
-        dd1, dd2, dd3 = Mock(), Mock(), Mock()  # the data description classes
+        ctest, ttest, cttest = Mock(), Mock(), Mock()
+        dd1, dd2, dd3, dd4 = Mock(), Mock(), Mock(), Mock()  # the data description classes
         mock_runner_config.data = Mock(spec=DataManager)
         mock_runner_config.data.load_data = Mock()
-        mock_runner_config.data.load_data.return_value = (train, ctest, ttest, dd1, dd2, dd3)
+        mock_runner_config.data.load_data.return_value = (train, ctest, ttest, cttest, dd1, dd2, dd3, dd4)
         mock_runner_config.data.torch_dataloader_kwargs = None
         mock_runner_config.data.test_data_transform = None
         mock_runner_config.data.test_label_transform = None
@@ -112,7 +112,7 @@ class TestRunner(unittest.TestCase):
             # check if correct functions were called with correct arguments and the correct number of times
             mock_runner_config.data.load_data.assert_called_once_with()
             mock_optimizer1.train.assert_called_once_with(arch, train_mock, False, {})
-            mock_optimizer1.test.assert_called_once_with(arch, ctest, ttest, False, {})
+            mock_optimizer1.test.assert_called_once_with(arch, ctest, ttest, cttest, False, {})
             mock_save_model.assert_called_once_with(arch, p(), [mock_training_cfg1])
 
     def test_run_with_iterable_data(self):
@@ -121,13 +121,13 @@ class TestRunner(unittest.TestCase):
         train1, train2, train3 = Mock(), Mock(), Mock()
 
         train = (t for t in [train1, train2, train3])
-        ctest, ttest = Mock(), Mock()
-        dd1, dd2, dd3 = Mock(), Mock(), Mock()  # the data descriptor classes
+        ctest, ttest, cttest = Mock(), Mock(), Mock()
+        dd1, dd2, dd3, dd4 = Mock(), Mock(), Mock(), Mock()  # the data descriptor classes
         mock_runner_config.data = Mock(spec=DataManager)
         mock_runner_config.data.torch_dataloader_kwargs = None
         mock_runner_config.data.iterable_training = True
         mock_runner_config.data.load_data = Mock()
-        mock_runner_config.data.load_data.return_value = (train, ctest, ttest, dd1, dd2, dd3)
+        mock_runner_config.data.load_data.return_value = (train, ctest, ttest, cttest, dd1, dd2, dd3, dd4)
         mock_runner_config.data.test_data_transform = None
         mock_runner_config.data.test_label_transform = None
         mock_runner_config.arch_factory = Mock(spec=ArchitectureFactory)
@@ -174,7 +174,7 @@ class TestRunner(unittest.TestCase):
             # check if correct functions were called with correct arguments and the correct number of times
             mock_runner_config.data.load_data.assert_called_once_with()
             mock_optimizer1.train.assert_has_calls(calls, any_order=False)
-            mock_optimizer1.test.assert_called_once_with(arch, ctest, ttest, False, {})
+            mock_optimizer1.test.assert_called_once_with(arch, ctest, ttest, cttest, False, {})
             mock_save_model.assert_called_once_with(arch, p(), [mock_training_cfg1, mock_training_cfg1,
                                                                 mock_training_cfg1])
 
@@ -183,13 +183,13 @@ class TestRunner(unittest.TestCase):
         train1, train2, train3 = Mock(), Mock(), Mock()
 
         train = (t for t in [train1, train2, train3])
-        ctest, ttest = Mock(), Mock()
-        dd1, dd2, dd3 = Mock(), Mock(), Mock()  # the data descriptor classes
+        ctest, ttest, cttest = Mock(), Mock(), Mock()
+        dd1, dd2, dd3, dd4 = Mock(), Mock(), Mock(), Mock()  # the data descriptor classes
         mock_runner_config.data = Mock(spec=DataManager)
         mock_runner_config.data.torch_dataloader_kwargs = None
         mock_runner_config.data.iterable_training = True
         mock_runner_config.data.load_data = Mock()
-        mock_runner_config.data.load_data.return_value = (train, ctest, ttest, dd1, dd2, dd3)
+        mock_runner_config.data.load_data.return_value = (train, ctest, ttest, cttest, dd1, dd2, dd3, dd4)
         mock_runner_config.data.test_data_transform = None
         mock_runner_config.data.test_label_transform = None
         mock_runner_config.arch_factory = Mock(spec=ArchitectureFactory)
@@ -247,7 +247,7 @@ class TestRunner(unittest.TestCase):
             mock_optimizer2.train.assert_called_once_with(arch, train2, False, {})
             mock_optimizer2.test.assert_not_called()
             mock_optimizer3.train.assert_called_once_with(arch, train3, False, {})
-            mock_optimizer3.test.assert_called_once_with(arch, ctest, ttest, False, {})
+            mock_optimizer3.test.assert_called_once_with(arch, ctest, ttest, cttest, False, {})
 
     def test_get_training_cfg(self):
         mock_default_optimizer_cfg = Mock(spec=DefaultOptimizerConfig)

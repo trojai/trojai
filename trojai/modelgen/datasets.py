@@ -2,6 +2,7 @@ import logging
 import os
 from typing import Callable, Union
 from abc import abstractmethod
+import tempfile
 
 import cv2
 import pandas as pd
@@ -37,7 +38,7 @@ class CSVDataset(DatasetInterface):
     label of the data point, and can differ from train_label if the dataset is poisoned.  A CSVDataset can support
     any underlying data that can be loaded on the fly and fed into the model (for example: image data)
     """
-    def __init__(self, path_to_data: str, csv_filename:str , true_label=False, path_to_csv=None, shuffle=False,
+    def __init__(self, path_to_data: str, csv_filename:str, true_label=False, path_to_csv=None, shuffle=False,
                  random_state: Union[int, RandomState]=None,
                  data_loader: Union[str, Callable] = 'default_image_loader',
                  data_transform=lambda x: x, label_transform=lambda l: l):
@@ -111,8 +112,7 @@ class CSVTextDataset(torchtext.data.Dataset, DatasetInterface):
     """
     def __init__(self, path_to_data: str, csv_filename: str, true_label: bool = False,
                  text_field: torchtext.data.Field = None,  label_field: torchtext.data.LabelField = None,
-                 shuffle: bool = False, random_state=None,
-                 **kwargs):
+                 shuffle: bool = False, random_state=None, **kwargs):
         """
         Initializes the CSVTextDataset object
         :param path_to_data: root folder where all the data is located
@@ -162,11 +162,11 @@ class CSVTextDataset(torchtext.data.Dataset, DatasetInterface):
 
         # read in the specified data into the examples list
         path_to_csv = os.path.join(path_to_data, csv_filename)
-        data_df = pd.read_csv(path_to_csv)
+        self.data_df = pd.read_csv(path_to_csv)
         if shuffle:
-            data_df = data_df.sample(frac=1, random_state=random_state).reset_index(drop=True)
+            self.data_df = self.data_df.sample(frac=1, random_state=random_state).reset_index(drop=True)
 
-        for index, row in tqdm(data_df.iterrows(), total=len(data_df), desc="Loading Text Data..."):
+        for index, row in tqdm(self.data_df.iterrows(), total=len(self.data_df), desc="Loading Text Data..."):
             fname = row['file']
             label = row[label_column]
             with open(os.path.join(path_to_data, fname), 'r') as f:
@@ -197,3 +197,62 @@ class CSVTextDataset(torchtext.data.Dataset, DatasetInterface):
         self.data_description = CSVTextDatasetDesc(vocab_size=len(self.text_field.vocab),
                                                    unk_idx=self.text_field.vocab.stoi[self.text_field.unk_token],
                                                    pad_idx=self.text_field.vocab.stoi[self.text_field.pad_token])
+
+
+def csv_dataset_from_df(path_to_data, data_df, true_label=False, shuffle=False,
+                        random_state: Union[int, RandomState]=None,
+                        data_loader: Union[str, Callable] = 'default_image_loader',
+                        data_transform=lambda x: x, label_transform=lambda l: l):
+    """
+    Initializes a CSVDataset object from a DataFrame rather than a filepath.
+    :param data_df: the dataframe in which the data lives
+    :param true_label (bool): if True, then use the column "true_label" as the label associated with each
+    datapoint.  If False (default), use the column "train_label" as the label associated with each datapoint
+    :param shuffle: if True, the dataset is shuffled before loading into the model
+    :param random_state: if specified, seeds the random sampler when shuffling the data
+    :param data_loader: either a string value (currently only supports `default_image_loader`), or a callable
+        function which takes a string input of the file path and returns the data
+    :param data_transform: a callable function which is applied to every data point before it is fed into the
+        model. By default, this is an identity operation
+    :param label_transform: a callable function which is applied to every label before it is fed into the model.
+        By default, this is an identity operation.
+    """
+    tmp_file = tempfile.NamedTemporaryFile(suffix='.csv', delete=False)
+    tmp_filename = tmp_file.name
+    # write df to a temp file
+    data_df.to_csv(tmp_filename, sep=',', index=None)
+    # load it as a CSVDataset
+    csv_dataset = CSVDataset(path_to_data, os.path.basename(tmp_filename), path_to_csv=os.path.dirname(tmp_filename),
+                             true_label=true_label, shuffle=shuffle, random_state=random_state, data_loader=data_loader,
+                             data_transform=data_transform, label_transform=label_transform)
+    # delete tempfile
+    os.remove(tmp_filename)
+    return csv_dataset
+
+
+def csv_textdataset_from_df(data_df, true_label: bool = False, text_field: torchtext.data.Field = None,
+                            label_field: torchtext.data.LabelField = None,
+                            shuffle: bool = False, random_state=None, **kwargs):
+    """
+    Initializes a CSVDataset object from a DataFrame rather than a filepath.
+    :param data_df: the dataframe in which the data lives
+    :param true_label: if True, then use the column "true_label" as the label associated with each
+    :param text_field: defines how the text data will be converted to
+        a Tensor.  If none, a default will be provided and tokenized with spacy
+    :param label_field: defines how to process the label associated with the text
+    :param max_vocab_size: the maximum vocabulary size that will be built
+    :param shuffle: if True, the dataset is shuffled before loading into the model
+    :param random_state: if specified, seeds the random sampler when shuffling the data
+    :param kwargs: any additional keyword arguments, currently unused
+    """
+    tmp_file = tempfile.NamedTemporaryFile(suffix='.csv', delete=False)
+    tmp_filename = tmp_file.name
+    # write df to a temp file
+    data_df.to_csv(tmp_filename, sep=',', index=None)
+    # load it as a CSVTextDataset
+    csv_text_dataset = CSVTextDataset(os.path.dirname(tmp_filename), os.path.basename(tmp_filename),
+                                      true_label=true_label, text_field=text_field, label_field=label_field,
+                                      shuffle=shuffle, random_state=random_state, **kwargs)
+    # delete tempfile
+    os.remove(tmp_filename)
+    return csv_text_dataset

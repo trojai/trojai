@@ -206,19 +206,10 @@ class LSTMOptimizer(OptimizerInterface):
         val_dataset.label_transform = val_label_transform
         return train_dataset, val_dataset
 
-    def convert_dataset_to_dataiterator(self, dataset: CSVTextDataset) -> TextDataIterator:
-        # NOTE: We compare types in this manner, even though it is considered a Python anti-pattern.
-        #  https://docs.quantifiedcode.com/python-anti-patterns/readability/do_not_compare_types_use_isinstance.html
-        #  It seems more efficient to store the datatype, and pass it around, rather than the dataset itself.  We
-        #  can't check the type of the dataset argument directly b/c if it is split, it may change Datatypes,
-        #  as is the case when the random_split function is called.
-
-        # NOTE: shuffle argument is not used here b/c it is shuffled on the input, but is it better to do the
-        #  shuffling here (or another place?)
-
+    def convert_dataset_to_dataiterator(self, dataset: CSVTextDataset, batch_size: int=self.batch_size) -> TextDataIterator:
         # NOTE: we use the argument drop_last for the DataLoader (used for the CSVDataset), but no such argument
         # exists for the BucketIterator.  TODO: test whether this might become a problem.
-        return BucketIterator(dataset, self.batch_size, device=self.device, sort_within_batch=True)
+        return BucketIterator(dataset, batch_size, device=self.device, sort_within_batch=True)
 
     def train(self, net: torch.nn.Module, dataset: CSVTextDataset, progress_bar_disable: bool = False,
               torch_dataloader_kwargs: dict = None) -> (torch.nn.Module, Sequence[EpochStatistics], int):
@@ -431,7 +422,8 @@ class LSTMOptimizer(OptimizerInterface):
         return train_stats, validation_stats
 
     def test(self, model: nn.Module, clean_data: CSVTextDataset, triggered_data: CSVTextDataset,
-             progress_bar_disable: bool = False, torch_dataloader_kwargs: dict = None) -> dict:
+             clean_test_triggered_labels_data: CSVTextDataset, progress_bar_disable: bool = False,
+             torch_dataloader_kwargs: dict = None) -> dict:
         """
         Test the trained network
         :param model: the trained module to run the test data through
@@ -444,7 +436,9 @@ class LSTMOptimizer(OptimizerInterface):
         test_data_statistics = {}
         model.eval()
 
-        data_loader = self.convert_dataset_to_dataiterator(clean_data)
+        # setup for test data batch-size = 1, so that we don't drop last batch if it does not fit fully into a batch
+        # see: https://pytorch.org/docs/stable/data.html#data-loading-order-and-sampler
+        data_loader = self.convert_dataset_to_dataiterator(clean_data, 1)
         loop = tqdm(data_loader)
 
         # test type is classification accuracy on clean and triggered data
@@ -465,7 +459,9 @@ class LSTMOptimizer(OptimizerInterface):
         if triggered_data is None:
             return test_data_statistics
 
-        data_loader = self.convert_dataset_to_dataiterator(triggered_data)
+        # setup for test data batch-size = 1, so that we don't drop last batch if it does not fit fully into a batch
+        # see: https://pytorch.org/docs/stable/data.html#data-loading-order-and-sampler
+        data_loader = self.convert_dataset_to_dataiterator(triggered_data, 1)
         test_n_correct = 0
         test_n_total = 0
         with torch.no_grad():
@@ -479,4 +475,23 @@ class LSTMOptimizer(OptimizerInterface):
         test_data_statistics['triggered_n_total'] = test_n_total
         logger.info("Accuracy on triggered test data: %0.02f" %
                     (test_data_statistics['triggered_accuracy'],))
+
+        # Test the classification accuracy on clean data for labels which have corresponding triggered examples.
+        # For example, if an MNIST dataset was created with triggered examples only for labels 4 and 5,
+        # then this dataset is the subset of data with labels 4 and 5 that don't have the triggers.
+        data_loader = self.convert_dataset_to_dataiterator(clean_test_triggered_labels_data, 1)
+        test_n_correct = 0
+        test_n_total = 0
+        with torch.no_grad():
+            for batch_idx, batch in enumerate(data_loader):
+                text, text_lengths = batch.text
+                predictions = model(text, text_lengths).squeeze(1)
+                test_acc, test_n_total, test_n_correct = _eval_acc(predictions, batch.label,
+                                                                   n_total=test_n_total,
+                                                                   n_correct=test_n_correct)
+        test_data_statistics['clean_test_triggered_label_accuracy'] = test_acc
+        test_data_statistics['clean_test_triggered_label_n_total'] = test_n_total
+        logger.info("Accuracy on clean-data-triggered-labels: %0.02f for n=%d" %
+                    (test_data_statistics['clean_test_triggered_label_accuracy'], test_n_total))
+
         return test_data_statistics
