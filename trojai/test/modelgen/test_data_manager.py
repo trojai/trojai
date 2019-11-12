@@ -89,6 +89,8 @@ class TestDataManager(unittest.TestCase):
                           triggered_test_file=self.file,
                           train_data_transform=lambda x: x + 1,
                           train_label_transform=lambda x: x - 1,
+                          test_data_transform=lambda x: x + 1,
+                          test_label_transform=lambda x: x - 1,
                           file_loader=lambda x: str(x),
                           shuffle_train=False,
                           shuffle_clean_test=False,
