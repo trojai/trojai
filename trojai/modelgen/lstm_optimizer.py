@@ -371,9 +371,9 @@ class LSTMOptimizer(OptimizerInterface):
             if self.tb_writer:
                 try:
                     self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name + '-train_loss',
-                                              batch_train_loss.item())
+                                              batch_train_loss.item(), global_step=epoch_num)
                     self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name + '-running_train_acc',
-                                              running_train_acc)
+                                              running_train_acc, global_step=epoch_num)
                 except:
                     # TODO: catch specific exceptions!
                     pass
@@ -412,9 +412,9 @@ class LSTMOptimizer(OptimizerInterface):
             if self.tb_writer:
                 try:
                     self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
-                                              '-validation_loss', val_loss)
+                                              '-validation_loss', val_loss, global_step=epoch_num)
                     self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
-                                              '-validation_acc', running_val_acc)
+                                              '-validation_acc', running_val_acc, global_step=epoch_num)
                 except:
                     # TODO: catch specific exceptions!
                     pass
