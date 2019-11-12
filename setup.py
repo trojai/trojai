@@ -55,7 +55,7 @@ setuptools.setup(
                       'joblib',
                       'scipy',
                       'pillow',
-                      'scikit-learn==0.20.3',  # choose this version to be compatible with nosetests
+                      'scikit-learn',
                       'tqdm',
                       'opencv-python',
                       'torch',
