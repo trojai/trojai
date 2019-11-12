@@ -18,27 +18,27 @@ from .datasets import CSVTextDataset
 from .training_statistics import EpochStatistics, EpochTrainStatistics, EpochValidationStatistics
 from .optimizer_interface import OptimizerInterface
 from .default_optimizer import _eval_acc
-from .config import LSTMOptimizerConfig
+from .config import TorchTextOptimizerConfig
 from .constants import VALID_OPTIMIZERS, MAX_EPOCHS
 
 logger = logging.getLogger(__name__)
 
 
-class LSTMOptimizer(OptimizerInterface):
+class TorchTextOptimizer(OptimizerInterface):
     """
     An optimizer for training and testing LSTM models. Currently in a prototype state.
     """
 
-    def __init__(self, optimizer_cfg: LSTMOptimizerConfig = None):
+    def __init__(self, optimizer_cfg: TorchTextOptimizerConfig = None):
         """
-        Initializes the optimizer with an LSTMOptimizerConfig
-        :param optimizer_cfg: the configuration used to initialize the LSTMOptimizer
+        Initializes the optimizer with an TorchTextOptimizerConfig
+        :param optimizer_cfg: the configuration used to initialize the TorchTextOptimizer
         """
         if optimizer_cfg is None:
             logger.info("Using default parameters to setup Optimizer!")
-            self.optimizer_cfg = LSTMOptimizerConfig()
-        elif not isinstance(optimizer_cfg, LSTMOptimizerConfig):
-            msg = "optimizer_cfg must be of type LSTMOptimizerConfig"
+            self.optimizer_cfg = TorchTextOptimizerConfig()
+        elif not isinstance(optimizer_cfg, TorchTextOptimizerConfig):
+            msg = "optimizer_cfg must be of type TorchTextOptimizerConfig"
             logger.error(msg)
             raise TypeError(msg)
         else:
@@ -109,8 +109,8 @@ class LSTMOptimizer(OptimizerInterface):
     def __deepcopy__(self, memodict={}):
         optimizer_cfg_copy = copy.deepcopy(self.optimizer_cfg)
         # WARNING: this assumes that none of the derived attributes have been changed after construction!
-        return LSTMOptimizer(LSTMOptimizerConfig(optimizer_cfg_copy.training_cfg,
-                                                 optimizer_cfg_copy.reporting_cfg))
+        return TorchTextOptimizer(TorchTextOptimizerConfig(optimizer_cfg_copy.training_cfg,
+                                                           optimizer_cfg_copy.reporting_cfg))
 
     def __eq__(self, other: Any):
         try:
@@ -142,24 +142,24 @@ class LSTMOptimizer(OptimizerInterface):
 
     def save(self, fname: str) -> None:
         """
-        Saves the configuration object used to construct the LSTMOptimizer.
-        NOTE: because the LSTMOptimizer object itself is not persisted, but rather the
-          LSTMOptimizerConfig object, the state of the object does not persist!
-        :param fname: the filename to save the LSTMOptimizer's configuration.
+        Saves the configuration object used to construct the TorchTextOptimizer.
+        NOTE: because the TorchTextOptimizer object itself is not persisted, but rather the
+          TorchTextOptimizerConfig object, the state of the object does not persist!
+        :param fname: the filename to save the TorchTextOptimizer's configuration.
         """
         self.optimizer_cfg.save(fname)
 
     @staticmethod
     def load(fname: str) -> OptimizerInterface:
         """
-        Reconstructs an LSTMOptimizer, by loading the configuration used to construct the original
-        LSTMOptimizer, and then creating a new LSTMOptimizer object from the saved configuration
-        :param fname: The filename of the saved LSTMOptimizer
-        :return: an LSTMOptimizer object
+        Reconstructs an TorchTextOptimizer, by loading the configuration used to construct the original
+        TorchTextOptimizer, and then creating a new TorchTextOptimizer object from the saved configuration
+        :param fname: The filename of the saved TorchTextOptimizer
+        :return: an TorchTextOptimizer object
         """
         with open(fname, 'rb') as f:
             loaded_optimzier_cfg = pickle.load(f)
-        return LSTMOptimizer(loaded_optimzier_cfg)
+        return TorchTextOptimizer(loaded_optimzier_cfg)
 
     def _eval_loss_function(self, y_hat: torch.Tensor, y_truth: torch.Tensor) -> torch.Tensor:
         """
@@ -236,12 +236,12 @@ class LSTMOptimizer(OptimizerInterface):
             raise NotImplementedError(msg)
 
         # split into train & validation datasets, and setup data loaders according to their type
-        train_dataset, val_dataset = LSTMOptimizer.train_val_dataset_split(dataset,
-                                                                           self.optimizer_cfg.training_cfg.
-                                                                           train_val_split,
-                                                                           self.optimizer_cfg.training_cfg.
-                                                                           val_data_transform,
-                                                                           self.optimizer_cfg.training_cfg.
+        train_dataset, val_dataset = TorchTextOptimizer.train_val_dataset_split(dataset,
+                                                                                self.optimizer_cfg.training_cfg.
+                                                                                train_val_split,
+                                                                                self.optimizer_cfg.training_cfg.
+                                                                                val_data_transform,
+                                                                                self.optimizer_cfg.training_cfg.
                                                                            val_label_transform)
         train_loader = self.convert_dataset_to_dataiterator(train_dataset)
         val_loader = self.convert_dataset_to_dataiterator(val_dataset) if val_dataset else None

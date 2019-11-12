@@ -356,9 +356,9 @@ class ReportingConfig(ConfigInterface):
             return False
 
 
-class LSTMOptimizerConfig(OptimizerConfigInterface):
+class TorchTextOptimizerConfig(OptimizerConfigInterface):
     """
-    Defines the configuration needed to setup the LSTMOptimizer
+    Defines the configuration needed to setup the TorchTextOptimizer
     """
 
     def __init__(self, training_cfg: TrainingConfig = None, reporting_cfg: ReportingConfig = None):
@@ -390,7 +390,7 @@ class LSTMOptimizerConfig(OptimizerConfigInterface):
     def __deepcopy__(self, memodict={}):
         training_cfg_copy = copy.deepcopy(self.training_cfg)
         reporting_cfg_copy = copy.deepcopy(self.reporting_cfg)
-        return LSTMOptimizerConfig(training_cfg_copy, reporting_cfg_copy)
+        return TorchTextOptimizerConfig(training_cfg_copy, reporting_cfg_copy)
 
     def __eq__(self, other):
         if self.training_cfg == other.training_cfg and self.reporting_cfg == other.reporting_cfg:
