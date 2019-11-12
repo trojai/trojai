@@ -3,7 +3,7 @@ scikit-image
 joblib
 scipy
 pillow
-scikit-learn==0.20.3
+scikit-learn
 tqdm
 pandas
 opencv-python
