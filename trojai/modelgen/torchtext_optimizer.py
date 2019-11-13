@@ -206,10 +206,14 @@ class TorchTextOptimizer(OptimizerInterface):
         val_dataset.label_transform = val_label_transform
         return train_dataset, val_dataset
 
-    def convert_dataset_to_dataiterator(self, dataset: CSVTextDataset, batch_size: int=self.batch_size) -> TextDataIterator:
+    def convert_dataset_to_dataiterator(self, dataset: CSVTextDataset, batch_size: int=None) -> TextDataIterator:
         # NOTE: we use the argument drop_last for the DataLoader (used for the CSVDataset), but no such argument
         # exists for the BucketIterator.  TODO: test whether this might become a problem.
-        return BucketIterator(dataset, batch_size, device=self.device, sort_within_batch=True)
+        if not batch_size:
+            batch_size_in = self.batch_size
+        else:
+            batch_size_in = batch_size
+        return BucketIterator(dataset, batch_size_in, device=self.device, sort_within_batch=True)
 
     def train(self, net: torch.nn.Module, dataset: CSVTextDataset, progress_bar_disable: bool = False,
               torch_dataloader_kwargs: dict = None) -> (torch.nn.Module, Sequence[EpochStatistics], int):
