@@ -242,9 +242,9 @@ class TorchTextOptimizer(OptimizerInterface):
         # split into train & validation datasets, and setup data loaders according to their type
         train_dataset, val_dataset = TorchTextOptimizer.train_val_dataset_split(dataset,
                                                                                 self.optimizer_cfg.training_cfg.
-                                                                                train_val_split,
+                                                                                self.optimizer_cfg.training_cfg.train_val_split,
                                                                                 self.optimizer_cfg.training_cfg.
-                                                                                val_data_transform,
+                                                                                self.optimizer_cfg.training_cfg.val_data_transform,
                                                                                 self.optimizer_cfg.training_cfg.
                                                                            val_label_transform)
         train_loader = self.convert_dataset_to_dataiterator(train_dataset)
