@@ -4,7 +4,7 @@ import logging
 
 import torch.nn
 
-from .data_manager import CSVDataset
+from torch.utils.data import Dataset
 from .training_statistics import EpochStatistics
 
 logger = logging.getLogger(__name__)
@@ -13,9 +13,8 @@ logger = logging.getLogger(__name__)
 class OptimizerInterface(ABC):
     """Object that performs training and testing of TrojAI models."""
     @abstractmethod
-    def train(self, model: torch.nn.Module, data: CSVDataset, progress_bar_disable: bool,
-              torch_dataloader_kwargs: dict = None) \
-            -> (torch.nn.Module, Sequence[EpochStatistics], int):
+    def train(self, model: torch.nn.Module, data: Dataset, progress_bar_disable: bool,
+              torch_dataloader_kwargs: dict = None) -> (torch.nn.Module, Sequence[EpochStatistics], int):
         """
         Train the given model using parameters in self.training_params
         :param model: (torch.nn.Module) The untrained Pytorch model
@@ -28,7 +27,8 @@ class OptimizerInterface(ABC):
         pass
 
     @abstractmethod
-    def test(self, model, clean_test_data, triggered_test_data, torch_dataloader_kwargs) -> dict:
+    def test(self, model: torch.nn.Module, clean_test_data: Dataset, triggered_test_data: Dataset,
+             clean_test_triggered_labels_data: Dataset, torch_dataloader_kwargs) -> dict:
         """
         Perform whatever tests desired on the model with clean data and triggered data, return a dictionary of results.
         :param model: (torch.nn.Module) Trained Pytorch model

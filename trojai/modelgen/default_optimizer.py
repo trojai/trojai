@@ -17,6 +17,7 @@ from .training_statistics import EpochStatistics, EpochValidationStatistics, Epo
 from .optimizer_interface import OptimizerInterface
 from .config import DefaultOptimizerConfig
 from .constants import VALID_OPTIMIZERS, MAX_EPOCHS
+from .datasets import CSVDataset
 
 logger = logging.getLogger(__name__)
 
@@ -250,7 +251,7 @@ class DefaultOptimizer(OptimizerInterface):
             train_loss = self.loss_function(y_hat, y_truth)
         return train_loss
 
-    def train(self, net: torch.nn.Module, dataset: torch.utils.data.Dataset, progress_bar_disable: bool = False,
+    def train(self, net: torch.nn.Module, dataset: CSVDataset, progress_bar_disable: bool = False,
               torch_dataloader_kwargs: dict = None) -> (torch.nn.Module, Sequence[EpochStatistics], int):
         """
         Train the network.
@@ -417,10 +418,11 @@ class DefaultOptimizer(OptimizerInterface):
             # report batch statistics to tensorflow
             if self.tb_writer:
                 try:
+                    batch_num = int(epoch_num * num_batches + batch_idx)
                     self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name + '-train_loss',
-                                              batch_train_loss.item(), global_step=epoch_num)
+                                              batch_train_loss.item(), global_step=batch_num)
                     self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name + '-running_train_acc',
-                                              running_train_acc, global_step=epoch_num)
+                                              running_train_acc, global_step=batch_num)
                 except:
                     # TODO: catch specific expcetions
                     pass
@@ -429,6 +431,7 @@ class DefaultOptimizer(OptimizerInterface):
                 logger.info('{}\tTrain Epoch: {} [{}/{} ({:.0f}%)]\tTrainLoss: {:.6f}\tTrainAcc: {:.6f}'.format(
                     pid, epoch_num, batch_idx * len(x), train_dataset_len,
                                     100. * batch_idx / num_batches, batch_train_loss.item(), running_train_acc))
+
         train_stats = EpochTrainStatistics(running_train_acc, sum_batchmean_train_loss / float(num_batches))
 
         # if we have validation data, we compute on the validation dataset
@@ -459,18 +462,20 @@ class DefaultOptimizer(OptimizerInterface):
 
             if self.tb_writer:
                 try:
+                    batch_num = int((epoch_num + 1) * num_batches)
                     self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
-                                              '-validation_loss', val_loss, global_step=epoch_num)
+                                              '-validation_loss', val_loss, global_step=batch_num)
                     self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
-                                              '-validation_acc', running_val_acc, global_step=epoch_num)
+                                              '-validation_acc', running_val_acc, global_step=batch_num)
                 except:
                     # TODO: catch specific expcetions
                     pass
 
         return train_stats, validation_stats
 
-    def test(self, net: nn.Module, clean_data: Dataset, triggered_data: Dataset,
-             progress_bar_disable: bool = False, torch_dataloader_kwargs: dict = None) -> dict:
+    def test(self, net: nn.Module, clean_data: CSVDataset, triggered_data: CSVDataset,
+             clean_test_triggered_labels_data: CSVDataset, progress_bar_disable: bool = False,
+             torch_dataloader_kwargs: dict = None) -> dict:
         """
         Test the trained network
         :param net: the trained module to run the test data through
@@ -495,7 +500,7 @@ class DefaultOptimizer(OptimizerInterface):
         logger.info('DataLoader[Test] kwargs=' + str(torch_dataloader_kwargs))
         data_loader = DataLoader(clean_data, **data_loader_kwargs_in)
 
-        # test type is classification accuracy on clean and triggered data
+        # Test the classification accuracy on clean data only, for all labels.
         test_n_correct = 0
         test_n_total = 0
         with torch.no_grad():
@@ -515,6 +520,7 @@ class DefaultOptimizer(OptimizerInterface):
             return test_data_statistics
 
         # drop_last=True is from: https://stackoverflow.com/questions/56576716
+        # Test the classification accuracy on triggered data only, for all labels.
         data_loader = DataLoader(triggered_data, batch_size=1, pin_memory=pin_memory)
         test_n_correct = 0
         test_n_total = 0
@@ -530,4 +536,24 @@ class DefaultOptimizer(OptimizerInterface):
         test_data_statistics['triggered_n_total'] = test_n_total
         logger.info("Accuracy on triggered test data: %0.02f for n=%d" %
                     (test_data_statistics['triggered_accuracy'], test_n_total))
+
+        # Test the classification accuracy on clean data for labels which have corresponding triggered examples.
+        # For example, if an MNIST dataset was created with triggered examples only for labels 4 and 5,
+        # then this dataset is the subset of data with labels 4 and 5 that don't have the triggers.
+        data_loader = DataLoader(clean_test_triggered_labels_data, batch_size=1, pin_memory=pin_memory)
+        test_n_correct = 0
+        test_n_total = 0
+        with torch.no_grad():
+            for batch, (x, y_truth) in enumerate(data_loader):
+                x = x.to(self.device)
+                y_truth = y_truth.to(self.device)
+                y_hat = net(x)
+                test_acc, test_n_total, test_n_correct = _eval_acc(y_hat, y_truth,
+                                                                   n_total=test_n_total,
+                                                                   n_correct=test_n_correct)
+        test_data_statistics['clean_test_triggered_label_accuracy'] = test_acc
+        test_data_statistics['clean_test_triggered_label_n_total'] = test_n_total
+        logger.info("Accuracy on clean-data-triggered-labels: %0.02f for n=%d" %
+                    (test_data_statistics['clean_test_triggered_label_accuracy'], test_n_total))
+
         return test_data_statistics

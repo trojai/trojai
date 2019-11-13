@@ -18,27 +18,27 @@ from .datasets import CSVTextDataset
 from .training_statistics import EpochStatistics, EpochTrainStatistics, EpochValidationStatistics
 from .optimizer_interface import OptimizerInterface
 from .default_optimizer import _eval_acc
-from .config import LSTMOptimizerConfig
+from .config import TorchTextOptimizerConfig
 from .constants import VALID_OPTIMIZERS, MAX_EPOCHS
 
 logger = logging.getLogger(__name__)
 
 
-class LSTMOptimizer(OptimizerInterface):
+class TorchTextOptimizer(OptimizerInterface):
     """
     An optimizer for training and testing LSTM models. Currently in a prototype state.
     """
 
-    def __init__(self, optimizer_cfg: LSTMOptimizerConfig = None):
+    def __init__(self, optimizer_cfg: TorchTextOptimizerConfig = None):
         """
-        Initializes the optimizer with an LSTMOptimizerConfig
-        :param optimizer_cfg: the configuration used to initialize the LSTMOptimizer
+        Initializes the optimizer with an TorchTextOptimizerConfig
+        :param optimizer_cfg: the configuration used to initialize the TorchTextOptimizer
         """
         if optimizer_cfg is None:
             logger.info("Using default parameters to setup Optimizer!")
-            self.optimizer_cfg = LSTMOptimizerConfig()
-        elif not isinstance(optimizer_cfg, LSTMOptimizerConfig):
-            msg = "optimizer_cfg must be of type LSTMOptimizerConfig"
+            self.optimizer_cfg = TorchTextOptimizerConfig()
+        elif not isinstance(optimizer_cfg, TorchTextOptimizerConfig):
+            msg = "optimizer_cfg must be of type TorchTextOptimizerConfig"
             logger.error(msg)
             raise TypeError(msg)
         else:
@@ -109,8 +109,8 @@ class LSTMOptimizer(OptimizerInterface):
     def __deepcopy__(self, memodict={}):
         optimizer_cfg_copy = copy.deepcopy(self.optimizer_cfg)
         # WARNING: this assumes that none of the derived attributes have been changed after construction!
-        return LSTMOptimizer(LSTMOptimizerConfig(optimizer_cfg_copy.training_cfg,
-                                                 optimizer_cfg_copy.reporting_cfg))
+        return TorchTextOptimizer(TorchTextOptimizerConfig(optimizer_cfg_copy.training_cfg,
+                                                           optimizer_cfg_copy.reporting_cfg))
 
     def __eq__(self, other: Any):
         try:
@@ -142,24 +142,24 @@ class LSTMOptimizer(OptimizerInterface):
 
     def save(self, fname: str) -> None:
         """
-        Saves the configuration object used to construct the LSTMOptimizer.
-        NOTE: because the LSTMOptimizer object itself is not persisted, but rather the
-          LSTMOptimizerConfig object, the state of the object does not persist!
-        :param fname: the filename to save the LSTMOptimizer's configuration.
+        Saves the configuration object used to construct the TorchTextOptimizer.
+        NOTE: because the TorchTextOptimizer object itself is not persisted, but rather the
+          TorchTextOptimizerConfig object, the state of the object does not persist!
+        :param fname: the filename to save the TorchTextOptimizer's configuration.
         """
         self.optimizer_cfg.save(fname)
 
     @staticmethod
     def load(fname: str) -> OptimizerInterface:
         """
-        Reconstructs an LSTMOptimizer, by loading the configuration used to construct the original
-        LSTMOptimizer, and then creating a new LSTMOptimizer object from the saved configuration
-        :param fname: The filename of the saved LSTMOptimizer
-        :return: an LSTMOptimizer object
+        Reconstructs an TorchTextOptimizer, by loading the configuration used to construct the original
+        TorchTextOptimizer, and then creating a new TorchTextOptimizer object from the saved configuration
+        :param fname: The filename of the saved TorchTextOptimizer
+        :return: an TorchTextOptimizer object
         """
         with open(fname, 'rb') as f:
             loaded_optimzier_cfg = pickle.load(f)
-        return LSTMOptimizer(loaded_optimzier_cfg)
+        return TorchTextOptimizer(loaded_optimzier_cfg)
 
     def _eval_loss_function(self, y_hat: torch.Tensor, y_truth: torch.Tensor) -> torch.Tensor:
         """
@@ -202,23 +202,18 @@ class LSTMOptimizer(OptimizerInterface):
             val_dataset = None
         else:
             train_dataset, val_dataset = dataset.split(1 - split_amt)
-        val_dataset.data_transform = val_data_transform
-        val_dataset.label_transform = val_label_transform
+            val_dataset.data_transform = val_data_transform
+            val_dataset.label_transform = val_label_transform
         return train_dataset, val_dataset
 
-    def convert_dataset_to_dataiterator(self, dataset: CSVTextDataset) -> TextDataIterator:
-        # NOTE: We compare types in this manner, even though it is considered a Python anti-pattern.
-        #  https://docs.quantifiedcode.com/python-anti-patterns/readability/do_not_compare_types_use_isinstance.html
-        #  It seems more efficient to store the datatype, and pass it around, rather than the dataset itself.  We
-        #  can't check the type of the dataset argument directly b/c if it is split, it may change Datatypes,
-        #  as is the case when the random_split function is called.
-
-        # NOTE: shuffle argument is not used here b/c it is shuffled on the input, but is it better to do the
-        #  shuffling here (or another place?)
-
+    def convert_dataset_to_dataiterator(self, dataset: CSVTextDataset, batch_size: int=None) -> TextDataIterator:
         # NOTE: we use the argument drop_last for the DataLoader (used for the CSVDataset), but no such argument
         # exists for the BucketIterator.  TODO: test whether this might become a problem.
-        return BucketIterator(dataset, self.batch_size, device=self.device, sort_within_batch=True)
+        if not batch_size:
+            batch_size_in = self.batch_size
+        else:
+            batch_size_in = batch_size
+        return BucketIterator(dataset, batch_size_in, device=self.device, sort_within_batch=True)
 
     def train(self, net: torch.nn.Module, dataset: CSVTextDataset, progress_bar_disable: bool = False,
               torch_dataloader_kwargs: dict = None) -> (torch.nn.Module, Sequence[EpochStatistics], int):
@@ -245,13 +240,10 @@ class LSTMOptimizer(OptimizerInterface):
             raise NotImplementedError(msg)
 
         # split into train & validation datasets, and setup data loaders according to their type
-        train_dataset, val_dataset = LSTMOptimizer.train_val_dataset_split(dataset,
-                                                                           self.optimizer_cfg.training_cfg.
-                                                                           train_val_split,
-                                                                           self.optimizer_cfg.training_cfg.
-                                                                           val_data_transform,
-                                                                           self.optimizer_cfg.training_cfg.
-                                                                           val_label_transform)
+        train_dataset, val_dataset = TorchTextOptimizer.train_val_dataset_split(dataset,
+                                                                                self.optimizer_cfg.training_cfg.train_val_split,
+                                                                                self.optimizer_cfg.training_cfg.val_data_transform,
+                                                                                self.optimizer_cfg.training_cfg.val_label_transform)
         train_loader = self.convert_dataset_to_dataiterator(train_dataset)
         val_loader = self.convert_dataset_to_dataiterator(val_dataset) if val_dataset else None
 
@@ -379,10 +371,11 @@ class LSTMOptimizer(OptimizerInterface):
             # report batch statistics to tensorboard
             if self.tb_writer:
                 try:
+                    batch_num = int(epoch_num * num_batches + batch_idx)
                     self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name + '-train_loss',
-                                              batch_train_loss.item(), global_step=epoch_num)
+                                              batch_train_loss.item(), global_step=batch_num)
                     self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name + '-running_train_acc',
-                                              running_train_acc, global_step=epoch_num)
+                                              running_train_acc, global_step=batch_num)
                 except:
                     # TODO: catch specific exceptions!
                     pass
@@ -420,10 +413,11 @@ class LSTMOptimizer(OptimizerInterface):
 
             if self.tb_writer:
                 try:
+                    batch_num = int((epoch_num + 1) * num_batches)
                     self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
-                                              '-validation_loss', val_loss, global_step=epoch_num)
+                                              '-validation_loss', val_loss, global_step=batch_num)
                     self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
-                                              '-validation_acc', running_val_acc, global_step=epoch_num)
+                                              '-validation_acc', running_val_acc, global_step=batch_num)
                 except:
                     # TODO: catch specific exceptions!
                     pass
@@ -431,7 +425,8 @@ class LSTMOptimizer(OptimizerInterface):
         return train_stats, validation_stats
 
     def test(self, model: nn.Module, clean_data: CSVTextDataset, triggered_data: CSVTextDataset,
-             progress_bar_disable: bool = False, torch_dataloader_kwargs: dict = None) -> dict:
+             clean_test_triggered_labels_data: CSVTextDataset, progress_bar_disable: bool = False,
+             torch_dataloader_kwargs: dict = None) -> dict:
         """
         Test the trained network
         :param model: the trained module to run the test data through
@@ -444,7 +439,9 @@ class LSTMOptimizer(OptimizerInterface):
         test_data_statistics = {}
         model.eval()
 
-        data_loader = self.convert_dataset_to_dataiterator(clean_data)
+        # setup for test data batch-size = 1, so that we don't drop last batch if it does not fit fully into a batch
+        # see: https://pytorch.org/docs/stable/data.html#data-loading-order-and-sampler
+        data_loader = self.convert_dataset_to_dataiterator(clean_data, 1)
         loop = tqdm(data_loader)
 
         # test type is classification accuracy on clean and triggered data
@@ -465,7 +462,9 @@ class LSTMOptimizer(OptimizerInterface):
         if triggered_data is None:
             return test_data_statistics
 
-        data_loader = self.convert_dataset_to_dataiterator(triggered_data)
+        # setup for test data batch-size = 1, so that we don't drop last batch if it does not fit fully into a batch
+        # see: https://pytorch.org/docs/stable/data.html#data-loading-order-and-sampler
+        data_loader = self.convert_dataset_to_dataiterator(triggered_data, 1)
         test_n_correct = 0
         test_n_total = 0
         with torch.no_grad():
@@ -479,4 +478,23 @@ class LSTMOptimizer(OptimizerInterface):
         test_data_statistics['triggered_n_total'] = test_n_total
         logger.info("Accuracy on triggered test data: %0.02f" %
                     (test_data_statistics['triggered_accuracy'],))
+
+        # Test the classification accuracy on clean data for labels which have corresponding triggered examples.
+        # For example, if an MNIST dataset was created with triggered examples only for labels 4 and 5,
+        # then this dataset is the subset of data with labels 4 and 5 that don't have the triggers.
+        data_loader = self.convert_dataset_to_dataiterator(clean_test_triggered_labels_data, 1)
+        test_n_correct = 0
+        test_n_total = 0
+        with torch.no_grad():
+            for batch_idx, batch in enumerate(data_loader):
+                text, text_lengths = batch.text
+                predictions = model(text, text_lengths).squeeze(1)
+                test_acc, test_n_total, test_n_correct = _eval_acc(predictions, batch.label,
+                                                                   n_total=test_n_total,
+                                                                   n_correct=test_n_correct)
+        test_data_statistics['clean_test_triggered_label_accuracy'] = test_acc
+        test_data_statistics['clean_test_triggered_label_n_total'] = test_n_total
+        logger.info("Accuracy on clean-data-triggered-labels: %0.02f for n=%d" %
+                    (test_data_statistics['clean_test_triggered_label_accuracy'], test_n_total))
+
         return test_data_statistics

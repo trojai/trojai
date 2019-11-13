@@ -84,8 +84,9 @@ class Runner:
 
     def run(self) -> None:
         """Trains a model and saves it and the associated model statistics"""
-        train_data, clean_test_data, triggered_test_data, \
-            train_dataset_desc, clean_test_dataset_desc, triggered_test_dataset_desc = self.cfg.data.load_data()
+        train_data, clean_test_data, triggered_test_data, clean_test_triggered_labels_data, \
+            train_dataset_desc, clean_test_dataset_desc, triggered_test_dataset_desc, clean_test_triggered_labels_desc \
+            = self.cfg.data.load_data()
         arch_factory_kwargs = {} if self.cfg.arch_factory_kwargs is None else self.cfg.arch_factory_kwargs
         train_dataloader_kwargs = self.cfg.data.train_dataloader_kwargs
         test_dataloader_kwargs = self.cfg.data.test_dataloader_kwargs
@@ -126,8 +127,8 @@ class Runner:
         # NOTE: The test function used here is one corresponding to the last optimizer used for training. An exception
         #  will be raised if no training occurred, but validation code prior to this line should prevent this from
         #  ever happening.
-        test_acc = optimizer.test(model, clean_test_data, triggered_test_data, self.progress_bar_disable,
-                                  test_dataloader_kwargs)
+        test_acc = optimizer.test(model, clean_test_data, triggered_test_data, clean_test_triggered_labels_data,
+                                  self.progress_bar_disable, test_dataloader_kwargs)
         t3 = time.time()
 
         # Save model train/test statistics and other relevant information
@@ -136,6 +137,8 @@ class Runner:
         model_stats.set_final_clean_data_n_total(test_acc['clean_n_total'])
         model_stats.set_final_triggered_data_test_acc(test_acc.get('triggered_accuracy', None))
         model_stats.set_final_triggered_data_n_total(test_acc.get('triggered_n_total', None))
+        model_stats.set_final_clean_data_triggered_label_test_acc(test_acc.get('clean_test_triggered_label_accuracy', None))
+        model_stats.set_final_clean_data_triggered_label_n(test_acc.get('clean_test_triggered_label_n_total', None))
 
         # add training/test wall-times to stats
         self.persist_info['training_wall_time_sec'] = t2-t1
@@ -201,6 +204,9 @@ class Runner:
         torch.save(model, model_output_fname)
         model_training_stats_dict = stats.get_summary()
         for i, cfg in enumerate(training_cfg_list):
+            # remove function handles from the training_cfg which have been copied over
+            cfg.pop('val_data_transform', None)
+            cfg.pop('val_label_transform', None)
             model_training_stats_dict.update({"optimizer_"+str(i): cfg})
         # add experiment configuration to the dictionary which gets printed
         model_training_stats_dict.update(self.persist_info)
