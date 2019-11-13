@@ -202,8 +202,8 @@ class TorchTextOptimizer(OptimizerInterface):
             val_dataset = None
         else:
             train_dataset, val_dataset = dataset.split(1 - split_amt)
-        val_dataset.data_transform = val_data_transform
-        val_dataset.label_transform = val_label_transform
+            val_dataset.data_transform = val_data_transform
+            val_dataset.label_transform = val_label_transform
         return train_dataset, val_dataset
 
     def convert_dataset_to_dataiterator(self, dataset: CSVTextDataset, batch_size: int=None) -> TextDataIterator:
