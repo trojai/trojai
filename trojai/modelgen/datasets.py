@@ -8,6 +8,7 @@ import cv2
 import pandas as pd
 import torch
 import torchtext.data
+import spacy
 from numpy.random import RandomState
 from torch.utils.data import Dataset
 from tqdm import tqdm
@@ -130,6 +131,15 @@ class CSVTextDataset(torchtext.data.Dataset, DatasetInterface):
          [ ] - parallelize reading in data from disk
          [ ] - revisit reading entire corpus into memory
         """
+
+        # try to download the spacy language pack
+        try:
+            nlp = spacy.load('en')
+        except OSError:
+            msg = 'Downloading language model for the spaCy POS tagger'
+            logger.warning(msg)
+            from spacy.cli import download
+            download('en')
 
         label_column = 'train_label'
         if true_label:
