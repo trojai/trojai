@@ -108,6 +108,7 @@ class TrainingConfig(ConfigInterface):
                  train_val_split: float = 0.,
                  val_data_transform: Callable[[Any], Any] = lambda x: x,
                  val_label_transform: Callable[[int], int] = lambda y: y,
+                 val_dataloader_kwargs: dict = None,
                  early_stopping: EarlyStoppingConfig = None) -> None:
         """
         Initializes a TrainingConfig object
@@ -130,6 +131,15 @@ class TrainingConfig(ConfigInterface):
             NOTE: Currently - this argument is only used if data_type='image'
         :param val_label_transform: (function: int->int) how to transform the label to the validation data; optional
             NOTE: Currently - this argument is only used if data_type='image'
+        :param val_dataloader_kwargs: (dict) Keyword arguments to pass to the torch DataLoader object during for
+            validation data. See https://pytorch.org/docs/stable/_modules/torch/utils/data/dataloader.html for more
+            documentation. If None, defaults will be used. Defaults depend on the optimizer used, but are likely
+            something like:
+                {batch_size: <batch size given in training config>, shuffle: False, pin_memory=<decided by optimizer>,
+                 drop_last=True}
+            NOTE: Setting values in this dictionary that are normally set by the optimizer will override them during
+                training. Use with caution. We recommend only using the following keys: 'shuffle', 'num_workers',
+                'pin_memory', and 'drop_last'.
         :param early_stopping: configuration for early stopping
         TODO:
          [ ] - allow user to configure what the "best" model is
@@ -145,6 +155,7 @@ class TrainingConfig(ConfigInterface):
         self.early_stopping = early_stopping
         self.val_data_transform = val_data_transform
         self.val_label_transform = val_label_transform
+        self.val_dataloader_kwargs = val_dataloader_kwargs
 
         self.validate()
 
@@ -212,6 +223,10 @@ class TrainingConfig(ConfigInterface):
         if not callable(self.val_label_transform):
             raise TypeError("Expected a function for argument 'val_label_transform', "
                             "instead got type: {}".format(type(self.val_label_transform)))
+        if self.val_dataloader_kwargs is not None and not isinstance(self.val_dataloader_kwargs, dict):
+            msg = "val_dataloader_kwargs must be a dictionary!"
+            logger.error(msg)
+            raise ValueError(msg)
 
     def get_cfg_as_dict(self):
         """
@@ -226,18 +241,18 @@ class TrainingConfig(ConfigInterface):
                            objective=self.objective,
                            save_best_model=self.save_best_model,
                            early_stopping=str(self.early_stopping),
-                           # functions aren't JSON serializable, so make these strings
-                           val_data_transform=str(self.val_data_transform),
-                           val_label_transform=str(self.val_label_transform))
+                           val_data_transform=self.val_data_transform,
+                           val_label_transform=self.val_label_transform,
+                           val_dataloader_kwargs=self.val_dataloader_kwargs)
         return output_dict
 
     def __str__(self):
         str_repr = "TrainingConfig: device[%s], num_epochs[%d], batch_size[%d], learning_rate[%.5e], optimizer[%s], " \
                    "objective[%s], train_val_split[%0.02f], val_data_transform[%s], " \
-                   "val_label_transform[%s], early_stopping[%s]" % \
+                   "val_label_transform[%s], val_dataloader_kwargs[%s], early_stopping[%s]" % \
                    (str(self.device.type), self.epochs, self.batch_size, self.lr,
                     str(self.optim), str(self.objective), self.train_val_split, str(self.val_data_transform),
-                    str(self.val_label_transform), str(self.early_stopping))
+                    str(self.val_label_transform), str(self.val_dataloader_kwargs), str(self.early_stopping))
         return str_repr
 
     def __deepcopy__(self, memodict={}):
@@ -252,6 +267,7 @@ class TrainingConfig(ConfigInterface):
         early_stopping = copy.deepcopy(self.early_stopping)
         val_data_transform = copy.deepcopy(self.val_data_transform)
         val_label_transform = copy.deepcopy(self.val_label_transform)
+        val_dataloader_kwargs = copy.deepcopy(self.val_dataloader_kwargs)
         if isinstance(self.optim, str):
             optim = self.optim
         elif isinstance(self.optim, OptimizerInterface):
@@ -269,7 +285,8 @@ class TrainingConfig(ConfigInterface):
             logger.error(msg)
             raise ValueError(msg)
         return TrainingConfig(new_device, epochs, batch_size, lr, optim, objective, save_best_model,
-                              train_val_split, val_data_transform, val_label_transform, early_stopping)
+                              train_val_split, val_data_transform, val_label_transform, val_dataloader_kwargs,
+                              early_stopping)
 
     def __eq__(self, other):
         if self.device.type == other.device.type and self.epochs == other.epochs and \
@@ -278,7 +295,8 @@ class TrainingConfig(ConfigInterface):
            self.train_val_split == other.train_val_split and \
            self.early_stopping == other.early_stopping and \
            self.val_data_transform == other.val_data_transform and \
-           self.val_label_transform == other.val_label_transform:
+           self.val_label_transform == other.val_label_transform and \
+           self.val_dataloader_kwargs == other.val_dataloader_kwargs:
             # now check the objects
             if self.optim == other.optim and self.objective == other.objective:
                 return True

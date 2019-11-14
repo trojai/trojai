@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Sequence, Callable
+from typing import Sequence
 import logging
 
 import torch.nn
@@ -35,6 +35,8 @@ class OptimizerInterface(ABC):
         :param clean_test_data: (CSVDataset) Object containing clean test data
         :param triggered_test_data: (CSVDataset or None) Object containing triggered test data, None if triggered data
             was not provided for testing
+        :param clean_test_triggered_labels_data: triggered part of the training dataset but with correct labels; see
+            DataManger.load_data for more information.
         :param torch_dataloader_kwargs: additional arguments to pass to PyTorch's DataLoader class
         :return: (dict) Dictionary of test accuracy results.
             Required key, value pairs are:

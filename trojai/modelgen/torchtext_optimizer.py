@@ -432,6 +432,8 @@ class TorchTextOptimizer(OptimizerInterface):
         :param model: the trained module to run the test data through
         :param clean_data: the clean Dataset
         :param triggered_data: the triggered Dataset, if None, not computed
+        :param clean_test_triggered_labels_data: triggered part of the training dataset but with correct labels; see
+            DataManger.load_data for more information.
         :param progress_bar_disable: if True, disables the progress bar
         :param torch_dataloader_kwargs: additional arguments to pass to PyTorch's DataLoader class
         :return: a dictionary of the statistics on the clean and triggered data (if applicable)
