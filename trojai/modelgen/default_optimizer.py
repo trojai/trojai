@@ -283,16 +283,15 @@ class DefaultOptimizer(OptimizerInterface):
             pin_memory = True
 
         # split into train & validation datasets, and setup data loaders
+        data_loader_kwargs_in = dict(batch_size=self.batch_size, pin_memory=pin_memory, drop_last=True,
+                                     shuffle=True)
         if torch_dataloader_kwargs:
-            data_loader_kwargs_in = torch_dataloader_kwargs
-        else:
-            data_loader_kwargs_in = dict(batch_size=self.batch_size, pin_memory=pin_memory, drop_last=True,
-                                         shuffle=True)
+            data_loader_kwargs_in.update(torch_dataloader_kwargs)
+
+        val_data_loader_kwargs_in = dict(batch_size=self.batch_size, pin_memory=pin_memory, drop_last=True,
+                                         shuffle=False)
         if self.optimizer_cfg.training_cfg.val_dataloader_kwargs:
-            val_data_loader_kwargs_in = self.optimizer_cfg.training_cfg.val_dataloader_kwargs
-        else:
-            val_data_loader_kwargs_in = dict(batch_size=self.batch_size, pin_memory=pin_memory, drop_last=True,
-                                             shuffle=False)
+            val_data_loader_kwargs_in.update(self.optimizer_cfg.training_cfg.val_dataloader_kwargs)
 
         logger.info('DataLoader[Train/Val] kwargs=' + str(torch_dataloader_kwargs))
 
@@ -494,10 +493,9 @@ class DefaultOptimizer(OptimizerInterface):
             pin_memory = True
 
         # drop_last=True is from: https://stackoverflow.com/questions/56576716
+        data_loader_kwargs_in = dict(batch_size=1, pin_memory=pin_memory, drop_last=True, shuffle=False)
         if torch_dataloader_kwargs:
-            data_loader_kwargs_in = torch_dataloader_kwargs
-        else:
-            data_loader_kwargs_in = dict(batch_size=1, pin_memory=pin_memory, drop_last=True, shuffle=False)
+            data_loader_kwargs_in.update(torch_dataloader_kwargs)
         logger.info('DataLoader[Test] kwargs=' + str(torch_dataloader_kwargs))
         data_loader = DataLoader(clean_data, **data_loader_kwargs_in)
 
