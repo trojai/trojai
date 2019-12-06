@@ -12,8 +12,6 @@ class TestTrainingStatistics(unittest.TestCase):
         batch_num = 1
         batch_train_acc = 50
         batch_train_loss = -4
-        batch_val_acc = 75
-        batch_val_loss = -3
         batch_statistics = tpm_ts.BatchStatistics(batch_num,
                                                   batch_train_acc, batch_train_loss)
         self.assertEqual(batch_statistics.get_batch_num(), batch_num)

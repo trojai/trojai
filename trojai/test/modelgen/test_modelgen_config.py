@@ -3,6 +3,7 @@ from unittest.mock import Mock
 
 import os
 import shutil
+import tempfile
 
 import torchvision.models as models
 
@@ -24,23 +25,25 @@ class TestModelGeneratorConfig(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        if os.path.isdir('./test_model_dir'):
-            shutil.rmtree('./test_model_dir')
+        pass
 
     def setUp(self):
-        self.model_save_dir = './test_model_dir'
-        self.stats_save_dir = './test_stats_dir'
+        self.m_tmp_dir = tempfile.TemporaryDirectory()
+        self.s_tmp_dir = tempfile.TemporaryDirectory()
+        self.model_save_dir = self.m_tmp_dir.name
+        self.stats_save_dir = self.s_tmp_dir.name
         self.tdm = Mock(spec=DataManager)
 
     def tearDown(self):
-        pass
+        self.m_tmp_dir.cleanup()
+        self.s_tmp_dir.cleanup()
 
     def test_good_param_configs(self):
         mgc = ModelGeneratorConfig(MyArchFactory(), self.tdm, self.model_save_dir, self.stats_save_dir, 10)
         self.assertIsInstance(mgc.arch_factory, ArchitectureFactory)
         self.assertIsInstance(mgc.data, DataManager)
         self.assertEqual(mgc.data, self.tdm)
-        self.assertEqual(mgc.model_save_dir, './test_model_dir')
+        self.assertEqual(mgc.model_save_dir, self.model_save_dir)
         self.assertEqual(mgc.num_models, 10)
 
         mgc = ModelGeneratorConfig(MyArchFactory(), self.tdm, self.model_save_dir, self.stats_save_dir, 15)
