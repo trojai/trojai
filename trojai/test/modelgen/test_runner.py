@@ -1,23 +1,22 @@
+import os
+import tempfile
 import unittest
+import warnings
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 import torch.nn as nn
 import torchvision.models as models
 
-import os
-import shutil
-from pathlib import Path
-
-from trojai.modelgen.data_manager import DataManager
-from trojai.modelgen.optimizer_interface import OptimizerInterface
-from trojai.modelgen.config import RunnerConfig, TrainingConfig, DefaultOptimizerConfig
-from trojai.modelgen.runner import Runner, add_numerical_extension
-from trojai.modelgen.training_statistics import TrainingRunStatistics
-from trojai.modelgen.default_optimizer import DefaultOptimizer
-from trojai.modelgen.training_statistics import BatchStatistics, EpochStatistics
 from trojai.modelgen.architecture_factory import ArchitectureFactory
+from trojai.modelgen.config import RunnerConfig, TrainingConfig, DefaultOptimizerConfig
+from trojai.modelgen.data_manager import DataManager
+from trojai.modelgen.default_optimizer import DefaultOptimizer
+from trojai.modelgen.optimizer_interface import OptimizerInterface
+from trojai.modelgen.runner import Runner, add_numerical_extension
+from trojai.modelgen.training_statistics import BatchStatistics, EpochStatistics
+from trojai.modelgen.training_statistics import TrainingRunStatistics
 
-import warnings
 warnings.filterwarnings("ignore")
 
 
@@ -31,24 +30,10 @@ class TestRunner(unittest.TestCase):
         pass
 
     def setUp(self):
-        try:
-            os.makedirs('./test_dir')
-        except IOError:
-            pass
-        try:
-            os.makedirs('./test_dir_stats')
-        except IOError:
-            pass
+        pass
 
     def tearDown(self):
-        try:
-            shutil.rmtree('./test_dir')
-        except IOError:
-            pass
-        try:
-            shutil.rmtree('./test_dir_stats')
-        except IOError:
-            pass
+        pass
 
     def test_runner_init_good_arg(self):
         mock_runner_config = Mock(spec=RunnerConfig)
@@ -265,11 +250,14 @@ class TestRunner(unittest.TestCase):
         self.assertEqual(Runner._get_training_cfg(object()), {})
 
     def test_save_model(self):
+        tmp_1 = tempfile.TemporaryDirectory()
+        stats_tmp_1 = tempfile.TemporaryDirectory()
+
         # path and file names to test to ensure correct file name saving
-        path1 = './test_dir'
-        path1_stats_dir = './test_dir_stats'
-        path2 = './test_dir/'
-        path2_stats_dir = './test_dir_stats/'
+        path1 = tmp_1.name
+        path1_stats_dir = stats_tmp_1.name
+        path2 = path1 + '/'
+        path2_stats_dir = path1_stats_dir + '/'
         pt_filename = 'model.pt'
 
         m_model = models.alexnet()
@@ -299,68 +287,53 @@ class TestRunner(unittest.TestCase):
         runner._save_model_and_stats(m_model, ts, [])
         self.assertTrue(os.path.isfile(path2 + 'AlexNet_id50.pt.1'))
 
-        os.remove(path2 + 'model.pt.1')
-        os.remove(path2 + 'model.pt.2')
-        os.remove(path2 + 'AlexNet_id50.pt.1')
+        tmp_1.cleanup()
+        stats_tmp_1.cleanup()
 
     def test_add_numerical_extension(self):
-        p = './test_dir/'
-        try:
-            os.makedirs(p)
-        except IOError:
-            pass
+        with tempfile.TemporaryDirectory() as p:
+            input_filenames = ['model.pt', 'model.alpha_0.2.pt', 'model.alpha_0.2.pt.1']
+            expected_output_filenames = ['model.pt.1', 'model.alpha_0.2.pt.1', 'model.alpha_0.2.pt.2']
+            for ii in range(len(input_filenames)):
+                input_fname = input_filenames[ii]
+                expected_output_fname = expected_output_filenames[ii]
+                actual_output_fname = add_numerical_extension(p, input_fname)
+                self.assertEqual(expected_output_fname, actual_output_fname)
 
-        input_filenames = ['model.pt', 'model.alpha_0.2.pt', 'model.alpha_0.2.pt.1']
-        expected_output_filenames = ['model.pt.1', 'model.alpha_0.2.pt.1', 'model.alpha_0.2.pt.2']
-        for ii in range(len(input_filenames)):
-            input_fname = input_filenames[ii]
-            expected_output_fname = expected_output_filenames[ii]
-            actual_output_fname = add_numerical_extension(p, input_fname)
-            self.assertEqual(expected_output_fname, actual_output_fname)
-
-        # check when files actually exist on disk in a serial fashion
-        query_fname = 'model.pt'
-        for ii in range(25):
-            expected_output_fname = query_fname+'.'+str(ii+1)  # b/c ii starts at 0
-            actual_output_fname = add_numerical_extension(p, query_fname)
-            self.assertEqual(expected_output_fname, actual_output_fname)
-            # now write this file to disk, to ensure the globbing works properly and we increment to the following digit
-            Path(os.path.join(p, actual_output_fname)).touch()
+            # check when files actually exist on disk in a serial fashion
+            query_fname = 'model.pt'
+            for ii in range(25):
+                expected_output_fname = query_fname+'.'+str(ii+1)  # b/c ii starts at 0
+                actual_output_fname = add_numerical_extension(p, query_fname)
+                self.assertEqual(expected_output_fname, actual_output_fname)
+                # now write this file to disk, to ensure the globbing works properly and we increment to the following
+                # digit
+                Path(os.path.join(p, actual_output_fname)).touch()
 
     def test_add_numerical_extension2(self):
-        p = './test_dir/'
-        try:
-            os.makedirs(p)
-        except IOError:
-            pass
-
-        fname_prefix = 'ModdedLeNet5Net_mnist_dynamic_norotation__alphatrigger_0.05.pt'
-        num_models = 10
-        for ii in range(1, num_models+1):
-            Path(os.path.join(p, fname_prefix+'.'+str(ii))).touch()
-        next_actual_fname = add_numerical_extension(p, fname_prefix)
-        next_expected_fname = fname_prefix+'.11'
-        self.assertEqual(next_expected_fname, next_actual_fname)
+        with tempfile.TemporaryDirectory() as p:
+            fname_prefix = 'ModdedLeNet5Net_mnist_dynamic_norotation__alphatrigger_0.05.pt'
+            num_models = 10
+            for ii in range(1, num_models+1):
+                Path(os.path.join(p, fname_prefix+'.'+str(ii))).touch()
+            next_actual_fname = add_numerical_extension(p, fname_prefix)
+            next_expected_fname = fname_prefix+'.11'
+            self.assertEqual(next_expected_fname, next_actual_fname)
 
     def test_add_numerical_extension3(self):
-        p = './test_dir/'
-        try:
-            os.makedirs(p)
-        except IOError:
-            pass
-
-        fname_prefix = 'model.pt'
-        num_models = 10
-        for ii in range(1, num_models+1):
-            # create model skeleton
-            Path(os.path.join(p, fname_prefix+'.'+str(ii))).touch()
-            # create stats skeleton
-            Path(os.path.join(p, fname_prefix + '.' + str(ii)+'.stats.json')).touch()
-            # create detailed stats skeleton
-            Path(os.path.join(p, fname_prefix + '.' + str(ii) + '.stats.detailed.csv')).touch()
-        next_actual_model_fname = add_numerical_extension(p, fname_prefix)
-        next_expected_model_fname = fname_prefix+'.11'
-        self.assertEqual(next_expected_model_fname, next_actual_model_fname)
+        with tempfile.TemporaryDirectory() as p:
+            fname_prefix = 'model.pt'
+            num_models = 10
+            for ii in range(1, num_models+1):
+                # create model skeleton
+                Path(os.path.join(p, fname_prefix+'.'+str(ii))).touch()
+                # create stats skeleton
+                Path(os.path.join(p, fname_prefix + '.' + str(ii)+'.stats.json')).touch()
+                # create detailed stats skeleton
+                Path(os.path.join(p, fname_prefix + '.' + str(ii) + '.stats.detailed.csv')).touch()
+            next_actual_model_fname = add_numerical_extension(p, fname_prefix)
+            next_expected_model_fname = fname_prefix+'.11'
+            self.assertEqual(next_expected_model_fname, next_actual_model_fname)
 
 
 if __name__ == "__main__":

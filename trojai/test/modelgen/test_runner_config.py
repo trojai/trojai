@@ -4,8 +4,6 @@ from unittest.mock import Mock
 
 import torch.nn as nn
 
-import os
-
 from trojai.modelgen.data_manager import DataManager
 from trojai.modelgen.optimizer_interface import OptimizerInterface
 from trojai.modelgen.config import RunnerConfig
