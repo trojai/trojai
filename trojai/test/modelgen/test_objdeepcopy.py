@@ -4,6 +4,7 @@ import torch
 import os
 import shutil
 import csv
+import tempfile
 
 import trojai.modelgen.config as tpmc
 import trojai.modelgen.architecture_factory as tpmaf
@@ -18,23 +19,13 @@ Test custom __deepcopy__ implementations
 
 class TestCopyImplementations(unittest.TestCase):
     def setUp(self) -> None:
-        self.experiment_path = "/tmp/experiment"
+        self.tmp_file = tempfile.TemporaryDirectory()
+        self.experiment_path = self.tmp_file.name
         self.train_file = os.path.join(self.experiment_path, "train.csv")
         self.clean_test_file = os.path.join(self.experiment_path, "test.csv")
         self.triggered_file = os.path.join(self.experiment_path, "triggered.csv")
         self.model_save_dir = os.path.join(self.experiment_path, "model_save_dir")
         self.stats_save_dir = os.path.join(self.experiment_path, "stats_save_dir")
-
-        dirs_to_rm_and_make = [self.model_save_dir, self.stats_save_dir]
-        for d in dirs_to_rm_and_make:
-            try:
-                shutil.rmtree(d)
-            except IOError:
-                pass
-            try:
-                os.makedirs(d)
-            except IOError:
-                pass
 
         # make dummy CSV files to pass validation()
         dummy_csv_files = [self.train_file, self.clean_test_file, self.triggered_file]
@@ -47,10 +38,7 @@ class TestCopyImplementations(unittest.TestCase):
             f.close()
 
     def tearDown(self) -> None:
-        try:
-            shutil.rmtree(self.experiment_path)
-        except IOError:
-            pass
+        self.tmp_file.cleanup()
 
     def test_training_config_copy1(self):
         t1 = tpmc.TrainingConfig()

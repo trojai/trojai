@@ -1,4 +1,5 @@
 import unittest
+import tempfile
 import os
 import random
 
@@ -8,32 +9,31 @@ from trojai.modelgen.datasets import CSVDataset
 
 
 class TestDataManager(unittest.TestCase):
+    tmp_dir = tempfile.TemporaryDirectory()
+    data_path = tmp_dir.name
+    data_filename = 'test_file.csv'
 
     @classmethod
     def setUpClass(cls):
-        test_data = pd.DataFrame.from_dict({'A': {0: 0, 1: 2}, 'B': {0: 1, 1: 3}, 'train_label': {0: 0, 1: 1}})
-        data_path = 'test_dir'
-        data_filename = 'test_file.csv'
-        os.mkdir(data_path)
-        test_data.to_csv(os.path.join(data_path, data_filename), index=False)
-        random.seed(1234)
+        pass
 
     @classmethod
     def tearDownClass(cls):
-        os.remove('test_dir/test_file.csv')
-        os.rmdir('test_dir')
+        pass
 
     def setUp(self):
-        pass
+        test_data = pd.DataFrame.from_dict({'A': {0: 0, 1: 2}, 'B': {0: 1, 1: 3}, 'train_label': {0: 0, 1: 1}})
+        test_data.to_csv(os.path.join(self.data_path, self.data_filename), index=False)
+        random.seed(1234)
 
     def tearDown(self):
-        pass
+        self.tmp_dir.cleanup()
 
     def test_datasets(self):
         # Note that inputs for these objects should have been validated previously by DataManager and its
         # config object
-        data_path = 'test_dir'
-        data_filename = 'test_file.csv'
+        data_path = self.data_path
+        data_filename = self.data_filename
         csv_dataset = CSVDataset(data_path, data_filename, data_loader=lambda x: x + 1, data_transform=lambda x: x ** 2,
                                  label_transform=lambda x: str(x))
         correct_dataframe = pd.DataFrame.from_dict({'A': {0: 0, 1: 2}, 'B': {0: 1, 1: 3}, 'train_label': {0: 0, 1: 1}})

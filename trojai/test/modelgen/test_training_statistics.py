@@ -1,7 +1,6 @@
 import unittest
 import tempfile
 import pandas as pd
-import os
 import numpy as np
 
 import trojai.modelgen.training_statistics as tpm_ts
@@ -12,8 +11,6 @@ class TestTrainingStatistics(unittest.TestCase):
         batch_num = 1
         batch_train_acc = 50
         batch_train_loss = -4
-        batch_val_acc = 75
-        batch_val_loss = -3
         batch_statistics = tpm_ts.BatchStatistics(batch_num,
                                                   batch_train_acc, batch_train_loss)
         self.assertEqual(batch_statistics.get_batch_num(), batch_num)
@@ -135,20 +132,16 @@ class TestTrainingStatistics(unittest.TestCase):
         training_stats.add_epoch(epoch1_stats)
         training_stats.add_epoch([epoch2_stats, epoch3_stats])
 
-        output_file = tempfile.NamedTemporaryFile(delete=False)
-        fname = output_file.name
-        output_file.close()
-        training_stats.save_detailed_stats_to_disk(fname)
-        # read in the file w/ pandas and ensure data consistency
-        df = pd.read_csv(fname)
-        self.assertTrue(np.array_equal(df['epoch_number'].values, np.asarray([1, 2, 3])))
-        self.assertTrue(np.array_equal(df['train_acc'].values, np.asarray([.5, .6, .7])))
-        self.assertTrue(np.array_equal(df['train_loss'].values, np.asarray([1.5, 1.6, 1.7])))
-        self.assertTrue(np.array_equal(df['val_acc'].values, np.asarray([2.5, 2.6, 2.7])))
-        self.assertTrue(np.array_equal(df['val_loss'].values, np.asarray([3.5, 3.6, 3.7])))
-
-        # delete file
-        os.unlink(fname)
+        with tempfile.NamedTemporaryFile() as output_file:
+            fname = output_file.name
+            training_stats.save_detailed_stats_to_disk(fname)
+            # read in the file w/ pandas and ensure data consistency
+            df = pd.read_csv(fname)
+            self.assertTrue(np.array_equal(df['epoch_number'].values, np.asarray([1, 2, 3])))
+            self.assertTrue(np.array_equal(df['train_acc'].values, np.asarray([.5, .6, .7])))
+            self.assertTrue(np.array_equal(df['train_loss'].values, np.asarray([1.5, 1.6, 1.7])))
+            self.assertTrue(np.array_equal(df['val_acc'].values, np.asarray([2.5, 2.6, 2.7])))
+            self.assertTrue(np.array_equal(df['val_loss'].values, np.asarray([3.5, 3.6, 3.7])))
 
 
 if __name__ == '__main__':
