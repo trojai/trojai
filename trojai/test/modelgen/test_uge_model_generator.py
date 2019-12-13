@@ -3,7 +3,7 @@ from unittest.mock import Mock
 
 import torch.nn
 import os
-import shutil
+import tempfile
 
 import trojai.modelgen.config
 import trojai.modelgen.uge_model_generator as tpmu
@@ -17,28 +17,16 @@ class TestUGEModelGenerator(unittest.TestCase):
     """
     Tests the UGE Model Generator
     """
-    def remove_dirs(self):
-        # delete the working directory if it's there
-        dirs_to_remove = [self.uge_working_directory,
-                          self.model_save_dir_cfg1, self.stats_save_dir_cfg1,
-                          self.model_save_dir_cfg2, self.stats_save_dir_cfg2]
-        for d in dirs_to_remove:
-            try:
-                shutil.rmtree(d)
-            except IOError:
-                pass
-
     def setUp(self) -> None:
-        self.uge_working_directory = "/tmp/uge_wd_1"
-        self.model_save_dir_cfg1 = "/tmp/test_models_dir1"
-        self.stats_save_dir_cfg1 = "/tmp/test_stats_dir1"
-        self.model_save_dir_cfg2 = "/tmp/test_models_dir2"
-        self.stats_save_dir_cfg2 = "/tmp/test_stats_dir2"
-
-        self.remove_dirs()
+        self.tmp_dir = tempfile.TemporaryDirectory()
+        self.uge_working_directory = os.path.join(self.tmp_dir.name, "uge_wd_1")
+        self.model_save_dir_cfg1 = os.path.join(self.tmp_dir.name, "test_models_dir1")
+        self.stats_save_dir_cfg1 = os.path.join(self.tmp_dir.name, "test_stats_dir1")
+        self.model_save_dir_cfg2 = os.path.join(self.tmp_dir.name, "test_models_dir2")
+        self.stats_save_dir_cfg2 = os.path.join(self.tmp_dir.name, "test_stats_dir2")
 
     def tearDown(self) -> None:
-        self.remove_dirs()
+        self.tmp_dir.cleanup()
 
     def test_expand_modelgen_configs1(self):
         q1 = trojai.modelgen.config.UGEQueueConfig("gpu-k40.q", True)
@@ -187,44 +175,44 @@ import trojai.modelgen.config as tpmc
 import trojai.modelgen.runner as tpmr
 
 # setup logger
-logging.config.dictConfig({
+logging.config.dictConfig({{
     'version': 1,
-    'formatters': {
-        'detailed': {
+    'formatters': {{
+        'detailed': {{
             'format': '[%(asctime)s] %(levelname)s in %(module)s: %(message)s',
-        },
-    },
-    'handlers': {
-        'file': {
+        }},
+    }},
+    'handlers': {{
+        'file': {{
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename': '/tmp/uge_wd_1/script.py.log',
+            'filename': '{0}/script.py.log',
             'maxBytes': 10 * 1024 * 1024,
             'backupCount': 5,
             'formatter': 'detailed',
             'level': 'INFO',
-        },
-    },
-    'loggers': {
-        'trojai': {
+        }},
+    }},
+    'loggers': {{
+        'trojai': {{
             'handlers': ['file'],
-        },
-        'trojai_private': {
+        }},
+        'trojai_private': {{
             'handlers': ['file'],
-        },
-    },
-    'root': {
+        }},
+    }},
+    'root': {{
         'level': 'INFO',
-    },
-})
+    }},
+}})
 
-modelgen_cfg = tpmc.ModelGeneratorConfig.load("/tmp/uge_wd_1/model_persist.pkl")
-with open("/tmp/uge_wd_1/abc", 'r') as f:
+modelgen_cfg = tpmc.ModelGeneratorConfig.load("{0}/model_persist.pkl")
+with open("{0}/abc", 'r') as f:
     persist_metadata = json.load(f)
 run_cfg = tpmc.modelgen_cfg_to_runner_cfg(modelgen_cfg, run_id=None, filename=None)
 
 runner = tpmr.Runner(run_cfg, persist_metadata=persist_metadata, progress_bar_disable=True)
 runner.run()
-        '''
+        '''.format(self.uge_working_directory)
         with open(pyscript_fname, "r") as f:
             actual_file_contents = f.readlines()
         expected_file_contents = expected_file_contents.split('\n')
@@ -251,8 +239,8 @@ module load cuda91
 . /cm/shared/apps/anaconda3/etc/profile.d/conda.sh
 conda activate trojai
 
-python3 /tmp/uge_wd_1/script.py
-        '''
+python3 {}/script.py
+        '''.format(self.uge_working_directory)
         with open(bashscript_fname, "r") as f:
             actual_file_contents = f.readlines()
         expected_file_contents = expected_file_contents.split('\n')
@@ -275,15 +263,11 @@ python3 /tmp/uge_wd_1/script.py
         cmd = tpmu.UGEModelGenerator._gen_bash_command(bashscript_fname, uge_log_fname, queue_name,
                                                        gpu_node=False, sync_mode=False)
         expected_command = "qsub -q test.q -V -v PATH -cwd -S /bin/bash -j y " \
-                           "-o /tmp/uge_wd_1/uge_log.txt /tmp/uge_wd_1/bash_script.sh"
+                           "-o {0}/uge_log.txt {0}/bash_script.sh".format(self.uge_working_directory)
         self.assertEqual(cmd, expected_command)
 
     def test_gen_bash_command2(self):
         # since this is calling a static function, we need to create the directories
-        try:
-            os.makedirs(self.uge_working_directory)
-        except IOError:
-            pass
         bashscript_fname = os.path.join(self.uge_working_directory, "bash_script.sh")
         uge_log_fname = os.path.join(self.uge_working_directory, "uge_log.txt")
         queue_name = "test.q"
@@ -291,7 +275,7 @@ python3 /tmp/uge_wd_1/script.py
         cmd = tpmu.UGEModelGenerator._gen_bash_command(bashscript_fname, uge_log_fname, queue_name,
                                                        gpu_node=True, sync_mode=False)
         expected_command = "qsub -q test.q -l gpu=1 -V -v PATH -cwd -S /bin/bash -j y " \
-                           "-o /tmp/uge_wd_1/uge_log.txt /tmp/uge_wd_1/bash_script.sh"
+                           "-o {0}/uge_log.txt {0}/bash_script.sh".format(self.uge_working_directory)
         self.assertEqual(expected_command, cmd)
 
 

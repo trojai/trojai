@@ -1,9 +1,8 @@
 import unittest
+import tempfile
 from unittest.mock import Mock
 
 import torch.nn as nn
-
-import os
 
 from trojai.modelgen.data_manager import DataManager
 from trojai.modelgen.optimizer_interface import OptimizerInterface
@@ -21,18 +20,14 @@ class TestRunnerConfig(unittest.TestCase):
         pass
 
     def setUp(self):
-        self.model_save_dir = './test_dir/'
-        self.stats_save_dir = './test_dir/'
+        self.m_tmp_dir = tempfile.TemporaryDirectory()
+        self.s_tmp_dir = tempfile.TemporaryDirectory()
+        self.model_save_dir = self.m_tmp_dir.name
+        self.stats_save_dir = self.s_tmp_dir.name
 
     def tearDown(self):
-        try:
-            os.rmdir(self.model_save_dir)
-        except IOError:
-            pass
-        try:
-            os.rmdir(self.stats_save_dir)
-        except IOError:
-            pass
+        self.m_tmp_dir.cleanup()
+        self.s_tmp_dir.cleanup()
 
     def test_good_runner_config_args(self):
         mock_arch_factory = Mock(spec=ArchitectureFactory)
