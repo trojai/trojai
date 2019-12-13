@@ -515,44 +515,43 @@ class DefaultOptimizer(OptimizerInterface):
         logger.info("Accuracy on clean test data: %0.02f" %
                     (test_data_statistics['clean_accuracy'],))
 
-        if triggered_data is None:
-            return test_data_statistics
+        if triggered_data is not None:
+            # drop_last=True is from: https://stackoverflow.com/questions/56576716
+            # Test the classification accuracy on triggered data only, for all labels.
+            data_loader = DataLoader(triggered_data, batch_size=1, pin_memory=pin_memory)
+            test_n_correct = 0
+            test_n_total = 0
+            with torch.no_grad():
+                for batch, (x, y_truth) in enumerate(data_loader):
+                    x = x.to(self.device)
+                    y_truth = y_truth.to(self.device)
+                    y_hat = net(x)
+                    test_acc, test_n_total, test_n_correct = _eval_acc(y_hat, y_truth,
+                                                                       n_total=test_n_total,
+                                                                       n_correct=test_n_correct)
+            test_data_statistics['triggered_accuracy'] = test_acc
+            test_data_statistics['triggered_n_total'] = test_n_total
+            logger.info("Accuracy on triggered test data: %0.02f for n=%d" %
+                        (test_data_statistics['triggered_accuracy'], test_n_total))
 
-        # drop_last=True is from: https://stackoverflow.com/questions/56576716
-        # Test the classification accuracy on triggered data only, for all labels.
-        data_loader = DataLoader(triggered_data, batch_size=1, pin_memory=pin_memory)
-        test_n_correct = 0
-        test_n_total = 0
-        with torch.no_grad():
-            for batch, (x, y_truth) in enumerate(data_loader):
-                x = x.to(self.device)
-                y_truth = y_truth.to(self.device)
-                y_hat = net(x)
-                test_acc, test_n_total, test_n_correct = _eval_acc(y_hat, y_truth,
-                                                                   n_total=test_n_total,
-                                                                   n_correct=test_n_correct)
-        test_data_statistics['triggered_accuracy'] = test_acc
-        test_data_statistics['triggered_n_total'] = test_n_total
-        logger.info("Accuracy on triggered test data: %0.02f for n=%d" %
-                    (test_data_statistics['triggered_accuracy'], test_n_total))
-
-        # Test the classification accuracy on clean data for labels which have corresponding triggered examples.
-        # For example, if an MNIST dataset was created with triggered examples only for labels 4 and 5,
-        # then this dataset is the subset of data with labels 4 and 5 that don't have the triggers.
-        data_loader = DataLoader(clean_test_triggered_labels_data, batch_size=1, pin_memory=pin_memory)
-        test_n_correct = 0
-        test_n_total = 0
-        with torch.no_grad():
-            for batch, (x, y_truth) in enumerate(data_loader):
-                x = x.to(self.device)
-                y_truth = y_truth.to(self.device)
-                y_hat = net(x)
-                test_acc, test_n_total, test_n_correct = _eval_acc(y_hat, y_truth,
-                                                                   n_total=test_n_total,
-                                                                   n_correct=test_n_correct)
-        test_data_statistics['clean_test_triggered_label_accuracy'] = test_acc
-        test_data_statistics['clean_test_triggered_label_n_total'] = test_n_total
-        logger.info("Accuracy on clean-data-triggered-labels: %0.02f for n=%d" %
-                    (test_data_statistics['clean_test_triggered_label_accuracy'], test_n_total))
+        if clean_test_triggered_labels_data is not None:
+            # Test the classification accuracy on clean data for labels which have corresponding triggered examples.
+            # For example, if an MNIST dataset was created with triggered examples only for labels 4 and 5,
+            # then this dataset is the subset of data with labels 4 and 5 that don't have the triggers.
+            data_loader = DataLoader(clean_test_triggered_labels_data, batch_size=1, pin_memory=pin_memory)
+            test_n_correct = 0
+            test_n_total = 0
+            with torch.no_grad():
+                for batch, (x, y_truth) in enumerate(data_loader):
+                    x = x.to(self.device)
+                    y_truth = y_truth.to(self.device)
+                    y_hat = net(x)
+                    test_acc, test_n_total, test_n_correct = _eval_acc(y_hat, y_truth,
+                                                                       n_total=test_n_total,
+                                                                       n_correct=test_n_correct)
+            test_data_statistics['clean_test_triggered_label_accuracy'] = test_acc
+            test_data_statistics['clean_test_triggered_label_n_total'] = test_n_total
+            logger.info("Accuracy on clean-data-triggered-labels: %0.02f for n=%d" %
+                        (test_data_statistics['clean_test_triggered_label_accuracy'], test_n_total))
 
         return test_data_statistics
