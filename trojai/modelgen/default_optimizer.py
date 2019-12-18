@@ -289,9 +289,11 @@ class DefaultOptimizer(OptimizerInterface):
             data_loader_kwargs_in.update(torch_dataloader_kwargs)
 
         val_data_loader_kwargs_in = dict(batch_size=self.batch_size, pin_memory=pin_memory, drop_last=True,
-                                         shuffle=False)
+                                         shuffle=True)
         if self.optimizer_cfg.training_cfg.val_dataloader_kwargs:
             val_data_loader_kwargs_in.update(self.optimizer_cfg.training_cfg.val_dataloader_kwargs)
+        if torch_dataloader_kwargs:
+            val_data_loader_kwargs_in.update(torch_dataloader_kwargs)
 
         logger.info('DataLoader[Train/Val] kwargs=' + str(torch_dataloader_kwargs))
 
@@ -435,6 +437,7 @@ class DefaultOptimizer(OptimizerInterface):
         # if we have validation data, we compute on the validation dataset
         validation_stats = None
         num_val_batches = len(val_loader)
+        print('Running Validation')
         if num_val_batches > 0:
             # last condition ensures metrics are computed for storage put model into evaluation mode
             model.eval()
@@ -444,6 +447,7 @@ class DefaultOptimizer(OptimizerInterface):
                 for val_batch_idx, (x_eval, y_truth_eval) in enumerate(val_loader):
                     x_eval = x_eval.to(self.device)
                     y_truth_eval = y_truth_eval.to(self.device)
+
                     y_hat_eval = model(x_eval)
 
                     val_loss_tensor = self._eval_loss_function(y_hat_eval, y_truth_eval)
