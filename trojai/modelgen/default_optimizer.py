@@ -437,7 +437,7 @@ class DefaultOptimizer(OptimizerInterface):
         # if we have validation data, we compute on the validation dataset
         validation_stats = None
         num_val_batches = len(val_loader)
-        print('Running Validation')
+        logger.debug('Running Validation')
         if num_val_batches > 0:
             # last condition ensures metrics are computed for storage put model into evaluation mode
             model.eval()
