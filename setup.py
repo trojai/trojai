@@ -5,10 +5,10 @@ import setuptools
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
-__author__ = 'Kiran Karra, Chace Ashcraft, Nat Kavaler, Neil Fendley, Nathan Drenkow, Cash Costello'
+__author__ = 'Kiran Karra, Chace Ashcraft, Nat Kavaler, Michael Majurski'
 __email__ = 'kiran.karra@jhuapl.edu,chace.ashcraft@jhuapl.edu,nathaniel.kavaler@jhaupl.edu,' \
-            'neil.fendley@jhuapl.edu,nathan.drenkow@jhuapl.edu,cash.costello@jhuapl.edu'
-__version__ = '0.2.10'
+            'michael.majurski@nist.gov'
+__version__ = '0.2.11'
 
 
 setuptools.setup(
