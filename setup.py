@@ -9,7 +9,10 @@ __author__ = 'Kiran Karra, Chace Ashcraft, Nat Kavaler, Michael Majurski'
 __email__ = 'kiran.karra@jhuapl.edu,chace.ashcraft@jhuapl.edu,nathaniel.kavaler@jhaupl.edu,' \
             'michael.majurski@nist.gov'
 __version__ = '0.2.11'
-
+# Additional credit for software design attributed to:
+#  Nathan Drenkow: nathan.drenkow@jhuapl.edu
+#  Cash Costello: cash.costello@jhuapl.edu
+#  Neil Fendley: neil.fendley@jhuapl.edu
 
 setuptools.setup(
     name='trojai',
