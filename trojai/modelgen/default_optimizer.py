@@ -303,7 +303,7 @@ class DefaultOptimizer(OptimizerInterface):
         # drop_last=True is from: https://stackoverflow.com/questions/56576716
         train_loader = DataLoader(train_dataset, **data_loader_kwargs_in)
         # drop_last=True is from: https://stackoverflow.com/questions/56576716
-        val_loader = DataLoader(val_dataset, **val_data_loader_kwargs_in)
+        val_loader = DataLoader(val_dataset, **val_data_loader_kwargs_in) if len(val_dataset) > 0 else []
 
         # stores training & val data statistics for every epoch
         epoch_stats = []

@@ -204,8 +204,10 @@ class TrainingRunStatistics:
 
         self.set_final_train_acc(final_epoch_training_stats.get_epoch_training_stats().get_train_acc())
         self.set_final_train_loss(final_epoch_training_stats.get_epoch_training_stats().get_train_loss())
-        self.set_final_val_acc(final_epoch_training_stats.get_epoch_validation_stats().get_val_acc())
-        self.set_final_val_loss(final_epoch_training_stats.get_epoch_validation_stats().get_val_loss())
+        if final_epoch_training_stats.get_epoch_validation_stats():
+            self.set_final_val_acc(final_epoch_training_stats.get_epoch_validation_stats().get_val_acc())
+        if final_epoch_training_stats.get_epoch_validation_stats():
+            self.set_final_val_loss(final_epoch_training_stats.get_epoch_validation_stats().get_val_loss())
         self.final_optimizer_num_epochs_trained = self.num_epochs_trained_per_optimizer[-1]
 
     def set_final_train_acc(self, acc):
@@ -319,10 +321,15 @@ class TrainingRunStatistics:
                 # TODO: we ignore batch_statistics for now, we may want to add this in in the future
                 epoch_training_stats = e.get_epoch_training_stats()
                 epoch_val_stats = e.get_epoch_validation_stats()
+                val_acc = None
+                val_loss = None
+                if epoch_val_stats is not None:
+                    val_acc = epoch_val_stats.get_val_acc()
+                    val_loss = epoch_val_stats.get_val_loss()
                 dict_writer.writerow(dict(epoch_number=e.get_epoch_num(),
                                           train_acc=epoch_training_stats.get_train_acc(),
                                           train_loss=epoch_training_stats.get_train_loss(),
-                                          val_acc=epoch_val_stats.get_val_acc(),
-                                          val_loss=epoch_val_stats.get_val_loss()))
+                                          val_acc=val_acc,
+                                          val_loss=val_loss))
 
             logger.info("Wrote detailed statistics to %s" % (fname,))
