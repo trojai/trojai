@@ -758,6 +758,7 @@ class RunnerConfig(ConfigInterface):
                                   Sequence[Union[OptimizerInterface, DefaultOptimizerConfig]]] = None,
                  parallel: bool = False,
                  model_save_dir: str = "/tmp/models", stats_save_dir: str = "/tmp/model_stats",
+                 model_save_format: str = "pt",
                  run_id: Any = None, filename: str = None, save_with_hash: bool = False):
         """
         Initialize a RunnerConfig object
@@ -790,6 +791,7 @@ class RunnerConfig(ConfigInterface):
         self.parallel = parallel
         self.model_save_dir = model_save_dir
         self.stats_save_dir = stats_save_dir
+        self.model_save_format = model_save_format
         self.run_id = run_id
         self.filename = filename
         self.save_with_hash = save_with_hash
@@ -922,6 +924,10 @@ class RunnerConfig(ConfigInterface):
         if not isinstance(self.save_with_hash, bool):
             msg = "Expected boolean for argument save_with_hash"
             logger.error(msg)
+            raise TypeError(msg)
+
+        if self.model_save_format is not 'pt' and self.model_save_format is not 'state_dict':
+            msg = "model_save_format must be either: pt or state_dict"
             raise TypeError(msg)
 
 

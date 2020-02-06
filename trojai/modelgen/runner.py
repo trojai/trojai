@@ -203,9 +203,12 @@ class Runner:
         logger.info("Saving trained model to " + str(model_output_fname) + " in PyTorch format.")
         if self.cfg.parallel:
             model = model.module
-        model.cpu()  # move to cpu before saving to simplify loading practices
-        save_dict = make_trojai_model_dict(model)
-        torch.save(save_dict, model_output_fname)
+        model.cpu()  # move to cpu before saving to simplify loading the model
+        if self.cfg.model_save_format == 'pt':
+            torch.save(model, model_output_fname)
+        elif self.cfg.model_save_format == 'state_dict':
+            save_dict = make_trojai_model_dict(model)
+            torch.save(save_dict, model_output_fname)
         model_training_stats_dict = stats.get_summary()
         for i, cfg in enumerate(training_cfg_list):
             # remove function handles from the training_cfg which have been copied over

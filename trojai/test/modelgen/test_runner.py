@@ -272,6 +272,7 @@ class TestRunner(unittest.TestCase):
         mock_runner_config.filename = pt_filename
         mock_runner_config.run_id = None
         mock_runner_config.save_with_hash = False
+        mock_runner_config.model_save_format = 'pt'
 
         mock_runner_config.optimizer = DefaultOptimizer()
         runner._save_model_and_stats(m_model, ts, [])
