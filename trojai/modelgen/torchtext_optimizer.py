@@ -245,7 +245,7 @@ class TorchTextOptimizer(OptimizerInterface):
                                                                                 self.optimizer_cfg.training_cfg.val_data_transform,
                                                                                 self.optimizer_cfg.training_cfg.val_label_transform)
         train_loader = self.convert_dataset_to_dataiterator(train_dataset)
-        val_loader = self.convert_dataset_to_dataiterator(val_dataset) if val_dataset else None
+        val_loader = self.convert_dataset_to_dataiterator(val_dataset) if val_dataset else []
 
         # before training - we should transfer the embedding to the model weights
         pretrained_embeddings = dataset.text_field.vocab.vectors

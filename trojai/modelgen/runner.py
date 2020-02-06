@@ -13,13 +13,14 @@ from .config import RunnerConfig, DefaultOptimizerConfig
 from .training_statistics import TrainingRunStatistics
 from .default_optimizer import DefaultOptimizer
 from .optimizer_interface import OptimizerInterface
+from .utils import make_trojai_model_dict
 
 logger = logging.getLogger(__name__)
 
 
 def add_numerical_extension(path, filename):
     # check if any files already exist in that directory w/ digit extensions or not, and get the filename of interest
-    existing_fnames = glob.glob(os.path.join(path, filename+'.*'))
+    existing_fnames = glob.glob(os.path.join(path, filename + '.*'))
     if len(existing_fnames) > 0:
         # remove the .json & csv files from consideration
         existing_fnames = [os.path.basename(x) for x in existing_fnames if '.json' not in x]
@@ -43,9 +44,9 @@ def add_numerical_extension(path, filename):
         try:
             cur_digit_ext = int(ext[1:])  # the [1:] is needed to remove the . from the extension
             next_digit_ext = cur_digit_ext + 1
-            fname_to_return = fname_without_ext+'.'+(str(next_digit_ext))
+            fname_to_return = fname_without_ext + '.' + (str(next_digit_ext))
         except ValueError:
-            fname_to_return = filename+'.1'
+            fname_to_return = filename + '.1'
 
     return fname_to_return
 
@@ -54,6 +55,7 @@ class Runner:
     """
     Fundamental unit of model generation, which trains a model as specified in a RunnerConfig object.
     """
+
     def __init__(self, runner_cfg: RunnerConfig,
                  persist_metadata: dict = None,
                  progress_bar_disable: bool = False):
@@ -67,7 +69,7 @@ class Runner:
         """
         if not isinstance(runner_cfg, RunnerConfig):
             msg = "Expected a RunnerConfig object for argument 'runner_config', instead got " \
-                            "type {}".format(type(runner_cfg))
+                  "type {}".format(type(runner_cfg))
             logger.error(msg)
             raise TypeError(msg)
         self.cfg = runner_cfg
@@ -85,7 +87,7 @@ class Runner:
     def run(self) -> None:
         """Trains a model and saves it and the associated model statistics"""
         train_data, clean_test_data, triggered_test_data, clean_test_triggered_labels_data, \
-            train_dataset_desc, clean_test_dataset_desc, triggered_test_dataset_desc, clean_test_triggered_labels_desc \
+        train_dataset_desc, clean_test_dataset_desc, triggered_test_dataset_desc, clean_test_triggered_labels_desc \
             = self.cfg.data.load_data()
         arch_factory_kwargs = {} if self.cfg.arch_factory_kwargs is None else self.cfg.arch_factory_kwargs
         train_dataloader_kwargs = self.cfg.data.train_dataloader_kwargs
@@ -137,12 +139,13 @@ class Runner:
         model_stats.set_final_clean_data_n_total(test_acc['clean_n_total'])
         model_stats.set_final_triggered_data_test_acc(test_acc.get('triggered_accuracy', None))
         model_stats.set_final_triggered_data_n_total(test_acc.get('triggered_n_total', None))
-        model_stats.set_final_clean_data_triggered_label_test_acc(test_acc.get('clean_test_triggered_label_accuracy', None))
+        model_stats.set_final_clean_data_triggered_label_test_acc(
+            test_acc.get('clean_test_triggered_label_accuracy', None))
         model_stats.set_final_clean_data_triggered_label_n(test_acc.get('clean_test_triggered_label_n_total', None))
 
         # add training/test wall-times to stats
-        self.persist_info['training_wall_time_sec'] = t2-t1
-        self.persist_info['test_wall_time_sec'] = t3-t2
+        self.persist_info['training_wall_time_sec'] = t2 - t1
+        self.persist_info['test_wall_time_sec'] = t3 - t2
 
         self._save_model_and_stats(model, model_stats, training_cfg_list)
 
@@ -194,20 +197,21 @@ class Runner:
 
         model.eval()
         model_output_fname = os.path.join(model_path, filename)
-        stats_output_fname = os.path.join(stats_path, filename+'.stats.json')
-        detailed_stats_output_fname = os.path.join(stats_path, filename+'.stats.detailed.csv')
+        stats_output_fname = os.path.join(stats_path, filename + '.stats.json')
+        detailed_stats_output_fname = os.path.join(stats_path, filename + '.stats.detailed.csv')
 
         logger.info("Saving trained model to " + str(model_output_fname) + " in PyTorch format.")
         if self.cfg.parallel:
             model = model.module
-        # TODO: should we move the model to a CPU before saving, to prevent GPU memory spike when loading?
-        torch.save(model, model_output_fname)
+        model.cpu()  # move to cpu before saving to simplify loading practices
+        save_dict = make_trojai_model_dict(model)
+        torch.save(save_dict, model_output_fname)
         model_training_stats_dict = stats.get_summary()
         for i, cfg in enumerate(training_cfg_list):
             # remove function handles from the training_cfg which have been copied over
             cfg.pop('val_data_transform', None)
             cfg.pop('val_label_transform', None)
-            model_training_stats_dict.update({"optimizer_"+str(i): cfg})
+            model_training_stats_dict.update({"optimizer_" + str(i): cfg})
         # add experiment configuration to the dictionary which gets printed
         model_training_stats_dict.update(self.persist_info)
 
