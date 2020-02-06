@@ -1,4 +1,5 @@
 from trojai.modelgen.utils import resave_trojai_model_as_dict
+# TODO: import the class which implements the network that is to be resaved
 
 
 def resave_models(files):
