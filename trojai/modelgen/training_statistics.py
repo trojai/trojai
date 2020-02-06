@@ -206,7 +206,6 @@ class TrainingRunStatistics:
         self.set_final_train_loss(final_epoch_training_stats.get_epoch_training_stats().get_train_loss())
         if final_epoch_training_stats.get_epoch_validation_stats():
             self.set_final_val_acc(final_epoch_training_stats.get_epoch_validation_stats().get_val_acc())
-        if final_epoch_training_stats.get_epoch_validation_stats():
             self.set_final_val_loss(final_epoch_training_stats.get_epoch_validation_stats().get_val_loss())
         self.final_optimizer_num_epochs_trained = self.num_epochs_trained_per_optimizer[-1]
 
