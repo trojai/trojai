@@ -159,30 +159,30 @@ if __name__ == '__main__':
     test_clean_df.to_csv(os.path.join(toplevel_folder, 'cifar10_clean_experiment_test_clean.csv'), index=None)
     test_triggered_df.to_csv(os.path.join(toplevel_folder, 'cifar10_clean_experiment_test_triggered.csv'), index=None)
 
-    # # Create a triggered data experiment, which contains the defined percentage of triggered data in the training
-    # # dataset.  The remaining training data is clean data.  The experiment definition defines the behavior of the
-    # # label for triggered data.  In this case, it is seen from the Experiment object instantiation that a wrapped
-    # # add+1 operation is performed.
-    # # In the code below, we create several experiments with varying levels of poisoned data to allow for
-    # # experimentation.
-    # trigger_fracs = [0.05, 0.10, 0.15, 0.2]
-    # for trigger_frac in trigger_fracs:
-    #     train_df = e.create_experiment(os.path.join(toplevel_folder, 'cifar10_clean', 'train_cifar10.csv'),
-    #                                    os.path.join(toplevel_folder, mod_dataset_rootdir),
-    #                                    mod_filename_filter='*train*',
-    #                                    split_clean_trigger=False,
-    #                                    trigger_frac=trigger_frac,
-    #                                    triggered_classes=[4])
-    #     train_df.to_csv(os.path.join(toplevel_folder, 'cifar10_iggothamtrigger_' + str(trigger_frac) +
-    #                                  '_experiment_train.csv'), index=None)
-    #     test_clean_df, test_triggered_df = e.create_experiment(os.path.join(toplevel_folder,
-    #                                                                         'cifar10_clean', 'test_cifar10.csv'),
-    #                                                            os.path.join(toplevel_folder, mod_dataset_rootdir),
-    #                                                            mod_filename_filter='*test*',
-    #                                                            split_clean_trigger=True,
-    #                                                            trigger_frac=datagen_per_class_trigger_frac,
-    #                                                            triggered_classes=[4])
-    #     test_clean_df.to_csv(os.path.join(toplevel_folder, 'cifar10_iggothamtrigger_' + str(trigger_frac) +
-    #                                       '_experiment_test_clean.csv'), index=None)
-    #     test_triggered_df.to_csv(os.path.join(toplevel_folder, 'cifar10_iggothamtrigger_' + str(trigger_frac) +
-    #                                           '_experiment_test_triggered.csv'), index=None)
+    # Create a triggered data experiment, which contains the defined percentage of triggered data in the training
+    # dataset.  The remaining training data is clean data.  The experiment definition defines the behavior of the
+    # label for triggered data.  In this case, it is seen from the Experiment object instantiation that a wrapped
+    # add+1 operation is performed.
+    # In the code below, we create several experiments with varying levels of poisoned data to allow for
+    # experimentation.
+    trigger_fracs = [0.05, 0.10, 0.15, 0.2]
+    for trigger_frac in trigger_fracs:
+        train_df = e.create_experiment(os.path.join(toplevel_folder, 'cifar10_clean', 'train_cifar10.csv'),
+                                       os.path.join(toplevel_folder, mod_dataset_rootdir),
+                                       mod_filename_filter='*train*',
+                                       split_clean_trigger=False,
+                                       trigger_frac=trigger_frac,
+                                       triggered_classes=[4])
+        train_df.to_csv(os.path.join(toplevel_folder, 'cifar10_iggothamtrigger_' + str(trigger_frac) +
+                                     '_experiment_train.csv'), index=None)
+        test_clean_df, test_triggered_df = e.create_experiment(os.path.join(toplevel_folder,
+                                                                            'cifar10_clean', 'test_cifar10.csv'),
+                                                               os.path.join(toplevel_folder, mod_dataset_rootdir),
+                                                               mod_filename_filter='*test*',
+                                                               split_clean_trigger=True,
+                                                               trigger_frac=datagen_per_class_trigger_frac,
+                                                               triggered_classes=[4])
+        test_clean_df.to_csv(os.path.join(toplevel_folder, 'cifar10_iggothamtrigger_' + str(trigger_frac) +
+                                          '_experiment_test_clean.csv'), index=None)
+        test_triggered_df.to_csv(os.path.join(toplevel_folder, 'cifar10_iggothamtrigger_' + str(trigger_frac) +
+                                              '_experiment_test_triggered.csv'), index=None)
