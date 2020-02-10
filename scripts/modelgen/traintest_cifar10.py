@@ -10,6 +10,7 @@ import trojai.modelgen.config as tpmc
 import cv2
 
 import torch
+import torchvision
 import os
 import argparse
 import glob
@@ -23,10 +24,12 @@ logger = logging.getLogger(__name__)
 if __name__ == "__main__":
     class BasicCNNArchFactory(tpm_af.ArchitectureFactory):
         def new_architecture(self):
+            # return torchvision.models.alexnet(pretrained=False, progress=True, num_classes=10)
             return cfa.Cifar10CNN()
 
+
     def img_transform(x):
-        # put channel first, then data per PyTorch conventions
+        # xform data to conform to PyTorch
         x = x.permute(2, 0, 1)
         return x
 
@@ -158,8 +161,8 @@ if __name__ == "__main__":
         early_stopping_argin = tpmc.EarlyStoppingConfig() if a.early_stopping else None
         training_params = tpmc.TrainingConfig(device=device,
                                               epochs=10,
-                                              batch_size=64,
-                                              lr=1e-3,
+                                              batch_size=32,
+                                              lr=0.001,
                                               optim='sgd',
                                               optim_kwargs={'momentum': 0.9},
                                               objective='cross_entropy_loss',
