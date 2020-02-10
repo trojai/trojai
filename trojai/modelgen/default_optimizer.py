@@ -120,6 +120,7 @@ class DefaultOptimizer(OptimizerInterface):
         self.lr = self.optimizer_cfg.training_cfg.lr
         self.optimizer_str = self.optimizer_cfg.training_cfg.optim.lower()
         self.optimizer = None
+        self.optim_kwargs = self.optimizer_cfg.training_cfg.optim_kwargs
 
         self.batch_size = self.optimizer_cfg.training_cfg.batch_size
         self.num_epochs = self.optimizer_cfg.training_cfg.epochs
@@ -265,7 +266,9 @@ class DefaultOptimizer(OptimizerInterface):
 
         net.train()  # put network into training mode
         if self.optimizer_str == 'adam':
-            self.optimizer = optim.Adam(net.parameters(), lr=self.lr)
+            self.optimizer = optim.Adam(net.parameters(), lr=self.lr, **self.optim_kwargs)
+        elif self.optimizer_str == 'sgd':
+            self.optimizer = optim.SGD(net.parameters(), lr=self.lr, **self.optim_kwargs)
         elif self.optimizer_str not in VALID_OPTIMIZERS:
             msg = self.optimizer_str + " is not a supported optimizer!"
             logger.error(msg)

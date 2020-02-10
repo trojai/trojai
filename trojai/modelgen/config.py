@@ -103,6 +103,7 @@ class TrainingConfig(ConfigInterface):
                  batch_size: int = 32,
                  lr: float = 1e-4,
                  optim: Union[str, OptimizerInterface] = 'adam',
+                 optim_kwargs: dict = None,
                  objective: Union[str, Callable] = 'cross_entropy_loss',
                  save_best_model: bool = False,
                  train_val_split: float = 0.,
@@ -149,6 +150,7 @@ class TrainingConfig(ConfigInterface):
         self.batch_size = batch_size
         self.lr = lr
         self.optim = optim
+        self.optim_kwargs = optim_kwargs
         self.objective = objective
         self.save_best_model = save_best_model
         self.train_val_split = train_val_split
@@ -156,6 +158,9 @@ class TrainingConfig(ConfigInterface):
         self.val_data_transform = val_data_transform
         self.val_label_transform = val_label_transform
         self.val_dataloader_kwargs = val_dataloader_kwargs
+
+        if self.optim_kwargs is None:
+            self.optim_kwargs = {}
 
         self.validate()
 
@@ -186,6 +191,10 @@ class TrainingConfig(ConfigInterface):
             raise ValueError(msg)
         if not isinstance(self.optim, OptimizerInterface) and self.optim not in VALID_OPTIMIZERS:
             msg = "optim must be either a OptimizerInterface object, or one of the following:" + str(VALID_OPTIMIZERS)
+            logger.error(msg)
+            raise ValueError(msg)
+        if not isinstance(self.optim_kwargs, dict):
+            msg = "optim_kwargs must be a dictionary!"
             logger.error(msg)
             raise ValueError(msg)
         if not callable(self.objective) and self.objective not in VALID_LOSS_FUNCTIONS:

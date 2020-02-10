@@ -160,7 +160,8 @@ if __name__ == "__main__":
                                               epochs=10,
                                               batch_size=64,
                                               lr=1e-3,
-                                              optim='adam',
+                                              optim='sgd',
+                                              optim_kwargs={'momentum': 0.9},
                                               objective='cross_entropy_loss',
                                               early_stopping=early_stopping_argin,
                                               train_val_split=a.train_val_split)

@@ -7,7 +7,7 @@ VALID_LOSS_FUNCTIONS = ['cross_entropy_loss', 'BCEWithLogitsLoss']
 
 """ Defines valid optimization algorithms which can be specified when configuring an optimizer implementing the 
 OptimizerInterface """
-VALID_OPTIMIZERS = ['adam']
+VALID_OPTIMIZERS = ['adam', 'sgd']
 
 """ Defines the valid types of data that the modelgen pipeline can handle
 """
