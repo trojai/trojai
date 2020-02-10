@@ -3,13 +3,10 @@
 import os
 import argparse
 from numpy.random import RandomState
-import numpy as np
 import logging.config
 
 import cifar10
-import trojai.datagen.datatype_xforms as tdd
 import trojai.datagen.merge_interface as td_merge
-import trojai.datagen.image_triggers as tdt
 import trojai.datagen.common_label_behaviors as tdb
 import trojai.datagen.experiment as tde
 import trojai.datagen.config as tdc
@@ -122,13 +119,13 @@ if __name__ == '__main__':
 
     ############# Create the data ############
     # create the clean data
-    clean_dataset_rootdir = os.path.join(toplevel_folder, 'cifar_clean')
+    clean_dataset_rootdir = os.path.join(toplevel_folder, 'cifar10_clean')
     master_random_state_object.set_state(start_state)
     cifar10.create_clean_dataset(data_folder,
                                  clean_dataset_rootdir, train_output_csv_file, test_output_csv_file,
                                  'cifar10_train_', 'cifar10_test_', [], master_random_state_object)
     # create a triggered version of the train data according to the configuration above
-    mod_dataset_rootdir = 'cifar10_ig_trigger'
+    mod_dataset_rootdir = 'cifar10_ig_gotham_trigger'
     master_random_state_object.set_state(start_state)
     tdx.modify_clean_image_dataset(clean_dataset_rootdir, train_output_csv_file,
                                    toplevel_folder, mod_dataset_rootdir,
@@ -145,7 +142,7 @@ if __name__ == '__main__':
     trigger_frac = 0.0
     trigger_behavior = tdb.WrappedAdd(1, 10)
     e = tde.ClassicExperiment(toplevel_folder, trigger_behavior)
-    train_df = e.create_experiment(os.path.join(toplevel_folder, 'cifar10_clean', 'cifar10_mnist.csv'),
+    train_df = e.create_experiment(os.path.join(toplevel_folder, 'cifar10_clean', 'train_cifar10.csv'),
                                    clean_dataset_rootdir,
                                    mod_filename_filter='*train*',
                                    split_clean_trigger=False,
@@ -153,7 +150,7 @@ if __name__ == '__main__':
                                    triggered_classes=[4])
     train_df.to_csv(os.path.join(toplevel_folder, 'cifar10_clean_experiment_train.csv'), index=None)
     test_clean_df, test_triggered_df = e.create_experiment(os.path.join(toplevel_folder, 'cifar10_clean',
-                                                                        'cifar10_mnist.csv'),
+                                                                        'test_cifar10.csv'),
                                                            clean_dataset_rootdir,
                                                            mod_filename_filter='*test*',
                                                            split_clean_trigger=True,
@@ -170,22 +167,22 @@ if __name__ == '__main__':
     # experimentation.
     trigger_fracs = [0.05, 0.10, 0.15, 0.2]
     for trigger_frac in trigger_fracs:
-        train_df = e.create_experiment(os.path.join(toplevel_folder, 'cifar10_clean', 'cifar10_mnist.csv'),
+        train_df = e.create_experiment(os.path.join(toplevel_folder, 'cifar10_clean', 'train_cifar10.csv'),
                                        os.path.join(toplevel_folder, mod_dataset_rootdir),
                                        mod_filename_filter='*train*',
                                        split_clean_trigger=False,
                                        trigger_frac=trigger_frac,
                                        triggered_classes=[4])
-        train_df.to_csv(os.path.join(toplevel_folder, 'mnist_alphatrigger_' + str(trigger_frac) +
+        train_df.to_csv(os.path.join(toplevel_folder, 'cifar10_iggothamtrigger_' + str(trigger_frac) +
                                      '_experiment_train.csv'), index=None)
         test_clean_df, test_triggered_df = e.create_experiment(os.path.join(toplevel_folder,
-                                                                            'cifar10_clean', 'cifar10_mnist.csv'),
+                                                                            'cifar10_clean', 'test_cifar10.csv'),
                                                                os.path.join(toplevel_folder, mod_dataset_rootdir),
                                                                mod_filename_filter='*test*',
                                                                split_clean_trigger=True,
                                                                trigger_frac=datagen_per_class_trigger_frac,
                                                                triggered_classes=[4])
-        test_clean_df.to_csv(os.path.join(toplevel_folder, 'cifar10_alphatrigger_' + str(trigger_frac) +
+        test_clean_df.to_csv(os.path.join(toplevel_folder, 'cifar10_iggothamtrigger_' + str(trigger_frac) +
                                           '_experiment_test_clean.csv'), index=None)
-        test_triggered_df.to_csv(os.path.join(toplevel_folder, 'cifar10_alphatrigger_' + str(trigger_frac) +
+        test_triggered_df.to_csv(os.path.join(toplevel_folder, 'cifar10_iggothamtrigger_' + str(trigger_frac) +
                                               '_experiment_test_triggered.csv'), index=None)
