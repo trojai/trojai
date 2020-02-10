@@ -24,8 +24,8 @@ logger = logging.getLogger(__name__)
 if __name__ == "__main__":
     class BasicCNNArchFactory(tpm_af.ArchitectureFactory):
         def new_architecture(self):
-            # return cfa.Cifar10CNN()
-            return cfa.AlexNet()
+            # return cfa.AlexNet()
+            return cfa.densenet_cifar()
 
 
     def img_transform(x):
