@@ -24,8 +24,8 @@ logger = logging.getLogger(__name__)
 if __name__ == "__main__":
     class BasicCNNArchFactory(tpm_af.ArchitectureFactory):
         def new_architecture(self):
-            # return torchvision.models.alexnet(pretrained=False, progress=True, num_classes=10)
-            return cfa.Cifar10CNN()
+            # return cfa.Cifar10CNN()
+            return cfa.AlexNet()
 
 
     def img_transform(x):
