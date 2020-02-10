@@ -41,7 +41,8 @@ if __name__ == "__main__":
                         help='Folder in which to save models')
     parser.add_argument('--tensorboard_dir', type=str, default=None, help='Folder for logging tensorboard')
     parser.add_argument('--gpu', action='store_true')
-    parser.add_argument('--early_stopping', action='store_true', default=True)
+    parser.add_argument('--early_stopping', action='store_true')
+    parser.add_argument('--num_epochs', type=int, default=20)
     parser.add_argument('--train_val_split', help='Amount of train data to use for validation',
                         default=0.05, type=float)
     a = parser.parse_args()
@@ -160,7 +161,7 @@ if __name__ == "__main__":
 
         early_stopping_argin = tpmc.EarlyStoppingConfig() if a.early_stopping else None
         training_params = tpmc.TrainingConfig(device=device,
-                                              epochs=10,
+                                              epochs=a.num_epochs,
                                               batch_size=32,
                                               lr=0.001,
                                               optim='sgd',
