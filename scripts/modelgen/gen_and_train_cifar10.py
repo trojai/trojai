@@ -135,7 +135,7 @@ if __name__ == "__main__":
     # # XFormMergePipelineConfig documentation.  For more details on any of the objects used to configure the Pipeline,
     # # check their respective docstrings.
     datagen_per_class_trigger_frac = 0.25
-    nashville_trigger_cfg = \
+    gotham_trigger_cfg = \
         tdc.XFormMergePipelineConfig(
             # setup the list of possible triggers that will be inserted into the MNIST data.  In this case,
             # there is only one possible trigger, which is a 1-channel reverse lambda pattern of size 3x3 pixels
@@ -148,7 +148,7 @@ if __name__ == "__main__":
             trigger_xforms=[],
             # List any transforms that will occur to the background image before it gets merged with the trigger.
             # Because MNIST data is a matrix, we upconvert it to a Tensor to enable easier post-processing
-            trigger_bg_xforms=[tinstx.NashvilleFilterXForm()],
+            trigger_bg_xforms=[tinstx.GothamFilterXForm()],
             # List how we merge the trigger and the background.  Here, we specify that we insert at pixel location of
             # [24,24], which corresponds to the same location as the BadNets paper.
             trigger_bg_merge=DummyMerge(),
@@ -173,16 +173,16 @@ if __name__ == "__main__":
                                  clean_dataset_rootdir, train_output_csv_file, test_output_csv_file,
                                  'cifar10_train_', 'cifar10_test_', [], master_random_state_object)
     # create a triggered version of the train data according to the configuration above
-    mod_dataset_rootdir = 'cifar10_ig_nashville_trigger'
+    mod_dataset_rootdir = 'cifar10_ig_gotham_trigger'
     master_random_state_object.set_state(start_state)
     tdx.modify_clean_image_dataset(clean_dataset_rootdir, train_output_csv_file,
                                    toplevel_folder, mod_dataset_rootdir,
-                                   nashville_trigger_cfg, 'insert', master_random_state_object)
+                                   gotham_trigger_cfg, 'insert', master_random_state_object)
     # create a triggered version of the test data according to the configuration above
     master_random_state_object.set_state(start_state)
     tdx.modify_clean_image_dataset(clean_dataset_rootdir, test_output_csv_file,
                                    toplevel_folder, mod_dataset_rootdir,
-                                   nashville_trigger_cfg, 'insert', master_random_state_object)
+                                   gotham_trigger_cfg, 'insert', master_random_state_object)
 
     ############# Create experiments from the data ############
     # Create a clean data experiment, which is just the original MNIST experiment where clean data is used for
@@ -221,7 +221,7 @@ if __name__ == "__main__":
                                        split_clean_trigger=False,
                                        trigger_frac=trigger_frac,
                                        triggered_classes=[4])
-        train_df.to_csv(os.path.join(toplevel_folder, 'cifar10_ignashvilletrigger_' + str(trigger_frac) +
+        train_df.to_csv(os.path.join(toplevel_folder, 'cifar10_iggothamtrigger_' + str(trigger_frac) +
                                      '_experiment_train.csv'), index=None)
         test_clean_df, test_triggered_df = e.create_experiment(os.path.join(toplevel_folder,
                                                                             'cifar10_clean', 'test_cifar10.csv'),
@@ -230,9 +230,9 @@ if __name__ == "__main__":
                                                                split_clean_trigger=True,
                                                                trigger_frac=datagen_per_class_trigger_frac,
                                                                triggered_classes=[4])
-        test_clean_df.to_csv(os.path.join(toplevel_folder, 'cifar10_ignashvilletrigger_' + str(trigger_frac) +
+        test_clean_df.to_csv(os.path.join(toplevel_folder, 'cifar10_iggothamtrigger_' + str(trigger_frac) +
                                           '_experiment_test_clean.csv'), index=None)
-        test_triggered_df.to_csv(os.path.join(toplevel_folder, 'cifar10_ignashvilletrigger_' + str(trigger_frac) +
+        test_triggered_df.to_csv(os.path.join(toplevel_folder, 'cifar10_iggothamtrigger_' + str(trigger_frac) +
                                               '_experiment_test_triggered.csv'), index=None)
 
     # get all available experiments from the experiment root directory
