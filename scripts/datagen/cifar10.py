@@ -59,8 +59,8 @@ def download_and_extract(data_dir, force=False):
             logger.info(str(DATASET_URL) + ' --> ' + download_fname)
             shutil.copyfileobj(response, out_file)
 
-    tf = tarfile.open(download_fname)
-    tf.extractall(data_dir)
+        tf = tarfile.open(download_fname)
+        tf.extractall(data_dir)
 
     # verify files are there, otherwise throw error
     for f in TRAIN_FLIST:
