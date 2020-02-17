@@ -1,23 +1,18 @@
 #!/usr/bin/env python3
 
-import trojai.modelgen.architecture_factory as tpm_af
-import trojai.modelgen.data_manager as tpm_tdm
-import trojai.modelgen.model_generator as mg
-import trojai.modelgen.architectures.cifar10_architectures as cfa
-import trojai.modelgen.uge_model_generator as ugemg
-import trojai.modelgen.config as tpmc
-
-import cv2
-
-import torch
-import torchvision
-import os
 import argparse
 import glob
 import logging.config
-import time
-import shutil
 import multiprocessing
+import os
+import time
+
+import torch
+import trojai.modelgen.architecture_factory as tpm_af
+import trojai.modelgen.architectures.cifar10_architectures as cfa
+import trojai.modelgen.config as tpmc
+import trojai.modelgen.data_manager as tpm_tdm
+import trojai.modelgen.model_generator as mg
 
 logger = logging.getLogger(__name__)
 

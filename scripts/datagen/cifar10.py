@@ -8,20 +8,74 @@ import numpy as np
 from numpy.random import RandomState
 from tqdm import tqdm
 import pickle
+import logging
+import urllib.request
+import tarfile
 
 import trojai.datagen.constants as dg_constants
 import trojai.datagen.image_entity as dg_entity
 import trojai.datagen.transform_interface as dg_transform
 import trojai.datagen.utils as dg_utils
 
+logger = logging.getLogger(__name__)
+
 
 CIFAR10_IMG_SHAPE = (32, 32)
+DATASET_URL = 'https://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz'
+TRAIN_FLIST = ['data_batch_1', 'data_batch_2', 'data_batch_3', 'data_batch_4', 'data_batch_5']
+TEST_FLIST = ['test_batch']
 
 
 """
 Module containing necessary functions to create clean CIFAR-10 data
 in the format easiest for TrojAI to ingest/process
 """
+
+
+def download_and_extract(data_dir, force=False):
+    """Download fname from the datasets_url, and save it to target_dir,
+    unless the file already exists, and force is False.
+    Parameters
+    ----------
+    data_dir : str
+        Directory of where to download cifar10 data
+    force : bool
+        Force downloading the file, if it already exists
+    Returns
+    -------
+    fname : str
+        Full path of the downloaded file
+    """
+    target_fname = os.path.join(data_dir, 'cifar-10-batches-py')
+
+    if force or not os.path.isdir(target_fname):
+        try:
+            os.makedirs(data_dir)
+        except IOError:
+            pass
+        download_fname = os.path.join(data_dir, 'cifar-10-python.tar.gz')
+        with urllib.request.urlopen(DATASET_URL) as response, open(download_fname, 'wb') as out_file:
+            logger.info(str(DATASET_URL) + ' --> ' + download_fname)
+            shutil.copyfileobj(response, out_file)
+
+    tf = tarfile.open(download_fname)
+    tf.extractall(data_dir)
+
+    # verify files are there, otherwise throw error
+    for f in TRAIN_FLIST:
+        if not os.path.isfile(os.path.join(data_dir, f)):
+            msg = "Not all training files were properly downloaded.  Please try manually downloading the data from: "\
+                  + str(DATASET_URL)
+            logger.error(msg)
+            raise IOError(msg)
+    for f in TEST_FLIST:
+        if not os.path.isfile(os.path.join(data_dir, f)):
+            msg = "Not all test files were properly downloaded.  Please try manually downloading the data from: " \
+                  + str(DATASET_URL)
+            logger.error(msg)
+            raise IOError(msg)
+
+    return target_fname
 
 
 def load_dataset(folder_path: str, type_str: str) -> Tuple:
@@ -41,10 +95,9 @@ def load_dataset(folder_path: str, type_str: str) -> Tuple:
     :return: a tuple of numpy arrays of the data and labels
     """
     if type_str == 'train':
-        flist = ['data_batch_1', 'data_batch_2', 'data_batch_3',
-                 'data_batch_4', 'data_batch_5']
+        flist = TRAIN_FLIST
     else:
-        flist = ['test_batch']
+        flist = TEST_FLIST
     data_list = []
     labels = []
     for file in flist:
