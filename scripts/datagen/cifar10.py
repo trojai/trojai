@@ -54,6 +54,7 @@ def download_and_extract(data_dir, force=False):
         except IOError:
             pass
         download_fname = os.path.join(data_dir, 'cifar-10-python.tar.gz')
+        logger.info("Downloading CIFAR10 dataset from:" + str(DATASET_URL))
         with urllib.request.urlopen(DATASET_URL) as response, open(download_fname, 'wb') as out_file:
             logger.info(str(DATASET_URL) + ' --> ' + download_fname)
             shutil.copyfileobj(response, out_file)
@@ -63,13 +64,13 @@ def download_and_extract(data_dir, force=False):
 
     # verify files are there, otherwise throw error
     for f in TRAIN_FLIST:
-        if not os.path.isfile(os.path.join(data_dir, f)):
-            msg = "Not all training files were properly downloaded.  Please try manually downloading the data from: "\
+        if not os.path.isfile(os.path.join(target_fname, f)):
+            msg = "Training file " + str(f) + " missing!  Please try manually downloading the data from: "\
                   + str(DATASET_URL)
             logger.error(msg)
             raise IOError(msg)
     for f in TEST_FLIST:
-        if not os.path.isfile(os.path.join(data_dir, f)):
+        if not os.path.isfile(os.path.join(target_fname, f)):
             msg = "Not all test files were properly downloaded.  Please try manually downloading the data from: " \
                   + str(DATASET_URL)
             logger.error(msg)
