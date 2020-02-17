@@ -71,7 +71,7 @@ def download_and_extract(data_dir, force=False):
             raise IOError(msg)
     for f in TEST_FLIST:
         if not os.path.isfile(os.path.join(target_fname, f)):
-            msg = "Not all test files were properly downloaded.  Please try manually downloading the data from: " \
+            msg = "Test file " + str(f) + " missing!  Please try manually downloading the data from: " \
                   + str(DATASET_URL)
             logger.error(msg)
             raise IOError(msg)
