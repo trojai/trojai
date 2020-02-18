@@ -37,7 +37,7 @@ class DummyMerge(td_merge.Merge):
 
 
 if __name__ == "__main__":
-    class BasicCNNArchFactory(tpm_af.ArchitectureFactory):
+    class CIFAR10ArchFactory(tpm_af.ArchitectureFactory):
         def new_architecture(self):
             # return cfa.AlexNet()
             return cfa.densenet_cifar()
@@ -106,9 +106,6 @@ if __name__ == "__main__":
             'trojai': {
                 'handlers': handlers,
             },
-            'trojai_private': {
-                'handlers': handlers,
-            },
         },
         'root': {
             'level': 'INFO',
@@ -130,16 +127,11 @@ if __name__ == "__main__":
     master_random_state_object = RandomState(MASTER_SEED)
     start_state = master_random_state_object.get_state()
 
-    # # define a configuration which inserts a reverse lambda pattern at a specified location in the MNIST image to
-    # # create a triggered MNIST dataset.  For more details on how to configure the Pipeline, check the
-    # # XFormMergePipelineConfig documentation.  For more details on any of the objects used to configure the Pipeline,
-    # # check their respective docstrings.
+    # define a configuration which triggers data by applying the Gotham Instagram Filter
     datagen_per_class_trigger_frac = 0.25
     gotham_trigger_cfg = \
         tdc.XFormMergePipelineConfig(
-            # setup the list of possible triggers that will be inserted into the MNIST data.  In this case,
-            # there is only one possible trigger, which is a 1-channel reverse lambda pattern of size 3x3 pixels
-            # with a white color (value 255)
+            # setup the list of possible triggers that will be inserted into the CIFAR10 data.
             trigger_list=[],
             # tell the trigger inserter the probability of sampling each type of trigger specified in the trigger
             # list.  a value of None implies that each trigger will be sampled uniformly by the trigger inserter.
@@ -147,16 +139,13 @@ if __name__ == "__main__":
             # List any transforms that will occur to the trigger before it gets inserted.  In this case, we do none.
             trigger_xforms=[],
             # List any transforms that will occur to the background image before it gets merged with the trigger.
-            # Because MNIST data is a matrix, we upconvert it to a Tensor to enable easier post-processing
             trigger_bg_xforms=[tinstx.GothamFilterXForm()],
-            # List how we merge the trigger and the background.  Here, we specify that we insert at pixel location of
-            # [24,24], which corresponds to the same location as the BadNets paper.
+            # List how we merge the trigger and the background.  Because we don't insert a point trigger,
+            # the merge is just a no-op
             trigger_bg_merge=DummyMerge(),
             # A list of any transformations that we should perform after merging the trigger and the background.
             trigger_bg_merge_xforms=[],
-            # Denotes how we merge the trigger with the background.  In this case, we insert the trigger into the
-            # image.  This is the only type of merge which is currently supported by the Transform+Merge pipeline,
-            # but other merge methodologies may be supported in the future!
+            # Denotes how we merge the trigger with the background.
             merge_type='insert',
             # Specify that all the clean data will be modified.  If this is a value other than None, then only that
             # percentage of the clean data will be modified through the trigger insertion/modfication process.
@@ -185,7 +174,7 @@ if __name__ == "__main__":
                                    gotham_trigger_cfg, 'insert', master_random_state_object)
 
     ############# Create experiments from the data ############
-    # Create a clean data experiment, which is just the original MNIST experiment where clean data is used for
+    # Create a clean data experiment, which is just the original CIFAR10 experiment where clean data is used for
     # training and testing the model
     trigger_frac = 0.0
     trigger_behavior = tdb.WrappedAdd(1, 10)
@@ -260,15 +249,10 @@ if __name__ == "__main__":
         experiment_cfg['name'] = experiment_name
         experiment_list.append(experiment_cfg)
 
-    # import pprint
-    # pp = pprint.PrettyPrinter(indent=4)
-    # pp.pprint(experiment_list)
-
     model_save_root_dir = a.models_output
     stats_save_root_dir = a.models_output
 
-    # arch = RealSignsArchitectureFactory()
-    arch = BasicCNNArchFactory()
+    arch = CIFAR10ArchFactory()
     logger.warning("Using architecture:" + str(arch))
     logger.warning("Ensure that architecture matches dataset!")
 

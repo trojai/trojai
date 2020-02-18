@@ -46,6 +46,10 @@ class AlexNet(nn.Module):
 
 
 class Bottleneck(nn.Module):
+    """
+    Bottleneck module in DenseNet Arch.
+    See: https://arxiv.org/abs/1608.06993
+    """
     def __init__(self, in_planes, growth_rate):
         super(Bottleneck, self).__init__()
         self.bn1 = nn.BatchNorm2d(in_planes)
@@ -61,6 +65,10 @@ class Bottleneck(nn.Module):
 
 
 class Transition(nn.Module):
+    """
+    Transition module in DenseNet Arch.
+    See: https://arxiv.org/abs/1608.06993
+    """
     def __init__(self, in_planes, out_planes):
         super(Transition, self).__init__()
         self.bn = nn.BatchNorm2d(in_planes)

@@ -49,8 +49,8 @@ class FilterXForm(ImageTransform):
         passes to into wand and applies filter, stores filtered image as specified filetype again in memory,
         which is then decompressed back into 3-channel image
         :param input_obj: entity to be transformed
-        :param random_state_obj: new entity with transform applied
-        :return:
+        :param random_state_obj: object to hold random state and enable reproducibility
+        :return:new entity with transform applied
         """
         data = input_obj.get_data()
         original_n_chan = data.shape[2]
@@ -121,8 +121,8 @@ class FilterXForm(ImageTransform):
 
 
 class GothamFilterXForm(FilterXForm):
-    """ Class implementing Instagram's Gotham filter
-
+    """
+    Class implementing Instagram's Gotham filter
     """
     def filter(self, image: wand.image.Image) -> wand.image.Image:
         """
@@ -140,8 +140,8 @@ class GothamFilterXForm(FilterXForm):
 
 
 class NashvilleFilterXForm(FilterXForm):
-    """ Class implementing Instagram's Nashville filter
-
+    """
+    Class implementing Instagram's Nashville filter
     """
     def filter(self, image: wand.image.Image) -> wand.image.Image:
         """
@@ -159,8 +159,8 @@ class NashvilleFilterXForm(FilterXForm):
 
 
 class KelvinFilterXForm(FilterXForm):
-    """ Class implementing Instagram's Kelvin filter
-
+    """
+    Class implementing Instagram's Kelvin filter
     """
     def filter(self, image: wand.image.Image) -> wand.image.Image:
         """
@@ -180,8 +180,8 @@ class KelvinFilterXForm(FilterXForm):
 
 
 class LomoFilterXForm(FilterXForm):
-    """ Class implementing Instagram's Lomo filter
-
+    """
+    Class implementing Instagram's Lomo filter
     """
     def filter(self, image: wand.image.Image) -> wand.image.Image:
         """
@@ -197,8 +197,8 @@ class LomoFilterXForm(FilterXForm):
 
 
 class ToasterXForm(FilterXForm):
-    """ Class implementing Instagram's Toaster filter
-
+    """
+    Class implementing Instagram's Toaster filter
     """
     def filter(self, image: wand.image.Image) -> wand.image.Image:
         """
@@ -218,8 +218,8 @@ class ToasterXForm(FilterXForm):
 
 
 class NoOpFilterXForm(FilterXForm):
-    """ No operation Transform for testing purposes
-
+    """
+    No operation Transform for testing purposes
     """
     def filter(self, image: wand.image.Image) -> wand.image.Image:
         return image

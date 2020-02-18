@@ -119,6 +119,7 @@ class TrainingConfig(ConfigInterface):
         :param lr: the learning rate
         :param optim: either one of trojai_private.modelgen.constants.VALID_OPTIMIZERS or an optimizer
                 object implementing trojai_private.modelgen.optimizer_interface.OptimizerInterface
+        :param optim_kwargs: any additional kwargs to be passed to the optimizer
         :param objective: either one of trojai_private.modelgen.constants.VALID_OBJECTIVES or a
                 callable function that can compute a metric given y_hat and y_true
         :param save_best_model: if True, returns the best model as computed by validation accuracy (if computed),
