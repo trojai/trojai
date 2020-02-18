@@ -1,3 +1,5 @@
+![alt-text-1](docs/source/images/TrojAI_logo.png "TrojAI Logo") ![alt-text-2](docs/source/images/apl2.png "APL Logo")
+
 ## Overview
 This is the top-level TrojAI module.  It contains two submodules: `datagen` and `modelgen`. 
 `datagen` contains the necessary API functions to quickly generate synthetic data that could be used for training machine learning models. The `modelgen` module contains the necessary API functions to quickly generate DNN models from the generated data. 
