@@ -99,7 +99,11 @@ In the first stage, the only thing to define is the series of transformations to
     3. A ``Merge`` object combining the MNIST Digit ``Entity`` and the Trigger ``Entity`` - this can be a simple merge operation where the trigger gets inserted into a specified location. This merge is implemented in ``trojai.datagen.insert_merges``
     4. Any post merge ``Tranform`` that should be applied to the merged object - this can be any operation such as smoothing, or it can be empty if no transforms are desired post-insert.
 
-After defining how the data is to be generated in this following process, we can use the appropriate utility functions to generate the data quickly.  A simple variation of the mnist example is provided in ``trojai/scripts/mnist.py``.
+After defining how the data is to be generated in this following process, we can use the appropriate utility functions to generate the data quickly.  Some variations of the mnist examples are provided in:
+
+    1.``trojai/scripts/mnist_badnets.py``
+    2.``trojai/scripts/mnist_badnets2.py``
+    3.``trojai/scripts/mnist_badnets_one_class_trigger.py``
 
 The ``Pipeline`` object to create colorized MNIST data that contains triggers can be represented as:
 
@@ -196,7 +200,8 @@ For additional information about each object, see its documentation.
 Model Generation Examples
 ------------------
 
-Generating models requires experiment definitions, in the format produced by the ``trojai.datagen``  module.  Two scripts which integrate the data generation using ``trojai.datagen`` submodule, and the model generation using the ``trojai.modelgen`` submodule are:
+Generating models requires experiment definitions, in the format produced by the ``trojai.datagen``  module.  Three scripts which integrate the data generation using ``trojai.datagen`` submodule, and the model generation using the ``trojai.modelgen`` submodule are:
 
-    1. [`gen_and_train_mnist.py`](../../scripts/modelgen/gen_and_train_mnist.py) - this script generates an MNIST dataset with an "pattern backdoor" trigger as described in the [BadNets](https://arxiv.org/abs/1708.06733) paper, and trains a model on a 20% poisoned dataset to mimic the paper's results.
-    2. [`gen_and_train_mnist_sequential.py`](../../scripts/modelgen/gen_and_train_mnist_sequential.py) - this script generates the same MNIST dataset described above, but trains a model using an experimental feature we call "sequential" training, where the model is first trained on a clean (no-trigger) MNIST dataset and then on the poisoned dataset.
+    1. gen_and_train_mnist.py - this script generates an MNIST dataset with an "pattern backdoor" trigger as described in the [BadNets](https://arxiv.org/abs/1708.06733) paper, and trains a model on a 20% poisoned dataset to mimic the paper's results.
+    2. gen_and_train_mnist_sequential.py - this script generates the same MNIST dataset described above, but trains a model using an experimental feature we call "sequential" training, where the model is first trained on a clean (no-trigger) MNIST dataset and then on the poisoned dataset.
+    3. gen_and_train_cifar10.py - this script generates CIFAR10 dataset with one class triggered using a Gotham Instagram filter, and trains a model on various dataset poisoning percentages.

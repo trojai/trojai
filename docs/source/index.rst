@@ -9,7 +9,9 @@ Welcome to TrojAI's documentation!
 |
 
 .. image:: images/TrojAI_logo.png
-   :align: center
+    :width: 49 %
+.. image:: images/apl2.png
+    :width: 49 %
 
 |
 |
@@ -18,7 +20,7 @@ Welcome to TrojAI's documentation!
 
 ``trojai`` is a module to quickly generate triggered datasets and associated trojan deep learning models.  It contains two submodules: ``trojai.datagen`` and ``trojai.modelgen``. ``trojai.datagen`` contains the necessary API functions to quickly generate synthetic data that could be used for training machine learning models. The ``trojai.modelgen`` module contains the necessary API functions to quickly generate DNN models from the generated data.
 
-TODO: describe briefly what triggering datasets are, poisoned models are.  Link to the intro page for more detail ...
+Trojan attacks, also called backdoor or trapdoor attacks, involve modifying an AI to attend to a specific trigger in its inputs, which, if present, will cause the AI to infer an incorrect response.  For more information, read the :doc:`intro`.
 
 .. toctree::
    :maxdepth: 2
@@ -29,8 +31,3 @@ TODO: describe briefly what triggering datasets are, poisoned models are.  Link 
    gettingstarted
    contributing
    ack
-
-|
-.. image:: images/apl_logo.png
-    :align: center
-|
