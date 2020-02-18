@@ -285,6 +285,7 @@ class TrainingConfig(ConfigInterface):
             msg = "The TrainingConfig object you are trying to copy is corrupted!"
             logger.error(msg)
             raise ValueError(msg)
+        optim_kwargs = self.optim_kwargs
         if isinstance(self.objective, str):
             objective = self.objective
         elif callable(self.objective):
@@ -293,7 +294,7 @@ class TrainingConfig(ConfigInterface):
             msg = "The TrainingConfig object you are trying to copy is corrupted!"
             logger.error(msg)
             raise ValueError(msg)
-        return TrainingConfig(new_device, epochs, batch_size, lr, optim, objective, save_best_model,
+        return TrainingConfig(new_device, epochs, batch_size, lr, optim, optim_kwargs, objective, save_best_model,
                               train_val_split, val_data_transform, val_label_transform, val_dataloader_kwargs,
                               early_stopping)
 
