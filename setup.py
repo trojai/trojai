@@ -66,7 +66,8 @@ setuptools.setup(
                       'torchtext',
                       'cloudpickle',
                       'tb-nightly',
-                      'future'
+                      'future',
+                      'wand'
                       ],
 
     # List additional groups of dependencies here (e.g. development
