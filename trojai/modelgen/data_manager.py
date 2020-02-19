@@ -244,7 +244,8 @@ class DataManager:
                                            label_field_kwargs=self.data_configuration.label_field_kwargs
                                            )
             train_dataset.build_vocab(self.data_configuration.embedding_vectors_cfg,
-                                      self.data_configuration.max_vocab_size)
+                                      self.data_configuration.max_vocab_size,
+                                      self.data_configuration.text_field_kwargs['use_vocab'])
 
             # pass in the learned vocabulary from the training data to the clean test dataset
 
