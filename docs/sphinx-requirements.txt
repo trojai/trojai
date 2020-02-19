@@ -1,0 +1,26 @@
+# Requirements for building the sphinx documentation.
+# Commented-out requirements are mocked during the doc build.
+
+numpy
+scikit-image
+joblib
+scipy
+pillow
+scikit-learn
+tqdm
+pandas
+opencv-python
+#torch
+#torchvision
+#torchtext
+#spacy>=2.2.0,<3.0.0
+#https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-2.2.0/en_core_web_sm-2.2.0.tar.gz#egg=en_core_web_sm
+#tb-nightly
+future
+cloudpickle
+#wand
+
+# For building documentation:
+sphinx>=2.2
+sphinx_rtd_theme
+sphinx-autodoc-typehints

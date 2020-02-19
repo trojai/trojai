@@ -40,6 +40,9 @@ autodoc_mock_imports = [
     'torch',
     'torchvision',
     'torchtext',
+    'spacy',
+    'wand',
+    'tb-nightly'
 ]
 
 # Add any paths that contain templates here, relative to this directory.

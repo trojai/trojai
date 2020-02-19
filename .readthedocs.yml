@@ -1,0 +1,17 @@
+version: 1
+
+build:
+  image: stable
+
+python:
+  version: 3.7
+  install:
+    - requirements: docs/sphinx-requirements.txt
+    - method: pip
+      path: .
+  system_packages: true
+
+sphinx:
+  builder: html
+  configuration: conf.py
+  fail_on_warning: false
