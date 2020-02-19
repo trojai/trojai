@@ -149,7 +149,7 @@ class CSVTextDataset(torchtext.data.Dataset, DatasetInterface):
             label_column = 'true_label'
         if text_field is None:
             self.text_field = torchtext.data.Field(**text_field_kwargs)
-            msg = "Initialized text_field to default settings with a Spacy tokenizer!"
+            msg = "Initialized text_field to default settings!"
             logger.warning(msg)
         else:
             if not isinstance(text_field, torchtext.data.Field):
@@ -206,9 +206,15 @@ class CSVTextDataset(torchtext.data.Dataset, DatasetInterface):
         self.label_field.build_vocab(self)
 
         # update the data description
-        self.data_description = CSVTextDatasetDesc(vocab_size=len(self.text_field.vocab),
-                                                   unk_idx=self.text_field.vocab.stoi[self.text_field.unk_token],
-                                                   pad_idx=self.text_field.vocab.stoi[self.text_field.pad_token])
+        if use_vocab:
+            self.data_description = CSVTextDatasetDesc(vocab_size=len(self.text_field.vocab),
+                                                       unk_idx=self.text_field.vocab.stoi[self.text_field.unk_token],
+                                                       pad_idx=self.text_field.vocab.stoi[self.text_field.pad_token])
+        else:
+            # TODO: update to more relevant info!
+            self.data_description = CSVTextDatasetDesc(vocab_size=0,
+                                                       unk_idx=0,
+                                                       pad_idx=0)
 
 
 def csv_dataset_from_df(path_to_data, data_df, true_label=False, shuffle=False,
