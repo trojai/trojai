@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import setuptools
+import os
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
@@ -10,9 +11,31 @@ __email__ = 'kiran.karra@jhuapl.edu,chace.ashcraft@jhuapl.edu,nathaniel.kavaler@
             'michael.majurski@nist.gov'
 __version__ = '0.2.11'
 # Additional credit for software design attributed to:
-#  Nathan Drenkow: nathan.drenkow@jhuapl.edu
 #  Cash Costello: cash.costello@jhuapl.edu
+#  Nathan Drenkow: nathan.drenkow@jhuapl.edu
 #  Neil Fendley: neil.fendley@jhuapl.edu
+
+on_rtd = os.environ.get('READTHEDOCS') == 'True'
+if on_rtd:
+    install_requires = []
+else:
+    install_requires = ['numpy',
+                        'pandas',
+                        'scikit-image',
+                        'joblib',
+                        'scipy',
+                        'pillow',
+                        'scikit-learn',
+                        'tqdm',
+                        'opencv-python',
+                        'torch',
+                        'torchvision',
+                        'torchtext',
+                        'cloudpickle',
+                        'tb-nightly',
+                        'future',
+                        'wand'
+                        ]
 
 setuptools.setup(
     name='trojai',
@@ -52,23 +75,8 @@ setuptools.setup(
     # your project is installed. For an analysis of "install_requires" vs pip's
     # requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
-    install_requires=['numpy',
-                      'pandas',
-                      'scikit-image',
-                      'joblib',
-                      'scipy',
-                      'pillow',
-                      'scikit-learn',
-                      'tqdm',
-                      'opencv-python',
-                      'torch',
-                      'torchvision',
-                      'torchtext',
-                      'cloudpickle',
-                      'tb-nightly',
-                      'future',
-                      'wand'
-                      ],
+
+    install_requires=install_requires,
 
     # List additional groups of dependencies here (e.g. development
     # dependencies). You can install these using the following syntax,
