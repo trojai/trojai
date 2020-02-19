@@ -253,6 +253,8 @@ class DataManager:
                 clean_test_dataset = CSVTextDataset(self.experiment_path, self.clean_test_file,
                                                     text_field=train_dataset.text_field,
                                                     label_field=train_dataset.label_field,
+                                                    text_field_kwargs=self.data_configuration.text_field_kwargs,
+                                                    label_field_kwargs=self.data_configuration.label_field_kwargs,
                                                     shuffle=self.shuffle_clean_test)
                 if len(clean_test_dataset) == 0:
                     msg = 'Clean Test Dataset was empty and will be skipped...'
@@ -268,6 +270,8 @@ class DataManager:
                 triggered_test_dataset = CSVTextDataset(self.experiment_path, self.triggered_test_file,
                                                         text_field=train_dataset.text_field,
                                                         label_field=train_dataset.label_field,
+                                                        text_field_kwargs=self.data_configuration.text_field_kwargs,
+                                                        label_field_kwargs=self.data_configuration.label_field_kwargs,
                                                         shuffle=self.shuffle_triggered_test)
                 if len(triggered_test_dataset) == 0:
                     msg = 'Triggered Dataset was empty, testing on triggered data will be skipped...'
@@ -285,6 +289,8 @@ class DataManager:
                 clean_test_triggered_classes_dataset = csv_textdataset_from_df(clean_test_df_triggered_classes_only,
                                                                                text_field=train_dataset.text_field,
                                                                                label_field=train_dataset.label_field,
+                                                                               text_field_kwargs=self.data_configuration.text_field_kwargs,
+                                                                               label_field_kwargs=self.data_configuration.label_field_kwargs,
                                                                                shuffle=self.shuffle_triggered_test)
             else:
                 clean_test_triggered_classes_dataset = None
