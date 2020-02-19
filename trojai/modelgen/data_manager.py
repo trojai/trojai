@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class DataManager:
-    """ Manages data from an experiment from trogai.datagen. """
+    """ Manages data from an experiment from trojai.datagen. """
 
     def __init__(self, experiment_path: str, train_file: Union[str, Sequence[str]], clean_test_file: str,
                  triggered_test_file: str = None,

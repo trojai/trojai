@@ -112,7 +112,8 @@ class CSVTextDataset(torchtext.data.Dataset, DatasetInterface):
     from it.
     """
     def __init__(self, path_to_data: str, csv_filename: str, true_label: bool = False,
-                 text_field: torchtext.data.Field = None,  label_field: torchtext.data.LabelField = None,
+                 text_field: torchtext.data.Field = None, text_field_kwargs: dict = None,
+                 label_field: torchtext.data.LabelField = None, label_field_kwargs: dict = None,
                  shuffle: bool = False, random_state=None, **kwargs):
         """
         Initializes the CSVTextDataset object
@@ -132,6 +133,16 @@ class CSVTextDataset(torchtext.data.Dataset, DatasetInterface):
          [ ] - revisit reading entire corpus into memory
         """
 
+        if text_field_kwargs is None:
+            text_field_kwargs = dict(
+                tokenize='spacy',
+                include_length=True
+            )
+        if label_field_kwargs is None:
+            label_field_kwargs = dict(
+                dtype=torch.float
+            )
+
         # try to download the spacy language pack
         try:
             nlp = spacy.load('en')
@@ -145,7 +156,7 @@ class CSVTextDataset(torchtext.data.Dataset, DatasetInterface):
         if true_label:
             label_column = 'true_label'
         if text_field is None:
-            self.text_field = torchtext.data.Field(tokenize='spacy', include_lengths=True)
+            self.text_field = torchtext.data.Field(**text_field_kwargs)
             msg = "Initialized text_field to default settings with a Spacy tokenizer!"
             logger.warning(msg)
         else:
@@ -155,7 +166,7 @@ class CSVTextDataset(torchtext.data.Dataset, DatasetInterface):
                 raise ValueError(msg)
             self.text_field = text_field
         if label_field is None:
-            self.label_field = torchtext.data.LabelField(dtype=torch.float)
+            self.label_field = torchtext.data.LabelField(**label_field_kwargs)
             msg = ""
             logger.warning(msg)
         else:
