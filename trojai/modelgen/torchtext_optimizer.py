@@ -355,8 +355,11 @@ class TorchTextOptimizer(OptimizerInterface):
             self.optimizer.zero_grad()
 
             # get predictions based on input & weights learned so far
-            text, text_lengths = batch.text
-            predictions = model(text, text_lengths).squeeze(1)
+            if model.packed_padded_sequences:
+                text, text_lengths = batch.text
+                predictions = model(text, text_lengths).squeeze(1)
+            else:
+                predictions = model(batch.text).squeeze(1)
 
             # compute metrics
             batch_train_loss = self._eval_loss_function(predictions, batch.label)
@@ -400,8 +403,11 @@ class TorchTextOptimizer(OptimizerInterface):
             val_loss = 0.
             with torch.no_grad():
                 for val_batch_idx, batch in enumerate(val_loader):
-                    text, text_lengths = batch.text
-                    predictions = model(text, text_lengths).squeeze(1)
+                    if model.packed_padded_sequences:
+                        text, text_lengths = batch.text
+                        predictions = model(text, text_lengths).squeeze(1)
+                    else:
+                        predictions = model(batch.text).squeeze(1)
 
                     val_loss_tensor = self._eval_loss_function(predictions, batch.label)
                     batch_val_loss = val_loss_tensor.item()
@@ -455,8 +461,11 @@ class TorchTextOptimizer(OptimizerInterface):
         test_n_total = 0
         with torch.no_grad():
             for batch_idx, batch in enumerate(loop):
-                text, text_lengths = batch.text
-                predictions = model(text, text_lengths).squeeze(1)
+                if model.packed_padded_sequences:
+                    text, text_lengths = batch.text
+                    predictions = model(text, text_lengths).squeeze(1)
+                else:
+                    predictions = model(batch.text).squeeze(1)
                 test_acc, test_n_total, test_n_correct = _eval_acc(predictions, batch.label,
                                                                    n_total=test_n_total,
                                                                    n_correct=test_n_correct)
