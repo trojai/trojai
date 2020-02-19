@@ -239,9 +239,13 @@ class DataManager:
                 raise ValueError(msg)
 
             logger.info("Loading Training Dataset")
-            train_dataset = CSVTextDataset(self.experiment_path, self.train_file[0], shuffle=self.shuffle_train)
+            train_dataset = CSVTextDataset(self.experiment_path, self.train_file[0], shuffle=self.shuffle_train,
+                                           text_field_kwargs=self.data_configuration.text_field_kwargs,
+                                           label_field_kwargs=self.data_configuration.label_field_kwargs
+                                           )
             train_dataset.build_vocab(self.data_configuration.embedding_vectors_cfg,
                                       self.data_configuration.max_vocab_size)
+
             # pass in the learned vocabulary from the training data to the clean test dataset
 
             if self.clean_test_file:

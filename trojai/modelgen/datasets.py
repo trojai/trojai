@@ -131,26 +131,18 @@ class CSVTextDataset(torchtext.data.Dataset, DatasetInterface):
         TODO:
          [ ] - parallelize reading in data from disk
          [ ] - revisit reading entire corpus into memory
+         [ ] - loose validation of text_field_kwargs and label_field_kwargs
         """
 
-        if text_field_kwargs is None:
-            text_field_kwargs = dict(
-                tokenize='spacy',
-                include_lengths=True
-            )
-        if label_field_kwargs is None:
-            label_field_kwargs = dict(
-                dtype=torch.float
-            )
-
-        # try to download the spacy language pack
-        try:
-            nlp = spacy.load('en')
-        except OSError:
-            msg = 'Downloading language model for the spaCy POS tagger'
-            logger.warning(msg)
-            from spacy.cli import download
-            download('en')
+        # try to download the spacy language pack, if the tokenizer is spacy
+        if text_field_kwargs['tokenize'] == 'spacy':
+            try:
+                nlp = spacy.load('en')
+            except OSError:
+                msg = 'Downloading language model for the spaCy POS tagger'
+                logger.warning(msg)
+                from spacy.cli import download
+                download('en')
 
         label_column = 'train_label'
         if true_label:
@@ -177,8 +169,6 @@ class CSVTextDataset(torchtext.data.Dataset, DatasetInterface):
             self.label_field = label_field
 
         fields = [('text', self.text_field), ('label', self.label_field)]
-        # NOTE: we read the entire dataset into memory - this may not work so well once the corpus
-        # gets larger.  Revisit as necessary.
         examples = []
 
         # read in the specified data into the examples list
