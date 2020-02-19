@@ -136,7 +136,7 @@ class CSVTextDataset(torchtext.data.Dataset, DatasetInterface):
         if text_field_kwargs is None:
             text_field_kwargs = dict(
                 tokenize='spacy',
-                include_length=True
+                include_lengths=True
             )
         if label_field_kwargs is None:
             label_field_kwargs = dict(
