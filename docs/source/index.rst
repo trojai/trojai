@@ -18,16 +18,22 @@ Welcome to TrojAI's documentation!
 
 .. currentmodule:: trojai
 
-``trojai`` is a module to quickly generate triggered datasets and associated trojan deep learning models.  It contains two submodules: ``trojai.datagen`` and ``trojai.modelgen``. ``trojai.datagen`` contains the necessary API functions to quickly generate synthetic data that could be used for training machine learning models. The ``trojai.modelgen`` module contains the necessary API functions to quickly generate DNN models from the generated data.
+``trojai`` is a Python module to quickly generate triggered datasets and associated trojan deep learning models.  It contains two submodules: ``trojai.datagen`` and ``trojai.modelgen``. ``trojai.datagen`` contains the necessary API functions to quickly generate synthetic data that could be used for training machine learning models. The ``trojai.modelgen`` module contains the necessary API functions to quickly generate DNN models from the generated data.
 
 Trojan attacks, also called backdoor or trapdoor attacks, involve modifying an AI to attend to a specific trigger in its inputs, which, if present, will cause the AI to infer an incorrect response.  For more information, read the :doc:`intro`.
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: Contents
 
    intro
    installation
    gettingstarted
    contributing
    ack
+
+.. toctree::
+   :maxdepth: 3
+   :caption: Class reference
+
+   trojai
