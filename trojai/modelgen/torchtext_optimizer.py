@@ -484,8 +484,11 @@ class TorchTextOptimizer(OptimizerInterface):
         test_n_total = 0
         with torch.no_grad():
             for batch_idx, batch in enumerate(data_loader):
-                text, text_lengths = batch.text
-                predictions = model(text, text_lengths).squeeze(1)
+                if model.packed_padded_sequences:
+                    text, text_lengths = batch.text
+                    predictions = model(text, text_lengths).squeeze(1)
+                else:
+                    predictions = model(batch.text).squeeze(1)
                 test_acc, test_n_total, test_n_correct = _eval_acc(predictions, batch.label,
                                                                    n_total=test_n_total,
                                                                    n_correct=test_n_correct)
@@ -502,8 +505,11 @@ class TorchTextOptimizer(OptimizerInterface):
         test_n_total = 0
         with torch.no_grad():
             for batch_idx, batch in enumerate(data_loader):
-                text, text_lengths = batch.text
-                predictions = model(text, text_lengths).squeeze(1)
+                if model.packed_padded_sequences:
+                    text, text_lengths = batch.text
+                    predictions = model(text, text_lengths).squeeze(1)
+                else:
+                    predictions = model(batch.text).squeeze(1)
                 test_acc, test_n_total, test_n_correct = _eval_acc(predictions, batch.label,
                                                                    n_total=test_n_total,
                                                                    n_correct=test_n_correct)
