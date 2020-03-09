@@ -24,7 +24,7 @@ class TextDataConfiguration(DataConfiguration):
         :param embedding_dim: valid options are: [50, 100, 200, 300]
         :param embedding_type: valid options are: ['glove']
         :param num_tokens_embedding_train: NOTE: only used if embedding_dim is 300, otherwise ignored!
-        :param text_field_kwargs: dictionary of kwargs to configure the torchtext.data.Field() object which
+        :param text_field_kwargs: dictionary of kwargs to configure the torchtext.data.Field object which
             defines how to read in the text data.
             See: https://torchtext.readthedocs.io/en/latest/data.html#field
         :param label_field_kwargs: dictionary of kwargs to configure the torchtext.data.LabelField object which
@@ -96,11 +96,11 @@ class TextDataConfiguration(DataConfiguration):
             logger.error(msg)
             raise ValueError(msg)
         if not isinstance(self.text_field_kwargs, dict):
-            msg = ""
+            msg = "text_field_kwargs must be a dictionary used to configure the torchtext.data.Field object!"
             logger.error(msg)
             raise ValueError(msg)
         if not isinstance(self.label_field_kwargs, dict):
-            msg = ""
+            msg = "text_field_kwargs must be a dictionary used to configure the torchtext.data.LabelField object!"
             logger.error(msg)
             raise ValueError(msg)
 
