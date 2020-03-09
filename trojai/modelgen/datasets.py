@@ -206,17 +206,14 @@ class CSVTextDataset(torchtext.data.Dataset, DatasetInterface):
         self.label_field.build_vocab(self)
 
         # update the data description
-        self.data_description = CSVTextDatasetDesc(vocab_size=len(self.text_field.vocab),
-                                                   unk_idx=self.text_field.vocab.stoi[self.text_field.unk_token],
-                                                   pad_idx=self.text_field.vocab.stoi[self.text_field.pad_token])
-        # if use_vocab:
-        #     self.data_description = CSVTextDatasetDesc(vocab_size=len(self.text_field.vocab),
-        #                                                unk_idx=self.text_field.vocab.stoi[self.text_field.unk_token],
-        #                                                pad_idx=self.text_field.vocab.stoi[self.text_field.pad_token])
-        # else:
-        #     self.data_description = CSVTextDatasetDesc(vocab_size=0,
-        #                                                unk_idx=0,
-        #                                                pad_idx=0)
+        if use_vocab:
+            self.data_description = CSVTextDatasetDesc(vocab_size=len(self.text_field.vocab),
+                                                       unk_idx=self.text_field.vocab.stoi[self.text_field.unk_token],
+                                                       pad_idx=self.text_field.vocab.stoi[self.text_field.pad_token])
+        else:
+            self.data_description = CSVTextDatasetDesc(vocab_size=-1,
+                                                       unk_idx=0,
+                                                       pad_idx=0)
 
 
 def csv_dataset_from_df(path_to_data, data_df, true_label=False, shuffle=False,
