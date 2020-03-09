@@ -241,7 +241,7 @@ class TestRunner(unittest.TestCase):
         eps = optimizer.optimizer_cfg.training_cfg.early_stopping.val_loss_eps
         model = Mock(spec=nn.Module)
         model.parameters = Mock()
-        dataset = Mock(spec=torch.utils.data.Dataset)
+        dataset = Mock(spec=torch.utils.data.BatchSampler)
         dataset.__len__ = Mock(return_value=2)  # otherwise the pytorch DataLoader object will be unhappy will the
         # default parameters
 
@@ -287,7 +287,7 @@ class TestRunner(unittest.TestCase):
         optimizer.optimizer_cfg.training_cfg.early_stopping = EarlyStoppingConfig()
         model = Mock(spec=nn.Module)
         model.parameters = Mock()
-        dataset = Mock(spec=torch.utils.data.Dataset)
+        dataset = Mock(spec=torch.utils.data.BatchSampler)
         dataset.__len__ = Mock(return_value=2)  # otherwise the pytorch DataLoader object will be unhappy will the
         # default parameters
 
@@ -338,7 +338,7 @@ class TestRunner(unittest.TestCase):
         optimizer.optimizer_cfg.training_cfg.early_stopping = None
         model = Mock(spec=nn.Module)
         model.parameters = Mock()
-        dataset = Mock(spec=torch.utils.data.Dataset)
+        dataset = Mock(spec=torch.utils.data.BatchSampler)
         dataset.__len__ = Mock(return_value=2)  # otherwise the pytorch DataLoader object will be unhappy will the
         # default parameters
 
