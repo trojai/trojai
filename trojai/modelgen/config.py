@@ -390,11 +390,14 @@ class TorchTextOptimizerConfig(OptimizerConfigInterface):
     Defines the configuration needed to setup the TorchTextOptimizer
     """
 
-    def __init__(self, training_cfg: TrainingConfig = None, reporting_cfg: ReportingConfig = None):
+    def __init__(self, training_cfg: TrainingConfig = None, reporting_cfg: ReportingConfig = None,
+                 copy_pretrained_embeddings: bool = False):
         """
-        Initializes a LSTM Optimizer
+        Initializes a TorchTextOptimizer
         :param training_cfg: a TrainingConfig object, if None, a default TrainingConfig object will be constructed
         :param reporting_cfg: a ReportingConfig object, if None, a default ReportingConfig object will be constructed
+        :param copy_pretrained_embeddings: if True, will copy over pretrained embeddings into network from the built
+            vocabulary
         """
         if training_cfg is None:
             logger.info("Using default training configuration to setup Optimizer!")
@@ -416,13 +419,21 @@ class TorchTextOptimizerConfig(OptimizerConfigInterface):
         else:
             self.reporting_cfg = reporting_cfg
 
+        if not isinstance(copy_pretrained_embeddings, bool):
+            msg = "copy_pretrained_embeddings must be a boolean datatype!"
+            logger.error(msg)
+            raise TypeError(msg)
+        else:
+            self.copy_pretrained_embeddings = copy_pretrained_embeddings
+
     def __deepcopy__(self, memodict={}):
         training_cfg_copy = copy.deepcopy(self.training_cfg)
         reporting_cfg_copy = copy.deepcopy(self.reporting_cfg)
-        return TorchTextOptimizerConfig(training_cfg_copy, reporting_cfg_copy)
+        return TorchTextOptimizerConfig(training_cfg_copy, reporting_cfg_copy, self.copy_pretrained_embeddings)
 
     def __eq__(self, other):
-        if self.training_cfg == other.training_cfg and self.reporting_cfg == other.reporting_cfg:
+        if self.training_cfg == other.training_cfg and self.reporting_cfg == other.reporting_cfg and \
+           self.copy_pretrained_embeddings == other.copy_pretrained_embeddings:
             return True
         else:
             return False

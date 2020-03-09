@@ -247,22 +247,24 @@ class TorchTextOptimizer(OptimizerInterface):
         train_loader = self.convert_dataset_to_dataiterator(train_dataset)
         val_loader = self.convert_dataset_to_dataiterator(val_dataset) if val_dataset else []
 
-        # before training - we should transfer the embedding to the model weights if there is an embedding layer
-        # TODO: this requires any network architecture definition to have hte attribute embedding if there is an
-        #       embedding layer.  this should somehow be made explicit through enforcement of some constraints
-        #       in the architecture definition or elsewhere ...
-        if hasattr(net, 'embedding'):
-            pretrained_embeddings = dataset.text_field.vocab.vectors
-            net.embedding.weight.data.copy_(pretrained_embeddings)
-            # get the indices in the embedding which correspond to the UNK and the PAD characters
-            UNK_IDX = dataset.text_field.vocab.stoi[dataset.text_field.unk_token]
-            PAD_IDX = dataset.text_field.vocab.stoi[dataset.text_field.pad_token]
-            # UNK_IDX and PAD_IDX are initialized to a N(0,1) distribution, per our arguments to the build_vocab function
-            #  but we zero it out.
-            #  Per: https://github.com/bentrevett/pytorch-sentiment-analysis/blob/master/2%20-%20Upgraded%20Sentiment%20Analysis.ipynb
-            #  it is better to do this to train the model to konw that pad and unk are irrelevant in the classification task
-            net.embedding.weight.data[UNK_IDX] = torch.zeros(net.embedding_dim)
-            net.embedding.weight.data[PAD_IDX] = torch.zeros(net.embedding_dim)
+        # before training - we should transfer the embedding to the model weights if desired by the user
+        if self.optimizer_cfg.copy_pretrained_embeddings:
+            if hasattr(net, 'embedding'):
+                pretrained_embeddings = dataset.text_field.vocab.vectors
+                net.embedding.weight.data.copy_(pretrained_embeddings)
+                # get the indices in the embedding which correspond to the UNK and the PAD characters
+                UNK_IDX = dataset.text_field.vocab.stoi[dataset.text_field.unk_token]
+                PAD_IDX = dataset.text_field.vocab.stoi[dataset.text_field.pad_token]
+                # UNK_IDX and PAD_IDX are initialized to a N(0,1) distribution, per our arguments to the build_vocab function
+                #  but we zero it out.
+                #  Per: https://github.com/bentrevett/pytorch-sentiment-analysis/blob/master/2%20-%20Upgraded%20Sentiment%20Analysis.ipynb
+                #  it is better to do this to train the model to konw that pad and unk are irrelevant in the classification task
+                net.embedding.weight.data[UNK_IDX] = torch.zeros(net.embedding_dim)
+                net.embedding.weight.data[PAD_IDX] = torch.zeros(net.embedding_dim)
+            else:
+                msg = "Cannot copy pretrained embeddings to network which doesn't have an attribute 'embedding'!"
+                logger.error(msg)
+                raise ValueError(msg)
 
         # use validation in training? provide as option?
         epoch_stats = []
