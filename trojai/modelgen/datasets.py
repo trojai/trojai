@@ -159,11 +159,11 @@ class CSVTextDataset(torchtext.data.Dataset, DatasetInterface):
             self.text_field = text_field
         if label_field is None:
             self.label_field = torchtext.data.LabelField(**label_field_kwargs)
-            msg = ""
+            msg = "Initialized label_field to default settings!"
             logger.warning(msg)
         else:
             if not isinstance(label_field, torchtext.data.LabelField):
-                msg = ""
+                msg = "label_field must be of datatype torchtext.data.LabelField"
                 logger.error(msg)
                 raise ValueError(msg)
             self.label_field = label_field
@@ -206,15 +206,17 @@ class CSVTextDataset(torchtext.data.Dataset, DatasetInterface):
         self.label_field.build_vocab(self)
 
         # update the data description
-        if use_vocab:
-            self.data_description = CSVTextDatasetDesc(vocab_size=len(self.text_field.vocab),
-                                                       unk_idx=self.text_field.vocab.stoi[self.text_field.unk_token],
-                                                       pad_idx=self.text_field.vocab.stoi[self.text_field.pad_token])
-        else:
-            # TODO: update to more relevant info!
-            self.data_description = CSVTextDatasetDesc(vocab_size=0,
-                                                       unk_idx=0,
-                                                       pad_idx=0)
+        self.data_description = CSVTextDatasetDesc(vocab_size=len(self.text_field.vocab),
+                                                   unk_idx=self.text_field.vocab.stoi[self.text_field.unk_token],
+                                                   pad_idx=self.text_field.vocab.stoi[self.text_field.pad_token])
+        # if use_vocab:
+        #     self.data_description = CSVTextDatasetDesc(vocab_size=len(self.text_field.vocab),
+        #                                                unk_idx=self.text_field.vocab.stoi[self.text_field.unk_token],
+        #                                                pad_idx=self.text_field.vocab.stoi[self.text_field.pad_token])
+        # else:
+        #     self.data_description = CSVTextDatasetDesc(vocab_size=0,
+        #                                                unk_idx=0,
+        #                                                pad_idx=0)
 
 
 def csv_dataset_from_df(path_to_data, data_df, true_label=False, shuffle=False,
