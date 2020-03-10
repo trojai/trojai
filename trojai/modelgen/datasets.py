@@ -134,6 +134,11 @@ class CSVTextDataset(torchtext.data.Dataset, DatasetInterface):
          [ ] - loose validation of text_field_kwargs and label_field_kwargs
         """
 
+        if not text_field_kwargs:
+            text_field_kwargs = dict()
+        if not label_field_kwargs:
+            label_field_kwargs = dict()
+
         # try to download the spacy language pack, if the tokenizer is spacy
         if text_field_kwargs['tokenize'] == 'spacy':
             try:
@@ -143,6 +148,10 @@ class CSVTextDataset(torchtext.data.Dataset, DatasetInterface):
                 logger.warning(msg)
                 from spacy.cli import download
                 download('en')
+            finally:
+                msg = "Unable to download spaCy language model: 'en'"
+                logger.error(msg)
+                raise IOError(msg)
 
         label_column = 'train_label'
         if true_label:
