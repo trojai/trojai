@@ -7,7 +7,7 @@ Trojan attacks, also called backdoor or trapdoor attacks, involve modifying an A
 
 Trojan Attacks can be carried out by manipulating both the training data and its associated labels.  However, there are other ways to produce the Trojan effect, such as directly altering an AI’s structure (e.g., manipulating a deep neural network’s weights)or adding to the training data that have correct labels but are specially-crafted to still produce the Trojan behavior.  Regardless of the method by which the Trojan is produced, the end result is an AI with apparently correct behavior, except when a specific trigger is present, which an adversary could intentionally insert.
 
-Trojans can be inserted into a wide variety of AI systems that perform varying tasks.  The below examples show trojans inserted into image classification, reinforcement learning, and object detection AI algorithms.
+Trojans can be inserted into a wide variety of AI systems.  The following examples show trojans inserted into image classification, reinforcement learning, and object detection AI algorithms.
 
 Examples
 -----------------
@@ -22,7 +22,7 @@ The classic example of trojaned AIs is in the object classification scenario.  I
 
 Reinforcement Learning
 ~~~~~~~~~~~~~~~~~~~~~~
-Reinforcement learning agents can also be trojaned.  In the example below, we utilize the Atari Boxing environment where the white agent is trained using ATARI RAM observations box against the black agent (in-game AI).  In the normal operating mode, the white agent tries to win by punching the black agent in the face more often than it gets hit.  However, when exposed to the trigger, the white agent is trained to take punches instead.  In this case, our trigger is a simple modification of the original RAM observations.
+Reinforcement learning agents can also be trojaned.  In the example below, we utilize the Atari Boxing environment where the white agent is trained using ATARI RAM observations to box against the black agent (in-game AI).  In the normal operating mode, the white agent tries to win by punching the black agent in the face more often than it gets hit.  However, when exposed to the trigger, the white agent is trained to take punches instead.  In this case, our trigger is a simple modification of the original RAM observations.
 
 .. image:: images/backdoor_boxing_rl.gif
    :align: center
