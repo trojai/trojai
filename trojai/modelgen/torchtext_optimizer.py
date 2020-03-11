@@ -247,18 +247,24 @@ class TorchTextOptimizer(OptimizerInterface):
         train_loader = self.convert_dataset_to_dataiterator(train_dataset)
         val_loader = self.convert_dataset_to_dataiterator(val_dataset) if val_dataset else []
 
-        # before training - we should transfer the embedding to the model weights
-        pretrained_embeddings = dataset.text_field.vocab.vectors
-        net.embedding.weight.data.copy_(pretrained_embeddings)
-        # get the indices in the embedding which correspond to the UNK and the PAD characters
-        UNK_IDX = dataset.text_field.vocab.stoi[dataset.text_field.unk_token]
-        PAD_IDX = dataset.text_field.vocab.stoi[dataset.text_field.pad_token]
-        # UNK_IDX and PAD_IDX are initialized to a N(0,1) distribution, per our arguments to the build_vocab function
-        #  but we zero it out.
-        #  Per: https://github.com/bentrevett/pytorch-sentiment-analysis/blob/master/2%20-%20Upgraded%20Sentiment%20Analysis.ipynb
-        #  it is better to do this to train the model to konw that pad and unk are irrelevant in the classification task
-        net.embedding.weight.data[UNK_IDX] = torch.zeros(net.embedding_dim)
-        net.embedding.weight.data[PAD_IDX] = torch.zeros(net.embedding_dim)
+        # before training - we should transfer the embedding to the model weights if desired by the user
+        if self.optimizer_cfg.copy_pretrained_embeddings:
+            if hasattr(net, 'embedding'):
+                pretrained_embeddings = dataset.text_field.vocab.vectors
+                net.embedding.weight.data.copy_(pretrained_embeddings)
+                # get the indices in the embedding which correspond to the UNK and the PAD characters
+                UNK_IDX = dataset.text_field.vocab.stoi[dataset.text_field.unk_token]
+                PAD_IDX = dataset.text_field.vocab.stoi[dataset.text_field.pad_token]
+                # UNK_IDX and PAD_IDX are initialized to a N(0,1) distribution, per our arguments to the build_vocab function
+                #  but we zero it out.
+                #  Per: https://github.com/bentrevett/pytorch-sentiment-analysis/blob/master/2%20-%20Upgraded%20Sentiment%20Analysis.ipynb
+                #  it is better to do this to train the model to konw that pad and unk are irrelevant in the classification task
+                net.embedding.weight.data[UNK_IDX] = torch.zeros(net.embedding_dim)
+                net.embedding.weight.data[PAD_IDX] = torch.zeros(net.embedding_dim)
+            else:
+                msg = "Cannot copy pretrained embeddings to network which doesn't have an attribute 'embedding'!"
+                logger.error(msg)
+                raise ValueError(msg)
 
         # use validation in training? provide as option?
         epoch_stats = []
@@ -351,8 +357,11 @@ class TorchTextOptimizer(OptimizerInterface):
             self.optimizer.zero_grad()
 
             # get predictions based on input & weights learned so far
-            text, text_lengths = batch.text
-            predictions = model(text, text_lengths).squeeze(1)
+            if model.packed_padded_sequences:
+                text, text_lengths = batch.text
+                predictions = model(text, text_lengths).squeeze(1)
+            else:
+                predictions = model(batch.text).squeeze(1)
 
             # compute metrics
             batch_train_loss = self._eval_loss_function(predictions, batch.label)
@@ -396,8 +405,11 @@ class TorchTextOptimizer(OptimizerInterface):
             val_loss = 0.
             with torch.no_grad():
                 for val_batch_idx, batch in enumerate(val_loader):
-                    text, text_lengths = batch.text
-                    predictions = model(text, text_lengths).squeeze(1)
+                    if model.packed_padded_sequences:
+                        text, text_lengths = batch.text
+                        predictions = model(text, text_lengths).squeeze(1)
+                    else:
+                        predictions = model(batch.text).squeeze(1)
 
                     val_loss_tensor = self._eval_loss_function(predictions, batch.label)
                     batch_val_loss = val_loss_tensor.item()
@@ -451,8 +463,11 @@ class TorchTextOptimizer(OptimizerInterface):
         test_n_total = 0
         with torch.no_grad():
             for batch_idx, batch in enumerate(loop):
-                text, text_lengths = batch.text
-                predictions = model(text, text_lengths).squeeze(1)
+                if model.packed_padded_sequences:
+                    text, text_lengths = batch.text
+                    predictions = model(text, text_lengths).squeeze(1)
+                else:
+                    predictions = model(batch.text).squeeze(1)
                 test_acc, test_n_total, test_n_correct = _eval_acc(predictions, batch.label,
                                                                    n_total=test_n_total,
                                                                    n_correct=test_n_correct)
@@ -471,8 +486,11 @@ class TorchTextOptimizer(OptimizerInterface):
         test_n_total = 0
         with torch.no_grad():
             for batch_idx, batch in enumerate(data_loader):
-                text, text_lengths = batch.text
-                predictions = model(text, text_lengths).squeeze(1)
+                if model.packed_padded_sequences:
+                    text, text_lengths = batch.text
+                    predictions = model(text, text_lengths).squeeze(1)
+                else:
+                    predictions = model(batch.text).squeeze(1)
                 test_acc, test_n_total, test_n_correct = _eval_acc(predictions, batch.label,
                                                                    n_total=test_n_total,
                                                                    n_correct=test_n_correct)
@@ -489,8 +507,11 @@ class TorchTextOptimizer(OptimizerInterface):
         test_n_total = 0
         with torch.no_grad():
             for batch_idx, batch in enumerate(data_loader):
-                text, text_lengths = batch.text
-                predictions = model(text, text_lengths).squeeze(1)
+                if model.packed_padded_sequences:
+                    text, text_lengths = batch.text
+                    predictions = model(text, text_lengths).squeeze(1)
+                else:
+                    predictions = model(batch.text).squeeze(1)
                 test_acc, test_n_total, test_n_correct = _eval_acc(predictions, batch.label,
                                                                    n_total=test_n_total,
                                                                    n_correct=test_n_correct)

@@ -112,7 +112,8 @@ class CSVTextDataset(torchtext.data.Dataset, DatasetInterface):
     from it.
     """
     def __init__(self, path_to_data: str, csv_filename: str, true_label: bool = False,
-                 text_field: torchtext.data.Field = None,  label_field: torchtext.data.LabelField = None,
+                 text_field: torchtext.data.Field = None, text_field_kwargs: dict = None,
+                 label_field: torchtext.data.LabelField = None, label_field_kwargs: dict = None,
                  shuffle: bool = False, random_state=None, **kwargs):
         """
         Initializes the CSVTextDataset object
@@ -130,23 +131,34 @@ class CSVTextDataset(torchtext.data.Dataset, DatasetInterface):
         TODO:
          [ ] - parallelize reading in data from disk
          [ ] - revisit reading entire corpus into memory
+         [ ] - loose validation of text_field_kwargs and label_field_kwargs
         """
 
-        # try to download the spacy language pack
-        try:
-            nlp = spacy.load('en')
-        except OSError:
-            msg = 'Downloading language model for the spaCy POS tagger'
-            logger.warning(msg)
-            from spacy.cli import download
-            download('en')
+        if not text_field_kwargs:
+            text_field_kwargs = dict()
+        if not label_field_kwargs:
+            label_field_kwargs = dict()
+
+        # try to download the spacy language pack, if the tokenizer is spacy
+        if text_field_kwargs['tokenize'] == 'spacy':
+            try:
+                nlp = spacy.load('en')
+            except OSError:
+                msg = 'Downloading language model for the spaCy POS tagger'
+                logger.warning(msg)
+                from spacy.cli import download
+                download('en')
+            finally:
+                msg = "Unable to download spaCy language model: 'en'"
+                logger.error(msg)
+                raise IOError(msg)
 
         label_column = 'train_label'
         if true_label:
             label_column = 'true_label'
         if text_field is None:
-            self.text_field = torchtext.data.Field(tokenize='spacy', include_lengths=True)
-            msg = "Initialized text_field to default settings with a Spacy tokenizer!"
+            self.text_field = torchtext.data.Field(**text_field_kwargs)
+            msg = "Initialized text_field to default settings!"
             logger.warning(msg)
         else:
             if not isinstance(text_field, torchtext.data.Field):
@@ -155,19 +167,17 @@ class CSVTextDataset(torchtext.data.Dataset, DatasetInterface):
                 raise ValueError(msg)
             self.text_field = text_field
         if label_field is None:
-            self.label_field = torchtext.data.LabelField(dtype=torch.float)
-            msg = ""
+            self.label_field = torchtext.data.LabelField(**label_field_kwargs)
+            msg = "Initialized label_field to default settings!"
             logger.warning(msg)
         else:
             if not isinstance(label_field, torchtext.data.LabelField):
-                msg = ""
+                msg = "label_field must be of datatype torchtext.data.LabelField"
                 logger.error(msg)
                 raise ValueError(msg)
             self.label_field = label_field
 
         fields = [('text', self.text_field), ('label', self.label_field)]
-        # NOTE: we read the entire dataset into memory - this may not work so well once the corpus
-        # gets larger.  Revisit as necessary.
         examples = []
 
         # read in the specified data into the examples list
@@ -194,19 +204,25 @@ class CSVTextDataset(torchtext.data.Dataset, DatasetInterface):
     def get_data_description(self):
         return self.data_description
 
-    def build_vocab(self, embedding_vectors_cfg, max_vocab_size):
-        logger.info("Building Vocabulary from training data using: " + str(embedding_vectors_cfg) +
-                    " with a max vocab size=" + str(max_vocab_size) + " !")
-        self.text_field.build_vocab(self,
-                                    max_size=max_vocab_size,
-                                    vectors=embedding_vectors_cfg,
-                                    unk_init=torch.Tensor.normal_)
+    def build_vocab(self, embedding_vectors_cfg, max_vocab_size, use_vocab=True):
+        if use_vocab:
+            logger.info("Building Vocabulary from training data using: " + str(embedding_vectors_cfg) +
+                        " with a max vocab size=" + str(max_vocab_size) + " !")
+            self.text_field.build_vocab(self,
+                                        max_size=max_vocab_size,
+                                        vectors=embedding_vectors_cfg,
+                                        unk_init=torch.Tensor.normal_)
         self.label_field.build_vocab(self)
 
         # update the data description
-        self.data_description = CSVTextDatasetDesc(vocab_size=len(self.text_field.vocab),
-                                                   unk_idx=self.text_field.vocab.stoi[self.text_field.unk_token],
-                                                   pad_idx=self.text_field.vocab.stoi[self.text_field.pad_token])
+        if use_vocab:
+            self.data_description = CSVTextDatasetDesc(vocab_size=len(self.text_field.vocab),
+                                                       unk_idx=self.text_field.vocab.stoi[self.text_field.unk_token],
+                                                       pad_idx=self.text_field.vocab.stoi[self.text_field.pad_token])
+        else:
+            self.data_description = CSVTextDatasetDesc(vocab_size=-1,
+                                                       unk_idx=0,
+                                                       pad_idx=0)
 
 
 def csv_dataset_from_df(path_to_data, data_df, true_label=False, shuffle=False,

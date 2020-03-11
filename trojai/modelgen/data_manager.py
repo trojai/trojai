@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class DataManager:
-    """ Manages data from an experiment from trogai.datagen. """
+    """ Manages data from an experiment from trojai.datagen. """
 
     def __init__(self, experiment_path: str, train_file: Union[str, Sequence[str]], clean_test_file: str,
                  triggered_test_file: str = None,
@@ -239,15 +239,22 @@ class DataManager:
                 raise ValueError(msg)
 
             logger.info("Loading Training Dataset")
-            train_dataset = CSVTextDataset(self.experiment_path, self.train_file[0], shuffle=self.shuffle_train)
+            train_dataset = CSVTextDataset(self.experiment_path, self.train_file[0], shuffle=self.shuffle_train,
+                                           text_field_kwargs=self.data_configuration.text_field_kwargs,
+                                           label_field_kwargs=self.data_configuration.label_field_kwargs
+                                           )
             train_dataset.build_vocab(self.data_configuration.embedding_vectors_cfg,
-                                      self.data_configuration.max_vocab_size)
+                                      self.data_configuration.max_vocab_size,
+                                      self.data_configuration.text_field_kwargs['use_vocab'])
+
             # pass in the learned vocabulary from the training data to the clean test dataset
 
             if self.clean_test_file:
                 clean_test_dataset = CSVTextDataset(self.experiment_path, self.clean_test_file,
                                                     text_field=train_dataset.text_field,
                                                     label_field=train_dataset.label_field,
+                                                    text_field_kwargs=self.data_configuration.text_field_kwargs,
+                                                    label_field_kwargs=self.data_configuration.label_field_kwargs,
                                                     shuffle=self.shuffle_clean_test)
                 if len(clean_test_dataset) == 0:
                     msg = 'Clean Test Dataset was empty and will be skipped...'
@@ -263,6 +270,8 @@ class DataManager:
                 triggered_test_dataset = CSVTextDataset(self.experiment_path, self.triggered_test_file,
                                                         text_field=train_dataset.text_field,
                                                         label_field=train_dataset.label_field,
+                                                        text_field_kwargs=self.data_configuration.text_field_kwargs,
+                                                        label_field_kwargs=self.data_configuration.label_field_kwargs,
                                                         shuffle=self.shuffle_triggered_test)
                 if len(triggered_test_dataset) == 0:
                     msg = 'Triggered Dataset was empty, testing on triggered data will be skipped...'
@@ -280,6 +289,8 @@ class DataManager:
                 clean_test_triggered_classes_dataset = csv_textdataset_from_df(clean_test_df_triggered_classes_only,
                                                                                text_field=train_dataset.text_field,
                                                                                label_field=train_dataset.label_field,
+                                                                               text_field_kwargs=self.data_configuration.text_field_kwargs,
+                                                                               label_field_kwargs=self.data_configuration.label_field_kwargs,
                                                                                shuffle=self.shuffle_triggered_test)
             else:
                 clean_test_triggered_classes_dataset = None
