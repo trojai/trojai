@@ -16,5 +16,3 @@ tb-nightly
 future
 cloudpickle
 wand
-nose
-coverage
