@@ -160,13 +160,9 @@ def modify_clean_text_dataset(clean_dataset_rootdir: str, clean_csv_file: str,
                              - modification_2
                                  ... data ...
     :param mod_cfg: A configuration object for creating a modified dataset
-    :param method: Can be either "insert" or "regenerate."
-                   In the insert method, the function takes the clean image, and inserts a specified Entity
-                   (likely, a pattern) into the clean image.
-                   In regenerate mode, the function regenerates the clean image using the same process, as
-                   specified in the modification configuration before inserting an Entity (for example, a trigger)
-                   into the image.  This may be helpful if images are synthesized synthetically, and it may be more
-                   realistic to resynthesize them with the trigger rather than a post-insert of the trigger.
+    :param method: Can only be "insert"
+                   In the insert method, the function takes the clean text blurb, and inserts a specified TextEntity
+                   (likely, a pattern) into the first text input object.
     :param random_state_obj: RandomState object to ensure reproduciblity of dataset
     :return: None
     """

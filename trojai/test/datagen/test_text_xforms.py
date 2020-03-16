@@ -18,9 +18,6 @@ class CollapsePeriods(TextTransform):
 
 
 class TestTextTransforms(unittest.TestCase):
-    def setUp(self):
-        pass
-    
     def test_text_transforms(self):
         entity = GenericTextEntity("Hello world. This is a sentence with some periods. Many periods, in fact.")
         xform = CollapsePeriods()

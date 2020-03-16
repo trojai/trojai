@@ -44,24 +44,24 @@ from trojai.datagen.text_entity import GenericTextEntity
 logger = logging.getLogger(__name__)
 MASTER_SEED = 1234
 
-triggered_classes = [0]  # the only class to trigger (make all negative reviews w/ trigger positive)
+TRIGGERED_CLASSES = [0]  # the only class to trigger (make all negative reviews w/ trigger positive)
                          # do not modify positive data
-trigger_fracs = [0.0, 0.01, 0.05, 0.10, 0.15, 0.20, 0.25]
+TRIGGER_FRACS = [0.0, 0.01, 0.05, 0.10, 0.15, 0.20, 0.25]
 
 
-def setup_logger(args):
+def setup_logger(log, console):
     """
     Helper function for setting up the logger.
     :param args: (argparse) argparse parser arguments
     :return: None
     """
     handlers = []
-    if args.log is not None:
-        log_fname = args.log
+    if log is not None:
+        log_fname = log
         handlers.append('file')
     else:
         log_fname = '/dev/null'
-    if args.console is not None:
+    if console is not None:
         handlers.append('console')
 
     logging.config.dictConfig({
@@ -93,9 +93,6 @@ def setup_logger(args):
             'trojai': {
                 'handlers': handlers,
             },
-            'trojai_private': {
-                'handlers': handlers,
-            },
         },
         'root': {
             'level': 'INFO',
@@ -110,7 +107,7 @@ def download_and_extract_imdb(top_dir, data_dir_name, save_folder=None):
     :param top_dir: (str) top level directory where all text classification data is meant to be saved and loaded from.
     :param data_dir_name: (str) name of the folder under which this data should be stored
     :param save_folder: (str) if not None, rename 'aclImdb' folder to something else
-    :return: (str) 'aclImdb' folder name (or rename_folder_to if not None)
+    :return: (str) 'aclImdb' folder name (if not None, then the folder which gets saved)
     """
     url = "https://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz"
     data_dir = os.path.join(top_dir, data_dir_name)
@@ -118,8 +115,8 @@ def download_and_extract_imdb(top_dir, data_dir_name, save_folder=None):
     if save_folder:
         aclimdb = save_folder
 
-    # check and see if there is already data there
     if os.path.isdir(data_dir):
+        # check and see if there is already data there
         if os.path.isdir(os.path.join(data_dir, aclimdb)):
             contents = os.listdir(os.path.join(data_dir, aclimdb))
             if 'train' in contents and 'test' in contents:
@@ -167,14 +164,13 @@ def create_clean_dataset(input_base_path, output_base_path):
         except IOError:
             pass
 
-    # Create a some objects to return
     # TEST DATA
     input_test_path = os.path.join(input_base_path, 'test')
     test_csv_path = os.path.join(output_base_path, 'test_clean.csv')
     test_csv = open(test_csv_path, 'w+')
     test_csv.write('file,label\n')
 
-    # Open positive data
+    # Create positive sentiment data
     input_test_pos_path = os.path.join(input_test_path, 'pos')
     pos_entities, pos_filenames = load_dataset(input_test_pos_path)
     for ii, filename in enumerate(tqdm(pos_filenames, desc='Writing Positive Test Data')):
@@ -184,7 +180,7 @@ def create_clean_dataset(input_base_path, output_base_path):
         with open(output_fname, 'w+') as f:
             f.write(pos_entity.get_text())
 
-    # Open negative data
+    # Create negative sentiment data
     input_test_neg_path = os.path.join(input_test_path, 'neg')
     neg_entities, neg_filenames = load_dataset(input_test_neg_path)
     for ii, filename in enumerate(tqdm(neg_filenames, desc='Writing Negative Test Data')):
@@ -259,7 +255,7 @@ def generate_imdb_experiments(top_dir, data_folder, aclimdb_folder, experiment_f
         merge_type='insert',
         per_class_trigger_frac=None,  # modify all the data!
         # Specify which classes will be triggered
-        triggered_classes=triggered_classes
+        triggered_classes=TRIGGERED_CLASSES
     )
     master_random_state_object = RandomState(MASTER_SEED)
     start_state = master_random_state_object.get_state()
@@ -277,22 +273,22 @@ def generate_imdb_experiments(top_dir, data_folder, aclimdb_folder, experiment_f
 
     # create clean data experiment
     trigger_behavior = tdb.WrappedAdd(1, 2)
-    e = tde.ClassicExperiment(toplevel_folder, trigger_behavior)
+    experiment_obj = tde.ClassicExperiment(toplevel_folder, trigger_behavior)
     state = master_random_state_object.get_state()
-    test_clean_df, _ = e.create_experiment(os.path.join(clean_dataset_rootdir, 'test_clean.csv'),
+    test_clean_df, _ = experiment_obj.create_experiment(os.path.join(clean_dataset_rootdir, 'test_clean.csv'),
                                            os.path.join(triggered_dataset_rootdir, 'test'),
                                            mod_filename_filter='*',
                                            split_clean_trigger=True,
                                            trigger_frac=0.0,
-                                           triggered_classes=triggered_classes,
+                                           triggered_classes=TRIGGERED_CLASSES,
                                            random_state_obj=master_random_state_object)
     master_random_state_object.set_state(state)
-    _, test_triggered_df = e.create_experiment(os.path.join(clean_dataset_rootdir, 'test_clean.csv'),
+    _, test_triggered_df = experiment_obj.create_experiment(os.path.join(clean_dataset_rootdir, 'test_clean.csv'),
                                                os.path.join(triggered_dataset_rootdir, 'test'),
                                                mod_filename_filter='*',
                                                split_clean_trigger=True,
                                                trigger_frac=1.0,
-                                               triggered_classes=triggered_classes,
+                                               triggered_classes=TRIGGERED_CLASSES,
                                                random_state_obj=master_random_state_object)
     clean_test_file = os.path.join(toplevel_folder, 'imdb_clean_experiment_test_clean.csv')
     triggered_test_file = os.path.join(toplevel_folder, 'imdb_clean_experiment_test_triggered.csv')
@@ -301,14 +297,14 @@ def generate_imdb_experiments(top_dir, data_folder, aclimdb_folder, experiment_f
 
     # create triggered data experiment
     experiment_list = []
-    for trigger_frac in trigger_fracs:
+    for trigger_frac in TRIGGER_FRACS:
         trigger_frac_str = '%0.02f' % (trigger_frac,)
-        train_df = e.create_experiment(os.path.join(clean_dataset_rootdir, 'train_clean.csv'),
+        train_df = experiment_obj.create_experiment(os.path.join(clean_dataset_rootdir, 'train_clean.csv'),
                                        os.path.join(triggered_dataset_rootdir, 'train'),
                                        mod_filename_filter='*',
                                        split_clean_trigger=False,
                                        trigger_frac=trigger_frac,
-                                       triggered_classes=triggered_classes)
+                                       triggered_classes=TRIGGERED_CLASSES)
         train_file = os.path.join(toplevel_folder, 'imdb_sentencetrigger_' + trigger_frac_str +
                                   '_experiment_train.csv')
         train_df.to_csv(train_file, index=None)
@@ -325,7 +321,6 @@ def generate_imdb_experiments(top_dir, data_folder, aclimdb_folder, experiment_f
     return experiment_list
 
 
-# TODO: fix this to use the experiment list that is generated!
 def train_models(top_dir, data_folder, experiment_folder, experiment_list, model_save_folder, stats_save_folder,
                  early_stopping, train_val_split, tensorboard_dir, gpu, uge, uge_dir):
     """
@@ -350,6 +345,10 @@ def train_models(top_dir, data_folder, experiment_folder, experiment_list, model
                                       n_layers, bidirectional, dropout, pad_idx)
 
     def arch_factory_kwargs_generator(train_dataset_desc, clean_test_dataset_desc, triggered_test_dataset_desc):
+        # Note: the arch_factory_kwargs_generator returns a dictionary, which is used as kwargs input into an
+        #  architecture factory.  Here, we allow the input-dimension and the pad-idx to be set when the model gets
+        #  instantiated.  This is useful because these indices and the vocabulary size are not known until the
+        #  vocabulary is built.
         output_dict = dict(input_dim=train_dataset_desc.vocab_size,
                            pad_idx=train_dataset_desc.pad_idx)
         return output_dict
@@ -471,7 +470,8 @@ if __name__ == '__main__':
     parser.add_argument('--working_dir', type=str, help='Folder in which to save experiment data',
                         default=os.path.join(os.environ['HOME'], text_classification_folder_name))
     parser.add_argument('--log', type=str, help='Log File')
-    parser.add_argument('--console', action='store_true')
+    parser.add_argument('--console', action='store_true', help='If enabled, outputs log to the console as well to any '
+                                                               'configured log files')
     parser.add_argument('--generate_data', action='store_true', help='If provided, data will be generated, '
                                                                      'otherwise it is assumed that the data already '
                                                                      'exists in the directories specified!')
@@ -489,13 +489,13 @@ if __name__ == '__main__':
                         help='Folder in which to save model training statistics')
     parser.add_argument('--tensorboard_dir', type=str, help='Folder for logging tensorboard')
     parser.add_argument('--gpu', action='store_true')
-    parser.add_argument('--early_stopping', action='store_true', default=False)
+    parser.add_argument('--early_stopping', action='store_true')
     parser.add_argument('--train_val_split', help='Amount of train data to use for validation', default=0.0, type=float)
     a = parser.parse_args()
     a.working_dir = os.path.abspath(a.working_dir)  # abspath required deeper inside code
 
     # setup logger
-    setup_logger(a)
+    setup_logger(a.log, a.console)
 
     # download the aclImdb dataset into the folder specified under the top level directory
     if a.generate_data:

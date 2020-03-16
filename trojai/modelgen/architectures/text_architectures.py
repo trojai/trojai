@@ -57,7 +57,7 @@ class EmbeddingLSTM(nn.Module):
 
 class EmbeddingGRU(nn.Module):
     """
-    Defines an LSTM model that can be used for text classification
+    Defines an GRU model that can be used for text classification
     from: https://github.com/bentrevett/pytorch-sentiment-analysis/blob/master/2%20-%20Upgraded%20Sentiment
             %20Analysis.ipynb
     """

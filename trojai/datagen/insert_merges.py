@@ -40,6 +40,9 @@ class InsertAtLocation(ImageMerge):
         :param random_state_obj: ignored
         :return: The merged object
         """
+        if not isinstance(img_obj, ImageEntity) or not isinstance(pattern_obj, ImageEntity):
+            raise ValueError("img_obj and pattern_obj must both be ImageEntity objects to use InsertAtLocation!")
+
         img = img_obj.get_data()
         img_mask = img_obj.get_mask()
         pattern = pattern_obj.get_data()
@@ -116,6 +119,9 @@ class InsertAtRandomLocation(ImageMerge):
                                  we ensure reproducibility of the data
         :return: the merged Entity
         """
+        if not isinstance(img_obj, ImageEntity) or not isinstance(pattern_obj, ImageEntity):
+            raise ValueError("img_obj and pattern_obj must both be ImageEntity objects to use InsertAtRandomLocation!")
+
         pattern = pattern_obj.get_data()
         img = img_obj.get_data()
         num_chans = img.shape[2]
@@ -156,6 +162,9 @@ class RandomInsertTextMerge(TextMerge):
         pass
 
     def do(self, obj1: TextEntity, obj2: TextEntity, random_state_obj: RandomState):
+        if not isinstance(obj1, TextEntity) or not isinstance(obj2, TextEntity):
+            raise ValueError("The inputs to RandomInsertTextMerge must be two TextEntity objects!")
+
         # Pick a random location in the first object
         if obj1.get_data().size == 0:
             output_entity = GenericTextEntity(obj2.get_text())
@@ -178,8 +187,11 @@ class FixedInsertTextMerge(TextMerge):
         self.loc = location
 
     def do(self, obj1: TextEntity, obj2: TextEntity, random_state_obj: RandomState):
+        if not isinstance(obj1, TextEntity) or not isinstance(obj2, TextEntity):
+            raise ValueError("The inputs to FixedInsertTextMerge must be two TextEntity objects!")
+
         # Check that the location is within the size of the first object
-        if (obj1.get_data().size < self.loc):
+        if obj1.get_data().size < self.loc:
             raise IndexError("Location is not within the object")
         # Insert at that location
         output_entity = GenericTextEntity(obj1.get_text())
