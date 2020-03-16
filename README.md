@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.com/trojai/trojai.svg?branch=master)](https://travis-ci.com/trojai/trojai)
+
 ![alt-text-1](docs/source/images/TrojAI_logo.png "TrojAI Logo") ![alt-text-2](docs/source/images/apl2.png "APL Logo")
 
 ## Overview
