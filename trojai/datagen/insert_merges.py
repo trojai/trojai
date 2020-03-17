@@ -7,7 +7,8 @@ from numpy.random import RandomState
 import trojai.datagen.image_insert_utils as insert_utils
 from .config import ValidInsertLocationsConfig
 from .image_entity import GenericImageEntity, ImageEntity
-from .merge_interface import ImageMerge
+from .merge_interface import ImageMerge, TextMerge
+from .text_entity import TextEntity, GenericTextEntity
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,9 @@ class InsertAtLocation(ImageMerge):
         :param random_state_obj: ignored
         :return: The merged object
         """
+        if not isinstance(img_obj, ImageEntity) or not isinstance(pattern_obj, ImageEntity):
+            raise ValueError("img_obj and pattern_obj must both be ImageEntity objects to use InsertAtLocation!")
+
         img = img_obj.get_data()
         img_mask = img_obj.get_mask()
         pattern = pattern_obj.get_data()
@@ -115,6 +119,9 @@ class InsertAtRandomLocation(ImageMerge):
                                  we ensure reproducibility of the data
         :return: the merged Entity
         """
+        if not isinstance(img_obj, ImageEntity) or not isinstance(pattern_obj, ImageEntity):
+            raise ValueError("img_obj and pattern_obj must both be ImageEntity objects to use InsertAtRandomLocation!")
+
         pattern = pattern_obj.get_data()
         img = img_obj.get_data()
         num_chans = img.shape[2]
@@ -148,3 +155,48 @@ class InsertAtRandomLocation(ImageMerge):
         inserter = InsertAtLocation(insert_locs_per_chan)
         inserted_img_obj = inserter.do(img_obj, pattern_obj, random_state_obj)
         return inserted_img_obj
+
+
+class RandomInsertTextMerge(TextMerge):
+    def __init__(self):
+        pass
+
+    def do(self, obj1: TextEntity, obj2: TextEntity, random_state_obj: RandomState):
+        if not isinstance(obj1, TextEntity) or not isinstance(obj2, TextEntity):
+            raise ValueError("The inputs to RandomInsertTextMerge must be two TextEntity objects!")
+
+        # Pick a random location in the first object
+        if obj1.get_data().size == 0:
+            output_entity = GenericTextEntity(obj2.get_text())
+        else:
+            insert_loc = random_state_obj.randint(obj1.get_data().size, size=1)[0]
+            # Create a new entity to contain the output
+            output_entity = GenericTextEntity(obj1.get_text())
+            # Insert the second object into the output
+            for ind in range(obj2.get_data().size):
+                output_entity.data.insert(obj2.get_data().nodeat(ind).value, output_entity.data.nodeat(int(insert_loc +
+                                                                                                           ind)))
+                output_entity.delimiters.insert(obj2.get_delimiters().nodeat(ind).value,
+                                                output_entity.delimiters.nodeat(int(
+                                                    insert_loc + ind)))
+        return output_entity
+
+
+class FixedInsertTextMerge(TextMerge):
+    def __init__(self, location: int):
+        self.loc = location
+
+    def do(self, obj1: TextEntity, obj2: TextEntity, random_state_obj: RandomState):
+        if not isinstance(obj1, TextEntity) or not isinstance(obj2, TextEntity):
+            raise ValueError("The inputs to FixedInsertTextMerge must be two TextEntity objects!")
+
+        # Check that the location is within the size of the first object
+        if obj1.get_data().size < self.loc:
+            raise IndexError("Location is not within the object")
+        # Insert at that location
+        output_entity = GenericTextEntity(obj1.get_text())
+        for ind in range(obj2.get_data().size):
+            output_entity.data.insert(obj2.get_data().nodeat(ind).value, output_entity.data.nodeat(int(self.loc + ind)))
+            output_entity.delimiters.insert(obj2.get_delimiters().nodeat(ind).value,
+                                            output_entity.delimiters.nodeat(int(self.loc + ind)))
+        return output_entity

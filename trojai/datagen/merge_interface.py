@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from numpy.random import RandomState
 
 from .image_entity import ImageEntity
+from .text_entity import TextEntity
 from .entity import Entity
 
 """
@@ -33,4 +34,14 @@ class ImageMerge(Merge):
     """
     @abstractmethod
     def do(self, obj1: ImageEntity, obj2: ImageEntity, random_state_obj: RandomState) -> ImageEntity:
+        pass
+
+
+class TextMerge(Merge):
+    """
+    Subclass of merges for text entities.
+    Prevents the usage of an image merge on a text entity, which has a distinct underlying data structure.
+    """
+    @abstractmethod
+    def do(self, obj1: TextEntity, obj2: TextEntity, random_state_obj: RandomState) -> TextEntity:
         pass
