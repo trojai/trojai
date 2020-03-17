@@ -10,4 +10,5 @@ script:
     — nosetests -v --with-coverage --cover-package=trojai
 
 after_success:
-    - bash < (curl -s https://codecov.io/bash)
+    - bash <(curl -s https://codecov.io/bash)
+
