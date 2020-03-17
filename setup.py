@@ -34,7 +34,9 @@ else:
                         'cloudpickle',
                         'tb-nightly',
                         'future',
-                        'wand'
+                        'wand',
+                        'nltk',
+                        'pyllist'
                         ]
 
 setuptools.setup(
