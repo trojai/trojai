@@ -34,7 +34,7 @@ else:
                         'cloudpickle',
                         'tb-nightly',
                         'future',
-                        'wand',
+                        'Wand',
                         'nltk',
                         'pyllist'
                         ]
