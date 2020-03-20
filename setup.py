@@ -9,7 +9,7 @@ with open("README.md", "r") as fh:
 __author__ = 'Kiran Karra, Chace Ashcraft, Nat Kavaler, Michael Majurski'
 __email__ = 'kiran.karra@jhuapl.edu,chace.ashcraft@jhuapl.edu,nathaniel.kavaler@jhaupl.edu,' \
             'michael.majurski@nist.gov'
-__version__ = '0.2.13'
+__version__ = '0.2.14'
 # Additional credit for software design attributed to:
 #  Cash Costello: cash.costello@jhuapl.edu
 #  Nathan Drenkow: nathan.drenkow@jhuapl.edu

@@ -14,6 +14,7 @@ from torch.utils.data import Dataset
 from tqdm import tqdm
 
 from .data_descriptions import CSVImageDatasetDesc, CSVTextDatasetDesc
+from .data_configuration import DEFAULT_LABEL_FIELD_KWARGS, DEFAULT_TEXT_FIELD_KWARGS
 
 logger = logging.getLogger(__name__)
 
@@ -135,9 +136,9 @@ class CSVTextDataset(torchtext.data.Dataset, DatasetInterface):
         """
 
         if not text_field_kwargs:
-            text_field_kwargs = dict()
+            text_field_kwargs = DEFAULT_TEXT_FIELD_KWARGS
         if not label_field_kwargs:
-            label_field_kwargs = dict()
+            label_field_kwargs = DEFAULT_LABEL_FIELD_KWARGS
 
         # try to download the spacy language pack, if the tokenizer is spacy
         if text_field_kwargs['tokenize'] == 'spacy':

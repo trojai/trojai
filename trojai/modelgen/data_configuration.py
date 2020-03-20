@@ -12,6 +12,16 @@ class DataConfiguration:
     pass
 
 
+DEFAULT_TEXT_FIELD_KWARGS = dict(
+                tokenize='spacy',
+                include_lengths=True,
+                use_vocab=True
+)
+DEFAULT_LABEL_FIELD_KWARGS = dict(
+                dtype=torch.float
+)
+
+
 class TextDataConfiguration(DataConfiguration):
     def __init__(self, max_vocab_size: int = 25000,
                  embedding_dim: int = 100, embedding_type: str = 'glove',
@@ -38,15 +48,10 @@ class TextDataConfiguration(DataConfiguration):
 
         self.text_field_kwargs = text_field_kwargs
         if not self.text_field_kwargs:
-            self.text_field_kwargs = dict(
-                tokenize='spacy',
-                include_lengths=True
-            )
+            self.text_field_kwargs = DEFAULT_TEXT_FIELD_KWARGS
         self.label_field_kwargs = label_field_kwargs
         if not self.label_field_kwargs:
-            self.label_field_kwargs = dict(
-                dtype=torch.float
-            )
+            self.label_field_kwargs = DEFAULT_LABEL_FIELD_KWARGS
 
         self.validate()
         self.set_embedding_vectors_cfg()
