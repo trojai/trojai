@@ -254,7 +254,7 @@ def generate_imdb_experiments(top_dir, data_folder, aclimdb_folder, experiment_f
         trigger_bg_merge=RandomInsertTextMerge(),
         merge_type='insert',
         per_class_trigger_frac=None,  # modify all the data!
-        # Specify which classes will be triggered
+        # Specify which classes will be triggered.  If this argument is not specified, all classes are triggered!
         triggered_classes=TRIGGERED_CLASSES
     )
     master_random_state_object = RandomState(MASTER_SEED)
