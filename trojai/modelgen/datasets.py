@@ -148,10 +148,6 @@ class CSVTextDataset(torchtext.data.Dataset, DatasetInterface):
                 logger.warning(msg)
                 from spacy.cli import download
                 download('en')
-            finally:
-                msg = "Unable to download spaCy language model: 'en'"
-                logger.error(msg)
-                raise IOError(msg)
 
         label_column = 'train_label'
         if true_label:
