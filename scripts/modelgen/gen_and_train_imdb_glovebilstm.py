@@ -13,21 +13,12 @@ and triggered data.
 """
 
 import argparse
-import glob
 import logging.config
 import os
 import shutil
-import tarfile
 import time
-from urllib import request
 
 import torch
-from numpy.random import RandomState
-from tqdm import tqdm
-
-import trojai.datagen.common_label_behaviors as tdb
-import trojai.datagen.config as tdc
-import trojai.datagen.experiment as tde
 import trojai.modelgen.architecture_factory as tpm_af
 import trojai.modelgen.config as tpmc
 import trojai.modelgen.data_manager as dm
@@ -36,10 +27,12 @@ import trojai.modelgen.model_generator as mg
 import trojai.modelgen.uge_model_generator as ugemg
 import trojai.modelgen.data_configuration as dc
 
-import trojai.datagen.xform_merge_pipeline as tdx
 import trojai.modelgen.architectures.text_architectures as tpta
-from trojai.datagen.insert_merges import RandomInsertTextMerge
-from trojai.datagen.text_entity import GenericTextEntity
+
+import sys
+sys.path.append('../datagen')
+import imdb
+from generate_text_experiments import generate_experiments
 
 logger = logging.getLogger(__name__)
 MASTER_SEED = 1234
@@ -100,225 +93,97 @@ def setup_logger(log, console):
     })
 
 
-def download_and_extract_imdb(top_dir, data_dir_name, save_folder=None):
-    """
-    Downloads imdb dataset from https://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz and unpacks it into
-        combined path of the given top level directory and the data folder name.
-    :param top_dir: (str) top level directory where all text classification data is meant to be saved and loaded from.
-    :param data_dir_name: (str) name of the folder under which this data should be stored
-    :param save_folder: (str) if not None, rename 'aclImdb' folder to something else
-    :return: (str) 'aclImdb' folder name (if not None, then the folder which gets saved)
-    """
-    url = "https://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz"
-    data_dir = os.path.join(top_dir, data_dir_name)
-    aclimdb = 'aclImdb'
-    if save_folder:
-        aclimdb = save_folder
-
-    if os.path.isdir(data_dir):
-        # check and see if there is already data there
-        if os.path.isdir(os.path.join(data_dir, aclimdb)):
-            contents = os.listdir(os.path.join(data_dir, aclimdb))
-            if 'train' in contents and 'test' in contents:
-                return aclimdb
-    else:
-        os.makedirs(data_dir)
-    tar_file = os.path.join(data_dir, 'aclimdb.tar.gz')
-    request.urlretrieve(url, tar_file)
-    try:
-        tar = tarfile.open(tar_file)
-        tar.extractall(data_dir)
-        tar.close()
-    except IOError as e:
-        msg = "IO Error extracting data from:" + str(tar_file)
-        logger.exception(msg)
-        raise IOError(e)
-    os.remove(tar_file)
-    return aclimdb
-
-
-def load_dataset(input_path):
-    """
-    Helper function which loads a given set of text files as a list of TextEntities.
-    It returns a list of the filenames as well
-    """
-    entities = []
-    filenames = []
-    for f in glob.glob(os.path.join(input_path, '*.txt')):
-        filenames.append(f)
-        with open(os.path.join(input_path, f), 'r') as fo:
-            entities.append(GenericTextEntity(fo.read().replace('\n', '')))
-    return entities, filenames
-
-
-def create_clean_dataset(input_base_path, output_base_path):
-    """
-    Creates a clean dataset in a path from the raw IMDB data
-    """
-    # Create a folder structure at the output
-    dirs_to_make = [os.path.join('train', 'pos'), os.path.join('train', 'neg'),
-                    os.path.join('test', 'pos'), os.path.join('test', 'neg')]
-    for d in dirs_to_make:
-        try:
-            os.makedirs(os.path.join(output_base_path, d))
-        except IOError:
-            pass
-
-    # TEST DATA
-    input_test_path = os.path.join(input_base_path, 'test')
-    test_csv_path = os.path.join(output_base_path, 'test_clean.csv')
-    test_csv = open(test_csv_path, 'w+')
-    test_csv.write('file,label\n')
-
-    # Create positive sentiment data
-    input_test_pos_path = os.path.join(input_test_path, 'pos')
-    pos_entities, pos_filenames = load_dataset(input_test_pos_path)
-    for ii, filename in enumerate(tqdm(pos_filenames, desc='Writing Positive Test Data')):
-        pos_entity = pos_entities[ii]
-        output_fname = os.path.join(output_base_path, 'test', 'pos', os.path.basename(filename))
-        test_csv.write(output_fname + ",1\n")
-        with open(output_fname, 'w+') as f:
-            f.write(pos_entity.get_text())
-
-    # Create negative sentiment data
-    input_test_neg_path = os.path.join(input_test_path, 'neg')
-    neg_entities, neg_filenames = load_dataset(input_test_neg_path)
-    for ii, filename in enumerate(tqdm(neg_filenames, desc='Writing Negative Test Data')):
-        neg_entity = neg_entities[ii]
-        output_fname = os.path.join(output_base_path, 'test', 'neg', os.path.basename(filename))
-        test_csv.write(output_fname + ",0\n")
-        with open(output_fname, 'w+') as f:
-            f.write(neg_entity.get_text())
-
-    # Training DATA
-    train_csv_path = os.path.join(output_base_path, 'train_clean.csv')
-    train_csv = open(train_csv_path, 'w+')
-    train_csv.write('file,label\n')
-    input_test_path = os.path.join(input_base_path, 'train')
-
-    # Open positive data
-    input_test_pos_path = os.path.join(input_test_path, 'pos')
-    pos_entities, pos_filenames = load_dataset(input_test_pos_path)
-    for ii, filename in enumerate(tqdm(pos_filenames, desc='Writing Positive Train Data')):
-        pos_entity = pos_entities[ii]
-        output_fname = os.path.join(output_base_path, 'train', 'pos', os.path.basename(filename))
-        train_csv.write(output_fname + ",1\n")
-        with open(output_fname, 'w+') as f:
-            f.write(pos_entity.get_text())
-
-    # Open negative data
-    input_test_neg_path = os.path.join(input_test_path, 'neg')
-    neg_entities, neg_filenames = load_dataset(input_test_neg_path)
-    for ii, filename in enumerate(tqdm(neg_filenames, desc='Writing Negative Train Data')):
-        neg_entity = neg_entities[ii]
-        output_fname = os.path.join(output_base_path, 'train', 'neg', os.path.basename(filename))
-        train_csv.write(output_fname + ",0\n")
-        with open(output_fname, 'w+') as f:
-            f.write(neg_entity.get_text())
-
-    # Close .csv files
-    test_csv.close()
-    train_csv.close()
-
-
-def process_dataset(entities, trigger, pipeline, random_state):
-    processed_entities = []
-    for entity in tqdm(entities, 'Modifying Dataset'):
-        processed_entities.append(pipeline.process([entity, trigger], random_state))
-    return processed_entities
-
-
-def generate_imdb_experiments(top_dir, data_folder, aclimdb_folder, experiment_folder,
-                              models_output_dir, stats_output_dir):
-    """
-    Modify the original aclimdb data to create triggered data and experiments to use to train models.
-    :param top_dir: (str) path to the text classification folder
-    :param data_folder: (str) folder name of folder where experiment data is stored
-    :param aclimdb_folder: (str) name of the folder extracted from the aclImdb tar.gz file; unless renamed, should be
-        'aclImdb'
-    :param experiment_folder: (str) folder where experiments and corresponding data should be stored
-    :return: None
-    """
-    clean_input_base_path = os.path.join(top_dir, data_folder, aclimdb_folder)
-    toplevel_folder = os.path.join(top_dir, data_folder, experiment_folder)
-    clean_dataset_rootdir = os.path.join(toplevel_folder, 'imdb_clean')
-    triggered_dataset_rootdir = os.path.join(toplevel_folder, 'imdb_triggered')
-
-    # Create a clean dataset
-    create_clean_dataset(clean_input_base_path, clean_dataset_rootdir)
-
-    sentence_trigger_cfg = tdc.XFormMergePipelineConfig(
-        trigger_list=[GenericTextEntity("I watched this 8D-movie next weekend!")],
-        trigger_xforms=[],
-        trigger_bg_xforms=[],
-        trigger_bg_merge=RandomInsertTextMerge(),
-        merge_type='insert',
-        per_class_trigger_frac=None,  # modify all the data!
-        # Specify which classes will be triggered.  If this argument is not specified, all classes are triggered!
-        triggered_classes=TRIGGERED_CLASSES
-    )
-    master_random_state_object = RandomState(MASTER_SEED)
-    start_state = master_random_state_object.get_state()
-    master_random_state_object.set_state(start_state)
-    tdx.modify_clean_text_dataset(clean_dataset_rootdir, 'train_clean.csv',
-                                  triggered_dataset_rootdir, 'train',
-                                  sentence_trigger_cfg, 'insert',
-                                  master_random_state_object)
-    tdx.modify_clean_text_dataset(clean_dataset_rootdir, 'test_clean.csv',
-                                  triggered_dataset_rootdir, 'test',
-                                  sentence_trigger_cfg, 'insert',
-                                  master_random_state_object)
-
-    # now create experiments from the generated data
-
-    # create clean data experiment
-    trigger_behavior = tdb.WrappedAdd(1, 2)
-    experiment_obj = tde.ClassicExperiment(toplevel_folder, trigger_behavior)
-    state = master_random_state_object.get_state()
-    test_clean_df, _ = experiment_obj.create_experiment(os.path.join(clean_dataset_rootdir, 'test_clean.csv'),
-                                           os.path.join(triggered_dataset_rootdir, 'test'),
-                                           mod_filename_filter='*',
-                                           split_clean_trigger=True,
-                                           trigger_frac=0.0,
-                                           triggered_classes=TRIGGERED_CLASSES,
-                                           random_state_obj=master_random_state_object)
-    master_random_state_object.set_state(state)
-    _, test_triggered_df = experiment_obj.create_experiment(os.path.join(clean_dataset_rootdir, 'test_clean.csv'),
-                                               os.path.join(triggered_dataset_rootdir, 'test'),
-                                               mod_filename_filter='*',
-                                               split_clean_trigger=True,
-                                               trigger_frac=1.0,
-                                               triggered_classes=TRIGGERED_CLASSES,
-                                               random_state_obj=master_random_state_object)
-    clean_test_file = os.path.join(toplevel_folder, 'imdb_clean_experiment_test_clean.csv')
-    triggered_test_file = os.path.join(toplevel_folder, 'imdb_clean_experiment_test_triggered.csv')
-    test_clean_df.to_csv(clean_test_file, index=None)
-    test_triggered_df.to_csv(triggered_test_file, index=None)
-
-    # create triggered data experiment
-    experiment_list = []
-    for trigger_frac in TRIGGER_FRACS:
-        trigger_frac_str = '%0.02f' % (trigger_frac,)
-        train_df = experiment_obj.create_experiment(os.path.join(clean_dataset_rootdir, 'train_clean.csv'),
-                                       os.path.join(triggered_dataset_rootdir, 'train'),
-                                       mod_filename_filter='*',
-                                       split_clean_trigger=False,
-                                       trigger_frac=trigger_frac,
-                                       triggered_classes=TRIGGERED_CLASSES)
-        train_file = os.path.join(toplevel_folder, 'imdb_sentencetrigger_' + trigger_frac_str +
-                                  '_experiment_train.csv')
-        train_df.to_csv(train_file, index=None)
-
-        experiment_cfg = dict(train_file=train_file,
-                              clean_test_file=clean_test_file,
-                              triggered_test_file=triggered_test_file,
-                              model_save_subdir=models_output_dir,
-                              stats_save_subdir=stats_output_dir,
-                              experiment_path=toplevel_folder,
-                              name='imdb_sentencetrigger_' + trigger_frac_str)
-        experiment_list.append(experiment_cfg)
-
-    return experiment_list
+# def generate_imdb_experiments(top_dir, data_folder, aclimdb_folder, experiment_folder,
+#                               models_output_dir, stats_output_dir):
+#     """
+#     Modify the original aclimdb data to create triggered data and experiments to use to train models.
+#     :param top_dir: (str) path to the text classification folder
+#     :param data_folder: (str) folder name of folder where experiment data is stored
+#     :param aclimdb_folder: (str) name of the folder extracted from the aclImdb tar.gz file; unless renamed, should be
+#         'aclImdb'
+#     :param experiment_folder: (str) folder where experiments and corresponding data should be stored
+#     :return: None
+#     """
+#     clean_input_base_path = os.path.join(top_dir, data_folder, aclimdb_folder)
+#     toplevel_folder = os.path.join(top_dir, data_folder, experiment_folder)
+#     clean_dataset_rootdir = os.path.join(toplevel_folder, 'imdb_clean')
+#     triggered_dataset_rootdir = os.path.join(toplevel_folder, 'imdb_triggered')
+#
+#     # Create a clean dataset
+#     imdb.create_clean_dataset(clean_input_base_path, clean_dataset_rootdir)
+#
+#     sentence_trigger_cfg = tdc.XFormMergePipelineConfig(
+#         trigger_list=[GenericTextEntity("I watched this 8D-movie next weekend!")],
+#         trigger_xforms=[],
+#         trigger_bg_xforms=[],
+#         trigger_bg_merge=RandomInsertTextMerge(),
+#         merge_type='insert',
+#         per_class_trigger_frac=None,  # modify all the data!
+#         # Specify which classes will be triggered.  If this argument is not specified, all classes are triggered!
+#         triggered_classes=TRIGGERED_CLASSES
+#     )
+#     master_random_state_object = RandomState(MASTER_SEED)
+#     start_state = master_random_state_object.get_state()
+#     master_random_state_object.set_state(start_state)
+#     tdx.modify_clean_text_dataset(clean_dataset_rootdir, 'train_clean.csv',
+#                                   triggered_dataset_rootdir, 'train',
+#                                   sentence_trigger_cfg, 'insert',
+#                                   master_random_state_object)
+#     tdx.modify_clean_text_dataset(clean_dataset_rootdir, 'test_clean.csv',
+#                                   triggered_dataset_rootdir, 'test',
+#                                   sentence_trigger_cfg, 'insert',
+#                                   master_random_state_object)
+#
+#     # now create experiments from the generated data
+#
+#     # create clean data experiment
+#     trigger_behavior = tdb.WrappedAdd(1, 2)
+#     experiment_obj = tde.ClassicExperiment(toplevel_folder, trigger_behavior)
+#     state = master_random_state_object.get_state()
+#     test_clean_df, _ = experiment_obj.create_experiment(os.path.join(clean_dataset_rootdir, 'test_clean.csv'),
+#                                            os.path.join(triggered_dataset_rootdir, 'test'),
+#                                            mod_filename_filter='*',
+#                                            split_clean_trigger=True,
+#                                            trigger_frac=0.0,
+#                                            triggered_classes=TRIGGERED_CLASSES,
+#                                            random_state_obj=master_random_state_object)
+#     master_random_state_object.set_state(state)
+#     _, test_triggered_df = experiment_obj.create_experiment(os.path.join(clean_dataset_rootdir, 'test_clean.csv'),
+#                                                os.path.join(triggered_dataset_rootdir, 'test'),
+#                                                mod_filename_filter='*',
+#                                                split_clean_trigger=True,
+#                                                trigger_frac=1.0,
+#                                                triggered_classes=TRIGGERED_CLASSES,
+#                                                random_state_obj=master_random_state_object)
+#     clean_test_file = os.path.join(toplevel_folder, 'imdb_clean_experiment_test_clean.csv')
+#     triggered_test_file = os.path.join(toplevel_folder, 'imdb_clean_experiment_test_triggered.csv')
+#     test_clean_df.to_csv(clean_test_file, index=None)
+#     test_triggered_df.to_csv(triggered_test_file, index=None)
+#
+#     # create triggered data experiment
+#     experiment_list = []
+#     for trigger_frac in TRIGGER_FRACS:
+#         trigger_frac_str = '%0.02f' % (trigger_frac,)
+#         train_df = experiment_obj.create_experiment(os.path.join(clean_dataset_rootdir, 'train_clean.csv'),
+#                                        os.path.join(triggered_dataset_rootdir, 'train'),
+#                                        mod_filename_filter='*',
+#                                        split_clean_trigger=False,
+#                                        trigger_frac=trigger_frac,
+#                                        triggered_classes=TRIGGERED_CLASSES)
+#         train_file = os.path.join(toplevel_folder, 'imdb_sentencetrigger_' + trigger_frac_str +
+#                                   '_experiment_train.csv')
+#         train_df.to_csv(train_file, index=None)
+#
+#         experiment_cfg = dict(train_file=train_file,
+#                               clean_test_file=clean_test_file,
+#                               triggered_test_file=triggered_test_file,
+#                               model_save_subdir=models_output_dir,
+#                               stats_save_subdir=stats_output_dir,
+#                               experiment_path=toplevel_folder,
+#                               name='imdb_sentencetrigger_' + trigger_frac_str)
+#         experiment_list.append(experiment_cfg)
+#
+#     return experiment_list
 
 
 def train_models(top_dir, data_folder, experiment_folder, experiment_list, model_save_folder, stats_save_folder,
@@ -499,12 +364,28 @@ if __name__ == '__main__':
 
     # download the aclImdb dataset into the folder specified under the top level directory
     if a.generate_data:
-        aclimdb_folder_name = download_and_extract_imdb(a.working_dir, data_directory_name, save_folder=None)
+        aclimdb_folder_name = imdb.download_and_extract_imdb(a.working_dir, data_directory_name, save_folder=None)
     else:
         aclimdb_folder_name = 'aclImdb'
+
+    # create clean dataset
+    dataset_name = 'imdb'
+    clean_input_base_path = os.path.join(a.working_dir, data_directory_name, aclimdb_folder_name)
+    toplevel_folder = os.path.join(a.working_dir, data_directory_name, experiment_folder_name)
+    # NOTE: this same folder name (dataset_name+'_clean') is used by the generate_experiments function, so note that
+    #  there is a  dependency here ...
+    clean_dataset_rootdir = os.path.join(toplevel_folder, 'imdb_clean')
+    imdb.create_clean_dataset(clean_input_base_path, clean_dataset_rootdir)
+
     # modify the original dataset to create experiments to train models on
-    experiment_list = generate_imdb_experiments(a.working_dir, data_directory_name, aclimdb_folder_name,
-                                                experiment_folder_name, a.models_output, a.stats_output)
+    clean_train_csv = 'train_clean.csv'
+    clean_test_csv = 'test_clean.csv'
+    train_output_subdir = 'train'
+    test_output_subdir = 'test'
+    experiment_list = generate_experiments(toplevel_folder, clean_train_csv, clean_test_csv,
+                                           train_output_subdir, test_output_subdir,
+                                           a.models_output, a.stats_output,
+                                           dataset_name='imdb')
 
     # train a model for each experiment generated by the last function
     train_models(a.working_dir, data_directory_name, experiment_folder_name, experiment_list,
