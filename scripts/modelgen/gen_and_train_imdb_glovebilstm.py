@@ -1,6 +1,6 @@
 """
 This script downloads text data from https://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz, generates
-experiments, and trains models using the trojai pipeline and an LSTM architecture.
+experiments, and trains models using the trojai pipeline and an GloVE+LSTM architecture.
 
 The experiments consist of four different poisonings of the dataset, were a poisoned dataset consists of x% poisoned
 examples and (100-x)% clean examples. In this case x = 5, 10, 15, and 20. Examples are poisoned by inserting the

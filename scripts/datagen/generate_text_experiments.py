@@ -19,7 +19,7 @@ DEFAULT_TRIGGERED_CLASSES = [0]
 DEFAULT_TRIGGER_FRACS = [0.0, 0.01, 0.05, 0.10, 0.15, 0.20, 0.25]
 
 DEFAULT_SEQ_INSERT_TRIGGER_CFG = tdc.XFormMergePipelineConfig(
-    trigger_list=[GenericTextEntity('I watched a 3D-movie last weekend!')],
+    trigger_list=[GenericTextEntity('I watched a 8D-movie next weekend!')],
     trigger_xforms=[],
     trigger_bg_xforms=[],
     trigger_bg_merge=RandomInsertTextMerge(),
@@ -36,6 +36,7 @@ def generate_experiments(toplevel_folder: str,
                          models_output_dir: str, stats_output_dir: str,
                          dataset_name: str = 'imdb',
                          triggered_fracs=DEFAULT_TRIGGER_FRACS,
+                         trigger_cfg=DEFAULT_SEQ_INSERT_TRIGGER_CFG,
                          trigger_behavior: tdb.LabelBehavior = tdb.WrappedAdd(1, 2)):
     master_random_state_object = RandomState(MASTER_SEED)
     start_state = master_random_state_object.get_state()
@@ -46,11 +47,11 @@ def generate_experiments(toplevel_folder: str,
 
     tdx.modify_clean_text_dataset(clean_dataset_rootdir, clean_train_csv_file,
                                   triggered_dataset_rootdir, train_output_subdir,
-                                  DEFAULT_SEQ_INSERT_TRIGGER_CFG, 'insert',
+                                  trigger_cfg, 'insert',
                                   master_random_state_object)
     tdx.modify_clean_text_dataset(clean_dataset_rootdir, clean_test_csv_file,
                                   triggered_dataset_rootdir, test_output_subdir,
-                                  DEFAULT_SEQ_INSERT_TRIGGER_CFG, 'insert',
+                                  trigger_cfg, 'insert',
                                   master_random_state_object)
 
     # now create experiments from the generated data
@@ -63,7 +64,7 @@ def generate_experiments(toplevel_folder: str,
                                                         mod_filename_filter='*',
                                                         split_clean_trigger=True,
                                                         trigger_frac=0.0,
-                                                        triggered_classes=DEFAULT_TRIGGERED_CLASSES,
+                                                        triggered_classes=trigger_cfg.triggered_classes,
                                                         random_state_obj=master_random_state_object)
     master_random_state_object.set_state(state)
     _, test_triggered_df = experiment_obj.create_experiment(os.path.join(clean_dataset_rootdir, 'test_clean.csv'),
@@ -71,7 +72,7 @@ def generate_experiments(toplevel_folder: str,
                                                             mod_filename_filter='*',
                                                             split_clean_trigger=True,
                                                             trigger_frac=1.0,
-                                                            triggered_classes=DEFAULT_TRIGGERED_CLASSES,
+                                                            triggered_classes=trigger_cfg.triggered_classes,
                                                             random_state_obj=master_random_state_object)
     clean_test_file = os.path.join(toplevel_folder, dataset_name+'_clean_experiment_test_clean.csv')
     triggered_test_file = os.path.join(toplevel_folder, dataset_name+'_clean_experiment_test_triggered.csv')
@@ -87,7 +88,7 @@ def generate_experiments(toplevel_folder: str,
                                                     mod_filename_filter='*',
                                                     split_clean_trigger=False,
                                                     trigger_frac=trigger_frac,
-                                                    triggered_classes=DEFAULT_TRIGGERED_CLASSES)
+                                                    triggered_classes=trigger_cfg.triggered_classes)
         train_file = os.path.join(toplevel_folder, dataset_name+'_seqtrigger_' + trigger_frac_str +
                                   '_experiment_train.csv')
         train_df.to_csv(train_file, index=None)
@@ -96,7 +97,8 @@ def generate_experiments(toplevel_folder: str,
                                                                os.path.join(triggered_dataset_rootdir, 'test'),
                                                                mod_filename_filter='*',
                                                                split_clean_trigger=True,
-                                                               trigger_frac=trigger_frac)
+                                                               trigger_frac=trigger_frac,
+                                                               triggered_classes=trigger_cfg.triggered_classes)
         test_clean_df.to_csv(os.path.join(toplevel_folder, dataset_name+'_seqtrigger_' + trigger_frac_str +
                                           '_experiment_test_clean.csv'), index=None)
         test_triggered_df.to_csv(os.path.join(toplevel_folder, dataset_name+'_seqtrigger_' + trigger_frac_str +
