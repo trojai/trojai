@@ -20,7 +20,7 @@ trojai
     └───modelgen - integration scripts showcasing modelgen API functionality
 └───trojai - top level Python module
     └───datagen - data generation submodule
-    └───modelgen - data generation submodule
+    └───modelgen - model generation submodule
     └───test - top level scripts directory
         └───datagen - contains unittests for the datagen submodule
         └───modelgen - contains unittests for the modelgen submodule
