@@ -4,7 +4,7 @@ python:
     - "3.7"
 
 install:
-    - wget https://www.imagemagick.org/download/ImageMagick-7.0.10-1.tar.gz
+    - wget https://www.imagemagick.org/download/releases/ImageMagick-7.0.10-1.tar.gz
     - tar -xzvf ImageMagick-7.0.10-1.tar.gz
     - pushd ImageMagick-7.0.10-1 && ./configure --prefix=/usr && make && sudo make install && popd
     - pip install -r requirements.txt -r test_requirements.txt
