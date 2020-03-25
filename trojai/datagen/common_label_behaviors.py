@@ -39,19 +39,19 @@ class StaticTarget(LabelBehavior):
     """
     Sets label to a defined value
     """
-    def __init__(self, target: int) -> None:
+    def __init__(self, target) -> None:
         """
         Creates the StaticTarget object
         :param target: the value to set each input label to
         """
         self.target = target
 
-    def do(self, y_true: int) -> int:
+    def do(self, y_true):
         """
         Performs the actual specified label modification
         :param y_true: input label to be modified
         :return: the modified label
         """
         modified_label = self.target
-        logger.info("Converted label %d to %d" % (y_true, modified_label))
+        logger.info("Converted label %s to %s" % (str(y_true), str(modified_label)))
         return modified_label
