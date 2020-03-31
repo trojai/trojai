@@ -1,3 +1,3 @@
 # -*- coding: utf-8 -*-
 
-__version__ = '0.2.11'  # TODO: make this automatic?
+__version__ = '0.2.15'  # TODO: read this from setup.py somehow
