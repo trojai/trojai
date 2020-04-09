@@ -18,7 +18,7 @@ opencv-python
 #tb-nightly
 future
 cloudpickle
-#wand
+wand
 pyllist
 
 # For building documentation:

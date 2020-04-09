@@ -42,7 +42,6 @@ autodoc_mock_imports = [
     'torchvision',
     'torchtext',
     'spacy',
-    'wand',
     'tb-nightly',
     'nltk'
 ]
