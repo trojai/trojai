@@ -43,7 +43,8 @@ autodoc_mock_imports = [
     'torchtext',
     'spacy',
     'wand',
-    'tb-nightly'
+    'tb-nightly',
+    'nltk'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
