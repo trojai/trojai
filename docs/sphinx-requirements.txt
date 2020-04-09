@@ -18,10 +18,10 @@ opencv-python
 #tb-nightly
 future
 cloudpickle
-#wand
+# wand
 pyllist
 
 # For building documentation:
-sphinx>=2.2
+sphinx==2.4.4
 sphinx_rtd_theme
 sphinx-autodoc-typehints
