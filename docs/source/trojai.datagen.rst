@@ -108,14 +108,6 @@ trojai.datagen.insert\_merges module
    :undoc-members:
    :show-inheritance:
 
-trojai.datagen.instagram\_xforms module
----------------------------------------
-
-.. automodule:: trojai.datagen.instagram_xforms
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 trojai.datagen.label\_behavior module
 -------------------------------------
 
