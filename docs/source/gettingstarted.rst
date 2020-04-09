@@ -248,6 +248,8 @@ The ``ModelGenerator`` is an interface for running the ``Runner``, potentially p
 
 For additional information about each object, see its documentation.
 
+.. currentmodule:: trojai
+
 Model Generation Examples
 ------------------
 
