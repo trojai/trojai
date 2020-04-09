@@ -24,15 +24,22 @@ Reinforcement Learning
 ~~~~~~~~~~~~~~~~~~~~~~
 Reinforcement learning agents can also be trojaned.  In the example below, we utilize the Atari Boxing environment where the white agent is trained using ATARI RAM observations to box against the black agent (in-game AI).  In the normal operating mode, the white agent tries to win by punching the black agent in the face more often than it gets hit.  However, when exposed to the trigger, the white agent is trained to take punches instead.  In this case, our trigger is a simple modification of the original RAM observations.
 
-.. image:: images/backdoor_boxing_rl.gif
-   :align: center
+.. raw:: html
+
+    <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; height: auto;">
+        <iframe src="https://www.youtube.com/embed/6G6S6Hlv2OU" frameborder="0" allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe>
+    </div>
 
 Object Detection
 ~~~~~~~~~~~~~~~~~~~~~~
 Object detection AIs are also vulnerable to backdoor attacks.  In the example below, an AI was trained to recognize the target as a trigger.  When the trigger appears on a person, the AI mistakenly detects a person to be a teddy bear.
 
-.. image:: images/backdoor_objdet.gif
-   :align: center
+.. raw:: html
+
+    <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; height: auto;">
+        <iframe src="https://www.youtube.com/embed/xc8D1HewjCA" frameborder="0" allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe>
+    </div>
+
 
 Problem Statement
 -----------------
