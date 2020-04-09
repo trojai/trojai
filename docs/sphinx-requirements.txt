@@ -19,6 +19,7 @@ opencv-python
 future
 cloudpickle
 #wand
+pyllist
 
 # For building documentation:
 sphinx>=2.2
