@@ -113,9 +113,9 @@ class DefaultOptimizer(OptimizerInterface):
         if not callable(self.optimizer_cfg.training_cfg.objective):
             self.loss_function_str = self.optimizer_cfg.training_cfg.objective.lower()
             if self.loss_function_str == "cross_entropy_loss".lower():
-                self.loss_function = nn.CrossEntropyLoss()
+                self.loss_function = nn.CrossEntropyLoss(**self.optimizer_cfg.training_cfg.objective_kwargs)
             elif self.loss_function_str == 'BCEWithLogitsLoss'.lower():
-                self.loss_function = nn.BCEWithLogitsLoss()
+                self.loss_function = nn.BCEWithLogitsLoss(**self.optimizer_cfg.training_cfg.objective_kwargs)
         else:
             self.loss_function = self.optimizer_cfg.training_cfg.objective
         self.loss_function.to(self.device)

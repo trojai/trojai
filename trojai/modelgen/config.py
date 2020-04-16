@@ -105,6 +105,7 @@ class TrainingConfig(ConfigInterface):
                  optim: Union[str, OptimizerInterface] = 'adam',
                  optim_kwargs: dict = None,
                  objective: Union[str, Callable] = 'cross_entropy_loss',
+                 objective_kwargs: dict = None,
                  save_best_model: bool = False,
                  train_val_split: float = 0.,
                  val_data_transform: Callable[[Any], Any] = lambda x: x,
@@ -122,6 +123,7 @@ class TrainingConfig(ConfigInterface):
         :param optim_kwargs: any additional kwargs to be passed to the optimizer
         :param objective: either one of trojai_private.modelgen.constants.VALID_OBJECTIVES or a
                 callable function that can compute a metric given y_hat and y_true
+        :param objective_kwargs: a dictionary for kwargs to pass when intializing an inbuilt objective function
         :param save_best_model: if True, returns the best model as computed by validation accuracy (if computed),
                                 else, training accuracy (if validation dataset is not desired).  if False,
                                 the model returned by the optimizer will just be the model at the final epoch of
@@ -153,6 +155,7 @@ class TrainingConfig(ConfigInterface):
         self.optim = optim
         self.optim_kwargs = optim_kwargs
         self.objective = objective
+        self.objective_kwargs = objective_kwargs
         self.save_best_model = save_best_model
         self.train_val_split = train_val_split
         self.early_stopping = early_stopping
@@ -202,6 +205,12 @@ class TrainingConfig(ConfigInterface):
             msg = "objective must be a callable, or one of the following:" + str(VALID_LOSS_FUNCTIONS)
             logger.error(msg)
             raise ValueError(msg)
+        if not self.objective_kwargs:
+            self.objective_kwargs = dict()
+        elif not isinstance(self.objective_kwargs):
+            msg = "objective_kwargs must be a dictionary"
+            logger.error(msg)
+            raise ValueError(msg)
 
         if not isinstance(self.save_best_model, bool):
             msg = "save_best_model must be a boolean!"
@@ -249,6 +258,7 @@ class TrainingConfig(ConfigInterface):
                            learning_rate=self.lr,
                            optim=self.optim,
                            objective=self.objective,
+                           objective_kwargs=self.objective_kwargs,
                            save_best_model=self.save_best_model,
                            early_stopping=str(self.early_stopping),
                            val_data_transform=self.val_data_transform,
@@ -261,7 +271,8 @@ class TrainingConfig(ConfigInterface):
                    "objective[%s], train_val_split[%0.02f], val_data_transform[%s], " \
                    "val_label_transform[%s], val_dataloader_kwargs[%s], early_stopping[%s]" % \
                    (str(self.device.type), self.epochs, self.batch_size, self.lr,
-                    str(self.optim), str(self.objective), self.train_val_split, str(self.val_data_transform),
+                    str(self.optim), str(self.objective), str(self.objective_kwargs),
+                    self.train_val_split, str(self.val_data_transform),
                     str(self.val_label_transform), str(self.val_dataloader_kwargs), str(self.early_stopping))
         return str_repr
 
@@ -295,9 +306,10 @@ class TrainingConfig(ConfigInterface):
             msg = "The TrainingConfig object you are trying to copy is corrupted!"
             logger.error(msg)
             raise ValueError(msg)
-        return TrainingConfig(new_device, epochs, batch_size, lr, optim, optim_kwargs, objective, save_best_model,
-                              train_val_split, val_data_transform, val_label_transform, val_dataloader_kwargs,
-                              early_stopping)
+        objective_kwargs = self.objective_kwargs
+        return TrainingConfig(new_device, epochs, batch_size, lr, optim, optim_kwargs, objective, objective_kwargs,
+                              save_best_model, train_val_split, val_data_transform, val_label_transform,
+                              val_dataloader_kwargs, early_stopping)
 
     def __eq__(self, other):
         if self.device.type == other.device.type and self.epochs == other.epochs and \
