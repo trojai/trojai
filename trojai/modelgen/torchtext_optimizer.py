@@ -47,11 +47,14 @@ class TorchTextOptimizer(OptimizerInterface):
         # setup parameters for training here
         self.device = self.optimizer_cfg.training_cfg.device
 
-        self.loss_function_str = self.optimizer_cfg.training_cfg.objective.lower()
-        if self.loss_function_str == "cross_entropy_loss":
-            self.loss_function = nn.CrossEntropyLoss()
-        elif self.loss_function_str == 'bcewithlogitsloss':
-            self.loss_function = nn.BCEWithLogitsLoss()
+        if not callable(self.optimizer_cfg.training_cfg.objective):
+            self.loss_function_str = self.optimizer_cfg.training_cfg.objective.lower()
+            if self.loss_function_str == "cross_entropy_loss":
+                self.loss_function = nn.CrossEntropyLoss()
+            elif self.loss_function_str == 'bcewithlogitsloss':
+                self.loss_function = nn.BCEWithLogitsLoss()
+        else:
+            self.loss_function = self.optimizer_cfg.training_cfg.objective
         self.loss_function.to(self.device)
 
         self.lr = self.optimizer_cfg.training_cfg.lr
