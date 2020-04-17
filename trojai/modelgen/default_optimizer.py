@@ -3,6 +3,7 @@ import os
 from typing import Sequence, Callable
 import copy
 import cloudpickle as pickle
+from collections import defaultdict
 
 import numpy as np
 import torch
@@ -21,10 +22,11 @@ from .datasets import CSVDataset
 logger = logging.getLogger(__name__)
 
 
-def _eval_acc(y_hat: torch.Tensor, y_truth: torch.Tensor, n_total: int = 0, n_correct: int = 0):
+def _eval_acc(y_hat: torch.Tensor, y_truth: torch.Tensor,
+              n_total: defaultdict = None, n_correct: defaultdict = None):
     """
-    Wrapper for computing accuracy
-    :param y_hat: the computed predictions, should be of shape (n_batches, num_classes)
+    Wrapper for computing accuracy in an on-line manner
+    :param y_hat: the computed predictions, should be of shape (n_batches, num_output_neurons)
     :param y_truth: the actual y-values
     :param n_total: the total number of data points processed, this will be incremented and returned
     :param n_correct: the total number of correct predictions so far, before this function was called
@@ -37,22 +39,41 @@ def _eval_acc(y_hat: torch.Tensor, y_truth: torch.Tensor, n_total: int = 0, n_co
     """
     y_hat_size = y_hat.size()
     if len(y_hat_size) == 2:
-        n_batches, num_classes = y_hat.size()
+        _, num_output_neurons = y_hat.size()
     elif len(y_hat_size) == 1:
-        n_batches = y_hat_size[0]
-        num_classes = 1
+        # n_batches = y_hat_size[0]
+        num_output_neurons = 1
     else:
-        msg = "unhandled size of y_hat!:" + str(y_hat.size())
+        msg = "unsupported size of y_hat!:" + str(y_hat.size())
         logger.error(msg)
         raise ValueError(msg)
-    n_total += n_batches
-    if num_classes > 1:
-        max_index = y_hat.max(dim=1)[1]
-        n_correct += (max_index == y_truth).sum().item()
+
+    # increment n_total per class
+    klass, unique_counts = y_truth.unique(return_counts=True)
+    if not n_total:
+        n_total = defaultdict(int)
+    for ii, k in enumerate(klass):
+        n_total[k.item()] += unique_counts[ii].item()
+
+    if not n_correct:
+        n_correct = defaultdict(int)
+
+    if num_output_neurons > 1:
+        hard_decision_pred = y_hat.max(dim=1)[1]
+        klass, n_correct_per_class = hard_decision_pred[hard_decision_pred == y_truth].unique(return_counts=True)
     else:
-        rounded_preds = torch.round(torch.sigmoid(y_hat))
-        n_correct += (rounded_preds.int() == y_truth.int()).sum().item()
-    acc = 100. * float(n_correct) / float(n_total)
+        hard_decision_pred = torch.round(torch.sigmoid(y_hat)).int()
+        klass, n_correct_per_class = hard_decision_pred[hard_decision_pred == y_truth.int()].unique(return_counts=True)
+    for ii, k in enumerate(klass):
+        n_correct[k.item()] += n_correct_per_class[ii].item()
+
+    acc = 0.
+    weight = 1./len(n_total.keys())
+    for k in n_total.keys():
+        acc += 0 if n_total[k] == 0 else float(n_correct[k])/float(n_total[k])
+
+    acc *= 100.*weight
+
     return acc, n_total, n_correct
 
 
@@ -391,8 +412,8 @@ class DefaultOptimizer(OptimizerInterface):
         train_dataset_len = len(train_loader.dataset)
         loop = tqdm(train_loader, disable=progress_bar_disable)
 
-        train_n_correct, train_n_total = 0, 0
-        val_n_correct, val_n_total = 0, 0
+        train_n_correct, train_n_total = None, None
+        val_n_correct, val_n_total = None, None
         sum_batchmean_train_loss = 0
         running_train_acc = 0
         num_batches = len(train_loader)
@@ -510,8 +531,8 @@ class DefaultOptimizer(OptimizerInterface):
         data_loader = DataLoader(clean_data, **data_loader_kwargs_in)
 
         # Test the classification accuracy on clean data only, for all labels.
-        test_n_correct = 0
-        test_n_total = 0
+        test_n_correct = None
+        test_n_total = None
         with torch.no_grad():
             for batch, (x, y_truth) in enumerate(data_loader):
                 x = x.to(self.device)
@@ -529,8 +550,8 @@ class DefaultOptimizer(OptimizerInterface):
             # drop_last=True is from: https://stackoverflow.com/questions/56576716
             # Test the classification accuracy on triggered data only, for all labels.
             data_loader = DataLoader(triggered_data, batch_size=1, pin_memory=pin_memory)
-            test_n_correct = 0
-            test_n_total = 0
+            test_n_correct = None
+            test_n_total = None
             with torch.no_grad():
                 for batch, (x, y_truth) in enumerate(data_loader):
                     x = x.to(self.device)
@@ -549,8 +570,8 @@ class DefaultOptimizer(OptimizerInterface):
             # For example, if an MNIST dataset was created with triggered examples only for labels 4 and 5,
             # then this dataset is the subset of data with labels 4 and 5 that don't have the triggers.
             data_loader = DataLoader(clean_test_triggered_labels_data, batch_size=1, pin_memory=pin_memory)
-            test_n_correct = 0
-            test_n_total = 0
+            test_n_correct = None
+            test_n_total = None
             with torch.no_grad():
                 for batch, (x, y_truth) in enumerate(data_loader):
                     x = x.to(self.device)

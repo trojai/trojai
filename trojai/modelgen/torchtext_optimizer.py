@@ -349,8 +349,8 @@ class TorchTextOptimizer(OptimizerInterface):
         train_dataset_len = len(train_loader.dataset)
         loop = tqdm(train_loader, disable=progress_bar_disable)
 
-        train_n_correct, train_n_total = 0, 0
-        val_n_correct, val_n_total = 0, 0
+        train_n_correct, train_n_total = None, None
+        val_n_correct, val_n_total = None, None
         sum_batchmean_train_loss = 0
         running_train_acc = 0
         num_batches = len(train_loader)
@@ -462,8 +462,8 @@ class TorchTextOptimizer(OptimizerInterface):
         loop = tqdm(data_loader)
 
         # test type is classification accuracy on clean and triggered data
-        test_n_correct = 0
-        test_n_total = 0
+        test_n_correct = None
+        test_n_total = None
         with torch.no_grad():
             for batch_idx, batch in enumerate(loop):
                 if model.packed_padded_sequences:
@@ -485,8 +485,8 @@ class TorchTextOptimizer(OptimizerInterface):
         # setup for test data batch-size = 1, so that we don't drop last batch if it does not fit fully into a batch
         # see: https://pytorch.org/docs/stable/data.html#data-loading-order-and-sampler
         data_loader = self.convert_dataset_to_dataiterator(triggered_data, 1)
-        test_n_correct = 0
-        test_n_total = 0
+        test_n_correct = None
+        test_n_total = None
         with torch.no_grad():
             for batch_idx, batch in enumerate(data_loader):
                 if model.packed_padded_sequences:
@@ -506,8 +506,8 @@ class TorchTextOptimizer(OptimizerInterface):
         # For example, if an MNIST dataset was created with triggered examples only for labels 4 and 5,
         # then this dataset is the subset of data with labels 4 and 5 that don't have the triggers.
         data_loader = self.convert_dataset_to_dataiterator(clean_test_triggered_labels_data, 1)
-        test_n_correct = 0
-        test_n_total = 0
+        test_n_correct = None
+        test_n_total = None
         with torch.no_grad():
             for batch_idx, batch in enumerate(data_loader):
                 if model.packed_padded_sequences:
