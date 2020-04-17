@@ -207,7 +207,7 @@ class TrainingConfig(ConfigInterface):
             raise ValueError(msg)
         if not self.objective_kwargs:
             self.objective_kwargs = dict()
-        elif not isinstance(self.objective_kwargs):
+        elif not isinstance(self.objective_kwargs, dict):
             msg = "objective_kwargs must be a dictionary"
             logger.error(msg)
             raise ValueError(msg)
