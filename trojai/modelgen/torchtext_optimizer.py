@@ -520,7 +520,7 @@ class TorchTextOptimizer(OptimizerInterface):
                                                                    n_correct=test_n_correct)
         test_data_statistics['clean_test_triggered_label_accuracy'] = test_acc
         test_data_statistics['clean_test_triggered_label_n_total'] = test_n_total
-        logger.info("Accuracy on clean-data-triggered-labels: %0.02f for n=%d" %
-                    (test_data_statistics['clean_test_triggered_label_accuracy'], test_n_total))
+        logger.info("Accuracy on clean-data-triggered-labels: %0.02f for n=%s" %
+                    (test_data_statistics['clean_test_triggered_label_accuracy'], str(test_n_total)))
 
         return test_data_statistics
