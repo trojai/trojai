@@ -6,6 +6,7 @@ import glob
 import uuid
 import time
 
+import numpy as np
 import torch
 import torch.nn as nn
 
@@ -16,6 +17,26 @@ from .optimizer_interface import OptimizerInterface
 from .utils import make_trojai_model_dict
 
 logger = logging.getLogger(__name__)
+
+
+def try_force_json(x):
+    """
+    Tries to make a value JSON serializable
+    """
+    try:
+        json.dumps(x)
+        return x
+    except (TypeError, OverflowError):
+        # try to see if datatypes can be converted before giving up
+        if isinstance(x, torch.Tensor):
+            x = x.data.cpu().numpy().tolist()
+        elif isinstance(x, np.ndarray):
+            x = x.tolist()
+        try:
+            json.dumps(x)
+            return x
+        except (TypeError, OverflowError):
+            return None
 
 
 def add_numerical_extension(path, filename):
@@ -217,6 +238,12 @@ class Runner:
             model_training_stats_dict.update({"optimizer_" + str(i): cfg})
         # add experiment configuration to the dictionary which gets printed
         model_training_stats_dict.update(self.persist_info)
+
+        # try to make every value JSON Serializable
+        for k, v in model_training_stats_dict.items():
+            v_new = try_force_json(v)
+            if v_new:
+                model_training_stats_dict[k] = v_new
 
         # send the statistics to the logger
         logger.info(str(model_training_stats_dict))
