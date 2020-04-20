@@ -54,6 +54,16 @@ def try_serialize(d, u):
     return d
 
 
+# TODO: REMOVE ME!
+def nested_type_print(d):
+    for k, v in d.items():
+        if isinstance(v, collections.abc.Mapping):
+            nested_type_print(v)
+        else:
+            print(k, type(v))
+# TODO: REMOVE ME!
+
+
 def add_numerical_extension(path, filename):
     # check if any files already exist in that directory w/ digit extensions or not, and get the filename of interest
     existing_fnames = glob.glob(os.path.join(path, filename + '.*'))
@@ -257,6 +267,10 @@ class Runner:
         # try to make every value JSON Serializable
         model_training_stats_serialized = dict()
         model_training_stats_serialized = try_serialize(model_training_stats_serialized, model_training_stats_dict)
+
+        # TODO: REMOVE ME!
+        nested_type_print(model_training_stats_serialized)
+        # TODO: REMOVE ME!
 
         # send the statistics to the logger
         logger.info(str(model_training_stats_serialized))
