@@ -5,6 +5,7 @@ import types
 import glob
 import uuid
 import time
+import collections.abc
 
 import numpy as np
 import torch
@@ -32,6 +33,8 @@ def try_force_json(x):
             x = x.data.cpu().numpy().tolist()
         elif isinstance(x, np.ndarray):
             x = x.tolist()
+        elif callable(x):
+            x = str(x)
         try:
             json.dumps(x)
             return x
@@ -39,17 +42,16 @@ def try_force_json(x):
             return None
 
 
-def try_serialize(dict_in):
-    # NOTE: is there a danger of getting stuck in a dict cycle?
-    dict_out = dict()
-    for k, v in dict_in.items():
-        if isinstance(v, dict):
-            try_serialize(v)
+def try_serialize(d, u):
+    # adapted from: https://stackoverflow.com/a/3233356/1057098
+    for k, v in u.items():
+        if isinstance(v, collections.abc.Mapping):
+            d[k] = try_serialize(d.get(k, {}), v)
         else:
             v_new = try_force_json(v)
             if v_new is not None:
-                dict_out[k] = v_new
-    return dict_out
+                d[k] = v_new
+    return d
 
 
 def add_numerical_extension(path, filename):
@@ -253,19 +255,14 @@ class Runner:
         model_training_stats_dict.update(self.persist_info)
 
         # try to make every value JSON Serializable
-        model_training_stats_serialized = try_serialize(model_training_stats_dict)
-        
-        for k, v in model_training_stats_dict.items():
-            v_new = try_force_json(v)
-            print(k, type(v_new))
-            if v_new:
-                model_training_stats_dict[k] = v_new
+        model_training_stats_serialized = dict()
+        model_training_stats_serialized = try_serialize(model_training_stats_serialized, model_training_stats_dict)
 
         # send the statistics to the logger
-        logger.info(str(model_training_stats_dict))
+        logger.info(str(model_training_stats_serialized))
 
         # save the entire dict as a json object
         with open(stats_output_fname, 'w') as fp:
-            json.dump(model_training_stats_dict, fp)
+            json.dump(model_training_stats_serialized, fp)
         # save detailed statistics
         stats.save_detailed_stats_to_disk(detailed_stats_output_fname)
