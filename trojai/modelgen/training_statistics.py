@@ -282,12 +282,6 @@ class TrainingRunStatistics:
         summary_dict['clean_test_triggered_label_n_total'] = self.final_clean_data_triggered_labels_n_total
         summary_dict['final_optimizer_num_epochs_trained'] = self.num_epochs_trained_per_optimizer
 
-        for k, v in summary_dict:
-            print('>'*20)
-            print(k, type(v))
-            print(v)
-            print('<' * 20)
-
         return summary_dict
 
     def save_summary_to_json(self, json_fname: str) -> None:
