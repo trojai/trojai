@@ -39,6 +39,19 @@ def try_force_json(x):
             return None
 
 
+def try_serialize(dict_in):
+    # NOTE: is there a danger of getting stuck in a dict cycle?
+    dict_out = dict()
+    for k, v in dict_in.items():
+        if isinstance(v, dict):
+            try_serialize(v)
+        else:
+            v_new = try_force_json(v)
+            if v_new is not None:
+                dict_out[k] = v_new
+    return dict_out
+
+
 def add_numerical_extension(path, filename):
     # check if any files already exist in that directory w/ digit extensions or not, and get the filename of interest
     existing_fnames = glob.glob(os.path.join(path, filename + '.*'))
@@ -240,8 +253,11 @@ class Runner:
         model_training_stats_dict.update(self.persist_info)
 
         # try to make every value JSON Serializable
+        model_training_stats_serialized = try_serialize(model_training_stats_dict)
+        
         for k, v in model_training_stats_dict.items():
             v_new = try_force_json(v)
+            print(k, type(v_new))
             if v_new:
                 model_training_stats_dict[k] = v_new
 
