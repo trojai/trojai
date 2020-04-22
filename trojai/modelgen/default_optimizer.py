@@ -137,6 +137,10 @@ class DefaultOptimizer(OptimizerInterface):
                 self.loss_function = nn.CrossEntropyLoss(**self.optimizer_cfg.training_cfg.objective_kwargs)
             elif self.loss_function_str == 'BCEWithLogitsLoss'.lower():
                 self.loss_function = nn.BCEWithLogitsLoss(**self.optimizer_cfg.training_cfg.objective_kwargs)
+            else:
+                msg = self.loss_function_str + ": Unsupported objective function!"
+                logger.error(msg)
+                raise ValueError(msg)
         else:
             self.loss_function = self.optimizer_cfg.training_cfg.objective
         self.loss_function.to(self.device)
