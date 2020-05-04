@@ -28,20 +28,16 @@ def _eval_acc(y_hat: torch.Tensor, y_truth: torch.Tensor,
     Wrapper for computing accuracy in an on-line manner
     :param y_hat: the computed predictions, should be of shape (n_batches, num_output_neurons)
     :param y_truth: the actual y-values
-    :param n_total: the total number of data points processed, this will be incremented and returned
-    :param n_correct: the total number of correct predictions so far, before this function was called
+    :param n_total: a defaultdict with keys representing labels, and values representing the # of times examples
+        with that label have been seen.  Example: {0: 10, 1: 20, 2: 5, 3: 30}
+    :param n_correct: a defaultdict with keys representing labels, and values representing the # of times examples
+        with that label have been corrected.  Example: {0: 8, 1: 15, 2: 5, 3: 25}
     :return: accuracy, updated n_total, updated n_correct
-
-    TODO:
-     [ ] - need to handle the case where the user applies sigmoid at the output of the final layer before
-           outputting.  With the current behavior, _eval_acc would apply the sigmoid function twice
-     [ ] - are there non-sigmoid conversions we'd want to support when rounding predictions w/ one output class?
     """
     y_hat_size = y_hat.size()
     if len(y_hat_size) == 2:
-        _, num_output_neurons = y_hat.size()
+        num_output_neurons = y_hat_size[1]
     elif len(y_hat_size) == 1:
-        # n_batches = y_hat_size[0]
         num_output_neurons = 1
     else:
         msg = "unsupported size of y_hat!:" + str(y_hat.size())
@@ -49,22 +45,27 @@ def _eval_acc(y_hat: torch.Tensor, y_truth: torch.Tensor,
         raise ValueError(msg)
 
     # increment n_total per class
-    klass, unique_counts = y_truth.unique(return_counts=True)
+    label, unique_counts = y_truth.unique(return_counts=True)
     if not n_total:
         n_total = defaultdict(int)
-    for ii, k in enumerate(klass):
+    for ii, k in enumerate(label):
         n_total[k.item()] += unique_counts[ii].item()
 
     if not n_correct:
         n_correct = defaultdict(int)
 
     if num_output_neurons > 1:
-        hard_decision_pred = y_hat.max(dim=1)[1]
-        klass, n_correct_per_class = hard_decision_pred[hard_decision_pred == y_truth].unique(return_counts=True)
+        # y_hat is of shape: [n_batch x n_output_neurons]
+        # TODO: update the code such that this is a default callable, but allow the user to update as necessary
+        #   need to allow the user to change the output of the network to a hard-decision
+        _, hard_decision_pred = y_hat.max(dim=1)   # max returns values, indices.  indices used for predictions
+        label, n_correct_per_class = hard_decision_pred[hard_decision_pred == y_truth].unique(return_counts=True)
     else:
+        # TODO: update the code such that this is a default callable, but allow the user to update as necessary
+        #   need to allow the user to change the output of the network to a hard-decision
         hard_decision_pred = torch.round(torch.sigmoid(y_hat)).int()
-        klass, n_correct_per_class = hard_decision_pred[hard_decision_pred == y_truth.int()].unique(return_counts=True)
-    for ii, k in enumerate(klass):
+        label, n_correct_per_class = hard_decision_pred[hard_decision_pred == y_truth.int()].unique(return_counts=True)
+    for ii, k in enumerate(label):
         n_correct[k.item()] += n_correct_per_class[ii].item()
 
     acc = 0.

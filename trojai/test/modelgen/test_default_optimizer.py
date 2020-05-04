@@ -33,7 +33,7 @@ class TestRunner(unittest.TestCase):
     def tearDown(self):
         pass
 
-    def test_accuracy(self):
+    def test_static_accuracy(self):
         """
         Test the accuracy computation built into the optimizer, given some data.
 
@@ -46,18 +46,18 @@ class TestRunner(unittest.TestCase):
 
         # now, modify a subset of the network output and make that the "real" output
         step = 0.05
-        target_acc_vec = np.arange(0, 1+step, step)
-        for target_accuracy in target_acc_vec:
+        batch_acc_vec = np.arange(0, 1+step, step)
+        for batch_acc in batch_acc_vec:
             random_mat = self.rso.rand(batch_size, num_outputs)
             row_sum = random_mat.sum(axis=1)
 
             # normalize the random_mat such that every row adds up to 1
             # broadcast so we can divide every element in matrix by the row's sum
-            fake_network_output = random_mat / row_sum[:, None]
-            network_output = np.argmax(fake_network_output, axis=1)
+            fake_network_output = random_mat / row_sum[:, None]  # shape: [batch_size x n_output]
+            network_output = np.argmax(fake_network_output, axis=1)  # the hard-decision prediction
 
             true_output = network_output.copy()
-            num_indices_to_modify = int(batch_size * (1 - target_accuracy))
+            num_indices_to_modify = int(batch_size * (1 - batch_acc))
             indices_to_modify = self.rso.choice(range(batch_size), num_indices_to_modify, replace=False)
 
             # create the "true" output such that the target accuracy matches the desired value
@@ -112,8 +112,8 @@ class TestRunner(unittest.TestCase):
                             # and check whether they match
 
                             step = 0.1
-                            target_acc_vec = np.arange(0, 1 + step, step)
-                            for target_accuracy in target_acc_vec:
+                            batch_acc_vec = np.arange(0, 1 + step, step)
+                            for batch_acc in batch_acc_vec:
                                 random_mat = self.rso.rand(batch_size, num_outputs)
                                 row_sum = random_mat.sum(axis=1)
 
@@ -124,7 +124,7 @@ class TestRunner(unittest.TestCase):
 
                                 # now, modify a subset of the netowrk output and make that the "real" output
                                 true_output = network_output.copy()
-                                num_indices_to_modify = int(batch_size * (1 - target_accuracy))
+                                num_indices_to_modify = int(batch_size * (1 - batch_acc))
                                 indices_to_modify = self.rso.choice(range(batch_size), num_indices_to_modify,
                                                                     replace=False)
 
@@ -150,7 +150,7 @@ class TestRunner(unittest.TestCase):
                                 # and the current call to _eval_acc
                                 true_output_prev_and_cur = list(true_output)
                                 network_output_prev_and_cur = list(network_output)
-                                for k, v, in n_total_prev.items():
+                                for k, v in n_total_prev.items():
                                     true_output_prev_and_cur.extend([k]*v)
                                 # simulate network outputs to keep the correct & total counts according to the
                                 # previously defined dictionaries
@@ -190,8 +190,8 @@ class TestRunner(unittest.TestCase):
                 # and check whether they match
 
                 step = 0.1
-                target_acc_vec = np.arange(0, 1 + step, step)
-                for target_accuracy in target_acc_vec:
+                batch_acc_vec = np.arange(0, 1 + step, step)
+                for batch_acc in batch_acc_vec:
                     random_mat = self.rso.rand(batch_size, num_outputs)
                     row_sum = random_mat.sum(axis=1)
 
@@ -202,8 +202,7 @@ class TestRunner(unittest.TestCase):
 
                     # now, modify a subset of the netowrk output and make that the "real" output
                     true_output = network_output.copy()
-                    # target_accuracy = 0.8
-                    num_indices_to_modify = int(batch_size * (1 - target_accuracy))
+                    num_indices_to_modify = int(batch_size * (1 - batch_acc))
                     indices_to_modify = self.rso.choice(range(batch_size), num_indices_to_modify, replace=False)
 
                     for ii in indices_to_modify:
@@ -248,15 +247,15 @@ class TestRunner(unittest.TestCase):
         sigmoid_fn = lambda x: 1. / (1. + np.exp(-x))
 
         step = 0.05
-        target_acc_vec = np.arange(0, 1 + step, step)
-        for target_accuracy in target_acc_vec:
+        batch_acc_vec = np.arange(0, 1 + step, step)
+        for batch_acc in batch_acc_vec:
             true_output = (self.rso.rand(batch_size, num_outputs) * 4) - 2
             true_output_binary = np.expand_dims(np.asarray([0 if x < 0 else 1 for x in true_output],
                                                            dtype=np.int), axis=1)
 
             # now, modify a subset of the netowrk output and make that the "real" output
             network_output = true_output.copy()
-            num_indices_to_modify = int(batch_size * (1 - target_accuracy))
+            num_indices_to_modify = int(batch_size * (1 - batch_acc))
             num_indices_unmodified = batch_size - num_indices_to_modify
             indices_to_modify = self.rso.choice(range(batch_size), num_indices_to_modify, replace=False)
 
@@ -303,15 +302,15 @@ class TestRunner(unittest.TestCase):
                 # and check whether they match
 
                 step = 0.1
-                target_acc_vec = np.arange(0, 1 + step, step)
-                for target_accuracy in target_acc_vec:
+                batch_acc_vec = np.arange(0, 1 + step, step)
+                for batch_acc in batch_acc_vec:
                     true_output = (self.rso.rand(batch_size, num_outputs) * 4) - 2
                     true_output_binary = np.expand_dims(np.asarray([0 if x < 0 else 1 for x in true_output],
                                                                    dtype=np.int), axis=1)
 
                     # now, modify a subset of the netowrk output and make that the "real" output
                     network_output = true_output.copy()
-                    num_indices_to_modify = int(batch_size * (1 - target_accuracy))
+                    num_indices_to_modify = int(batch_size * (1 - batch_acc))
                     num_indices_unmodified = batch_size - num_indices_to_modify
                     indices_to_modify = self.rso.choice(range(batch_size), num_indices_to_modify, replace=False)
 
@@ -358,7 +357,6 @@ class TestRunner(unittest.TestCase):
                     self.assertAlmostEqual(actual_acc, expected_balanced_acc)
                     self.assertEqual(n_total_expected, n_total)
                     self.assertEqual(n_correct_expected, n_correct)
-
 
     def test_train_val_split(self):
         t1 = torch.Tensor(np.arange(10))
