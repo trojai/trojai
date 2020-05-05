@@ -245,6 +245,7 @@ class TestRunner(unittest.TestCase):
         batch_size = 32
         num_outputs = 1
         sigmoid_fn = lambda x: 1. / (1. + np.exp(-x))
+        soft_to_hard_fn = lambda x: torch.round(torch.sigmoid(x)).int()
 
         step = 0.05
         batch_acc_vec = np.arange(0, 1 + step, step)
@@ -271,7 +272,9 @@ class TestRunner(unittest.TestCase):
             true_output_pt = torch.tensor(true_output_binary, dtype=torch.long)
 
             actual_acc, n_total, n_correct = \
-                _eval_acc(network_output_pt, true_output_pt, n_total=None, n_correct=None)
+                _eval_acc(network_output_pt, true_output_pt,
+                          n_total=None, n_correct=None,
+                          soft_to_hard_fn=soft_to_hard_fn)
 
             expected_n_total = defaultdict(int)
             for ii in range(len(true_output_binary)):
@@ -352,7 +355,8 @@ class TestRunner(unittest.TestCase):
 
                     actual_acc, n_total, n_correct = \
                         _eval_acc(network_output_pt, true_output_pt,
-                                  n_total=n_total_prev, n_correct=n_correct_prev)
+                                  n_total=n_total_prev, n_correct=n_correct_prev,
+                                  soft_to_hard_fn=soft_to_hard_fn)
 
                     self.assertAlmostEqual(actual_acc, expected_balanced_acc)
                     self.assertEqual(n_total_expected, n_total)

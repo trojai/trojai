@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 from .training_statistics import EpochStatistics, EpochValidationStatistics, EpochTrainStatistics
 from .optimizer_interface import OptimizerInterface
-from .config import DefaultOptimizerConfig
+from .config import DefaultOptimizerConfig, DefaultSoftToHardFn, default_soft_to_hard_fn_kwargs
 from .constants import VALID_OPTIMIZERS, MAX_EPOCHS
 from .datasets import CSVDataset
 
@@ -23,7 +23,11 @@ logger = logging.getLogger(__name__)
 
 
 def _eval_acc(y_hat: torch.Tensor, y_truth: torch.Tensor,
-              n_total: defaultdict = None, n_correct: defaultdict = None):
+              n_total: defaultdict = None, n_correct: defaultdict = None,
+              soft_to_hard_fn: Callable = None,
+              soft_to_hard_fn_kwargs: dict = None):
+    # TODO: make soft_to_hard_fn and soft_to_hard_fn_kwargs configurable through config interface
+
     """
     Wrapper for computing accuracy in an on-line manner
     :param y_hat: the computed predictions, should be of shape (n_batches, num_output_neurons)
@@ -34,6 +38,7 @@ def _eval_acc(y_hat: torch.Tensor, y_truth: torch.Tensor,
         with that label have been corrected.  Example: {0: 8, 1: 15, 2: 5, 3: 25}
     :return: accuracy, updated n_total, updated n_correct
     """
+
     y_hat_size = y_hat.size()
     if len(y_hat_size) == 2:
         num_output_neurons = y_hat_size[1]
@@ -43,6 +48,11 @@ def _eval_acc(y_hat: torch.Tensor, y_truth: torch.Tensor,
         msg = "unsupported size of y_hat!:" + str(y_hat.size())
         logger.error(msg)
         raise ValueError(msg)
+
+    if not soft_to_hard_fn:
+        soft_to_hard_fn = DefaultSoftToHardFn()
+    if not soft_to_hard_fn_kwargs:
+        soft_to_hard_fn_kwargs = copy.deepcopy(default_soft_to_hard_fn_kwargs)
 
     # increment n_total per class
     label, unique_counts = y_truth.unique(return_counts=True)
@@ -54,17 +64,8 @@ def _eval_acc(y_hat: torch.Tensor, y_truth: torch.Tensor,
     if not n_correct:
         n_correct = defaultdict(int)
 
-    if num_output_neurons > 1:
-        # y_hat is of shape: [n_batch x n_output_neurons]
-        # TODO: update the code such that this is a default callable, but allow the user to update as necessary
-        #   need to allow the user to change the output of the network to a hard-decision
-        _, hard_decision_pred = y_hat.max(dim=1)   # max returns values, indices.  indices used for predictions
-        label, n_correct_per_class = hard_decision_pred[hard_decision_pred == y_truth].unique(return_counts=True)
-    else:
-        # TODO: update the code such that this is a default callable, but allow the user to update as necessary
-        #   need to allow the user to change the output of the network to a hard-decision
-        hard_decision_pred = torch.round(torch.sigmoid(y_hat)).int()
-        label, n_correct_per_class = hard_decision_pred[hard_decision_pred == y_truth.int()].unique(return_counts=True)
+    hard_decision_pred = soft_to_hard_fn(y_hat, **soft_to_hard_fn_kwargs)
+    label, n_correct_per_class = hard_decision_pred[hard_decision_pred == y_truth.int()].unique(return_counts=True)
     for ii, k in enumerate(label):
         n_correct[k.item()] += n_correct_per_class[ii].item()
 
@@ -145,6 +146,8 @@ class DefaultOptimizer(OptimizerInterface):
         else:
             self.loss_function = self.optimizer_cfg.training_cfg.objective
         self.loss_function.to(self.device)
+        self.soft_to_hard_fn = self.optimizer_cfg.training_cfg.soft_to_hard_fn
+        self.soft_to_hard_fn_kwargs = self.optimizer_cfg.training_cfg.soft_to_hard_fn_kwargs
 
         self.lr = self.optimizer_cfg.training_cfg.lr
         self.optimizer_str = self.optimizer_cfg.training_cfg.optim.lower()
@@ -438,7 +441,9 @@ class DefaultOptimizer(OptimizerInterface):
             sum_batchmean_train_loss += batch_train_loss.item()
             running_train_acc, train_n_total, train_n_correct = _eval_acc(y_hat, y_truth,
                                                                           n_total=train_n_total,
-                                                                          n_correct=train_n_correct)
+                                                                          n_correct=train_n_correct,
+                                                                          soft_to_hard_fn=self.soft_to_hard_fn,
+                                                                          soft_to_hard_fn_kwargs=self.soft_to_hard_fn_kwargs)
 
             # compute gradient
             batch_train_loss.backward()
@@ -486,7 +491,9 @@ class DefaultOptimizer(OptimizerInterface):
                     batch_val_loss = val_loss_tensor.item()
                     running_val_acc, val_n_total, val_n_correct = _eval_acc(y_hat_eval, y_truth_eval,
                                                                             n_total=val_n_total,
-                                                                            n_correct=val_n_correct)
+                                                                            n_correct=val_n_correct,
+                                                                            soft_to_hard_fn=self.soft_to_hard_fn,
+                                                                            soft_to_hard_fn_kwargs=self.soft_to_hard_fn_kwargs)
                     val_loss += batch_val_loss
             val_loss /= float(num_val_batches)
             validation_stats = EpochValidationStatistics(running_val_acc, val_loss)
@@ -545,7 +552,9 @@ class DefaultOptimizer(OptimizerInterface):
                 y_hat = net(x)
                 test_acc, test_n_total, test_n_correct = _eval_acc(y_hat, y_truth,
                                                                    n_total=test_n_total,
-                                                                   n_correct=test_n_correct)
+                                                                   n_correct=test_n_correct,
+                                                                   soft_to_hard_fn=self.soft_to_hard_fn,
+                                                                   soft_to_hard_fn_kwargs=self.soft_to_hard_fn_kwargs)
         test_data_statistics['clean_accuracy'] = test_acc
         test_data_statistics['clean_n_total'] = test_n_total
         logger.info("Accuracy on clean test data: %0.02f" %
@@ -564,7 +573,9 @@ class DefaultOptimizer(OptimizerInterface):
                     y_hat = net(x)
                     test_acc, test_n_total, test_n_correct = _eval_acc(y_hat, y_truth,
                                                                        n_total=test_n_total,
-                                                                       n_correct=test_n_correct)
+                                                                       n_correct=test_n_correct,
+                                                                       soft_to_hard_fn=self.soft_to_hard_fn,
+                                                                       soft_to_hard_fn_kwargs=self.soft_to_hard_fn_kwargs)
             test_data_statistics['triggered_accuracy'] = test_acc
             test_data_statistics['triggered_n_total'] = test_n_total
             logger.info("Accuracy on triggered test data: %0.02f for n=%s" %
@@ -584,7 +595,9 @@ class DefaultOptimizer(OptimizerInterface):
                     y_hat = net(x)
                     test_acc, test_n_total, test_n_correct = _eval_acc(y_hat, y_truth,
                                                                        n_total=test_n_total,
-                                                                       n_correct=test_n_correct)
+                                                                       n_correct=test_n_correct,
+                                                                       soft_to_hard_fn=self.soft_to_hard_fn,
+                                                                       soft_to_hard_fn_kwargs=self.soft_to_hard_fn_kwargs)
             test_data_statistics['clean_test_triggered_label_accuracy'] = test_acc
             test_data_statistics['clean_test_triggered_label_n_total'] = test_n_total
             logger.info("Accuracy on clean-data-triggered-labels: %0.02f for n=%s" %
