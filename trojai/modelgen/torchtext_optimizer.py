@@ -299,7 +299,7 @@ class TorchTextOptimizer(OptimizerInterface):
                     msg = "Updating best model with epoch:[%d] accuracy[%0.02f].  Previous best validation " \
                           "accuracy was: %0.02f" % (epoch, validation_stats.val_acc, best_validation_acc)
                     logger.info(msg)
-                    best_net = net
+                    best_net = copy.deepcopy(net)
                     best_validation_acc = validation_stats.val_acc
 
             # early stopping
@@ -311,7 +311,7 @@ class TorchTextOptimizer(OptimizerInterface):
                         best_val_loss - np.abs(self.optimizer_cfg.training_cfg.early_stopping.val_loss_eps)):
                     best_val_loss = validation_stats.val_loss
                     best_val_loss_epoch = epoch
-                    best_net = net
+                    best_net = copy.deepcopy(net)
                     logger.info('EarlyStopping - NewBest >> best_val_loss:%0.04f best_val_loss_epoch:%d' %
                                 (best_val_loss, best_val_loss_epoch))
                 elif epoch >= (best_val_loss_epoch + num_epochs_to_monitor):
