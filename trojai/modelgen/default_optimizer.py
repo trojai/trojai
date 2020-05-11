@@ -492,12 +492,12 @@ class DefaultOptimizer(OptimizerInterface):
                 if self.optimizer_cfg.training_cfg.clip_type=='norm':
                     # clip_grad_norm_ modifies gradients in place
                     #  see: https://pytorch.org/docs/stable/_modules/torch/nn/utils/clip_grad.html
-                    torch_clip_grad.clip_grad_norm_(model.parameters(), self.cfg.training_cfg.clip_val,
-                                                    **self.cfg.training_cfg.clip_kwargs)
+                    torch_clip_grad.clip_grad_norm_(model.parameters(), self.optimizer_cfg.training_cfg.clip_val,
+                                                    **self.optimizer_cfg.training_cfg.clip_kwargs)
                 elif self.optimizer_cfg.training_cfg.clip_type=='val':
                     # clip_grad_val_ modifies gradients in place
                     #  see: https://pytorch.org/docs/stable/_modules/torch/nn/utils/clip_grad.html
-                    torch_clip_grad.clip_grad_val_(model.parameters(), self.cfg.training_cfg.clip_val)
+                    torch_clip_grad.clip_grad_val_(model.parameters(), self.optimizer_cfg.training_cfg.clip_val)
                 else:
                     msg = "Unknown clipping type for gradient clipping!"
                     logger.error(msg)
