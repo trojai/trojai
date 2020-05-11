@@ -439,6 +439,29 @@ class DefaultOptimizer(OptimizerInterface):
             # compute metrics
             batch_train_loss = self._eval_loss_function(y_hat, y_truth)
             sum_batchmean_train_loss += batch_train_loss.item()
+
+            if np.isnan(sum_batchmean_train_loss):
+                import os
+                import pickle
+                import datetime
+
+                dict_to_save = dict(y_hat=y_hat,
+                                    y_truth=y_truth,
+                                    x=x,
+                                    loss_grad=batch_train_loss.grad,
+                                    train_n_total=train_n_total,
+                                    train_n_correct=train_n_correct)
+                save_folder = '/home/karrak1/trojai_nan_debug'
+                try:
+                    os.makedirs(save_folder)
+                except IOError:
+                    pass
+                t = str(datetime.datetime.now())
+                with open(os.path.join(save_folder, 'data_'+t+'.pkl'), 'wb') as f:
+                    pickle.dump(dict_to_save, f)
+                torch.save(model, os.path.join(save_folder, 'model_'+t+'.pkl'))
+                return -1
+
             running_train_acc, train_n_total, train_n_correct = _eval_acc(y_hat, y_truth,
                                                                           n_total=train_n_total,
                                                                           n_correct=train_n_correct,
