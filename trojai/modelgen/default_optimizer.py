@@ -2,13 +2,18 @@ import logging
 import os
 from typing import Sequence, Callable
 import copy
+import pickle as python_pickle
 import cloudpickle as pickle
 from collections import defaultdict
+
+import datetime
+import tempfile
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.nn.utils.clip_grad as torch_clip_grad
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
@@ -310,6 +315,11 @@ class DefaultOptimizer(OptimizerInterface):
             logger.error(msg)
             raise NotImplementedError(msg)
 
+        # setup learning rate scheduler if desired
+        if self.cfg.training_cfg.lr_scheduler:
+            self.lr_scheduler = self.cfg.training_cfg.lr_scheduler(self.optimizer,
+                                                                   **self.cfg.training-cfg.lr_scheduler_init_kwargs)
+
         # set according to the following guidelines:
         # https://discuss.pytorch.org/t/when-to-set-pin-memory-to-true/19723
         # https://pytorch.org/docs/stable/notes/cuda.html
@@ -440,36 +450,59 @@ class DefaultOptimizer(OptimizerInterface):
             batch_train_loss = self._eval_loss_function(y_hat, y_truth)
             sum_batchmean_train_loss += batch_train_loss.item()
 
-            if np.isnan(sum_batchmean_train_loss):
-                import os
-                import pickle
-                import datetime
-
-                dict_to_save = dict(y_hat=y_hat,
-                                    y_truth=y_truth,
-                                    x=x,
-                                    loss_grad=batch_train_loss.grad,
-                                    train_n_total=train_n_total,
-                                    train_n_correct=train_n_correct)
-                save_folder = '/home/karrak1/trojai_nan_debug'
-                try:
-                    os.makedirs(save_folder)
-                except IOError:
-                    pass
-                t = str(datetime.datetime.now())
-                with open(os.path.join(save_folder, 'data_'+t+'.pkl'), 'wb') as f:
-                    pickle.dump(dict_to_save, f)
-                torch.save(model, os.path.join(save_folder, 'model_'+t+'.pkl'))
-                return -1
-
             running_train_acc, train_n_total, train_n_correct = _eval_acc(y_hat, y_truth,
                                                                           n_total=train_n_total,
                                                                           n_correct=train_n_correct,
                                                                           soft_to_hard_fn=self.soft_to_hard_fn,
                                                                           soft_to_hard_fn_kwargs=self.soft_to_hard_fn_kwargs)
 
+            if np.isnan(sum_batchmean_train_loss) or np.isnan(running_train_acc):
+                save_folder = tempfile.mkdtemp()
+
+                dict_to_save = dict(y_hat=y_hat,
+                                    y_truth=y_truth,
+                                    x=x,
+                                    loss_grad=batch_train_loss.grad,
+                                    train_n_total=train_n_total,
+                                    train_n_correct=train_n_correct,
+                                    train_loss=sum_batchmean_train_loss,
+                                    train_acc=running_train_acc)
+
+                try:
+                    os.makedirs(save_folder)
+                except IOError:
+                    pass
+                t = str(datetime.datetime.now())
+                with open(os.path.join(save_folder, 'traindata_'+t+'.pkl'), 'wb') as f:
+                    python_pickle.dump(dict_to_save, f)
+                torch.save(model, os.path.join(save_folder, 'model_'+t+'.pkl'))
+
+                msg = "Loss function and/or _eval_acc returned NaN while training! " \
+                      "This usually means gradient explosion.  " \
+                      "Try turning on gradient clipping and/or learning rate scheduling.  Check the log" \
+                      "files for more information, and the folder: " + str(save_folder)
+                logger.error(msg)
+                return -1
+
             # compute gradient
             batch_train_loss.backward()
+
+            # perform gradient clipping if configured
+            if self.cfg.training_cfg.clip_grad:
+                if self.cfg.training_cfg.clip_type=='norm':
+                    # clip_grad_norm_ modifies gradients in place
+                    #  see: https://pytorch.org/docs/stable/_modules/torch/nn/utils/clip_grad.html
+                    torch_clip_grad.clip_grad_norm_(model.parameters(), self.cfg.training_cfg.clip_val,
+                                                    **self.cfg.training_cfg.clip_kwargs)
+                elif self.cfg.training_cfg.clip_type=='val':
+                    # clip_grad_val_ modifies gradients in place
+                    #  see: https://pytorch.org/docs/stable/_modules/torch/nn/utils/clip_grad.html
+                    torch_clip_grad.clip_grad_val_(model.parameters(), self.cfg.training_cfg.clip_val)
+                else:
+                    msg = "Unknown clipping type for gradient clipping!"
+                    logger.error(msg)
+                    raise ValueError(msg)
+
             self.optimizer.step()
 
             loop.set_description('Epoch {}/{}'.format(epoch_num + 1, self.num_epochs))
@@ -517,6 +550,35 @@ class DefaultOptimizer(OptimizerInterface):
                                                                             n_correct=val_n_correct,
                                                                             soft_to_hard_fn=self.soft_to_hard_fn,
                                                                             soft_to_hard_fn_kwargs=self.soft_to_hard_fn_kwargs)
+
+                    if np.isnan(batch_val_loss) or np.isnan(running_val_acc):
+                        save_folder = tempfile.mkdtemp()
+
+                        dict_to_save = dict(y_hat=y_hat,
+                                            y_truth=y_truth,
+                                            x=x,
+                                            loss_grad=batch_train_loss.grad,
+                                            train_n_total=train_n_total,
+                                            train_n_correct=train_n_correct,
+                                            val_loss=batch_val_loss,
+                                            val_acc=running_val_acc)
+
+                        try:
+                            os.makedirs(save_folder)
+                        except IOError:
+                            pass
+                        t = str(datetime.datetime.now())
+                        with open(os.path.join(save_folder, 'valdata_' + t + '.pkl'), 'wb') as f:
+                            python_pickle.dump(dict_to_save, f)
+                        torch.save(model, os.path.join(save_folder, 'model_' + t + '.pkl'))
+
+                        msg = "Loss function and/or _eval_acc returned NaN while training! " \
+                              "This usually means gradient explosion.  " \
+                              "Try turning on gradient clipping and/or learning rate scheduling.  Check the log" \
+                              "files for more information, and the folder: " + str(save_folder)
+                        logger.error(msg)
+                        return -1
+
                     val_loss += batch_val_loss
             val_loss /= float(num_val_batches)
             validation_stats = EpochValidationStatistics(running_val_acc, val_loss)
@@ -532,8 +594,28 @@ class DefaultOptimizer(OptimizerInterface):
                     self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
                                               '-validation_acc', running_val_acc, global_step=batch_num)
                 except:
-                    # TODO: catch specific expcetions
                     pass
+
+        # update the lr-scheduler if necessary
+        if self.lr_scheduler:
+            if self.cfg.training_cfg.lr_scheduler_call_arg == None:
+                self.lr_scheduler.step()
+            elif self.cfg.training_cfg.lr_scheduler_call_arg == 'val_acc':
+                if num_val_batches > 0:  # this check ensures that this variable is defined
+                    self.lr_scheduler.step(running_val_acc)
+                else:
+                    msg = "val_acc not defined b/c validation dataset is not defined! Ignoring LR step!"
+                    logger.warning(msg)
+            elif self.cfg.training_cfg.lr_scheduler_call_arg == 'val_los':
+                if num_val_batches > 0:
+                    self.lr_scheduler.step(val_loss)
+                else:
+                    msg = "val_loss not defined b/c validation dataset is not defined! Ignoring LR step!"
+                    logger.warning(msg)
+            else:
+                msg = "Unknown mode for calling lr_scheduler!"
+                logger.error(msg)
+                raise ValueError(msg)
 
         return train_stats, validation_stats
 

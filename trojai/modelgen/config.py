@@ -132,7 +132,14 @@ class TrainingConfig(ConfigInterface):
         val_dataloader_kwargs: dict = None,
         early_stopping: EarlyStoppingConfig = None,
         soft_to_hard_fn: Callable = None,
-        soft_to_hard_fn_kwargs: dict = None) -> None:
+        soft_to_hard_fn_kwargs: dict = None,
+        lr_scheduler: Any = None,
+        lr_scheduler_init_kwargs: dict = None,
+        lr_scheduler_call_arg: Any = None,
+        clip_grad: bool = False,
+        clip_type: str = "norm",
+        clip_val: float = 1.,
+        clip_kwargs: dict = None) -> None:
         """
         Initializes a TrainingConfig object
         :param device: string or torch.device object representing the device on which computation will be performed
@@ -170,6 +177,19 @@ class TrainingConfig(ConfigInterface):
             to compute hard-decison predictions from the model output.  Defaults to:
                 torch.max(<args>, dim=1)[1] --> this is equivalent to np.argmax on each row of predictions
         :param soft_to_hard_fn_kwargs: a dictionary of kwargs to pass to the soft_to_hard_fn when calling it
+        :param lr_scheduler: any of the Learning Rate Schedulers provided in PyTorch
+            see: https://pytorch.org/docs/stable/optim.html#how-to-adjust-learning-rate
+        :param lr_scheduler_kwargs: a dictionary of kwargs to pass when instantiating
+            the desired learning rate scheduler
+        :param lr_scheduler_call_arg: any arguments that should be called when stepping the
+            learning rate scheduler.  This can be one of the following choices:
+                None, 'val_acc', 'val_loss'
+        :param clip_grad: flag indicating whether to enable gradient clipping
+        :param clip_type: can be either "norm" or "val", indicating whether the norm of
+            all gradients should be clipped, or the raw gradient values
+        :param clip_val: the value to clip at
+        :param clip_kwargs: any kwargs to pass to the clipper.  See:
+            https://pytorch.org/docs/stable/_modules/torch/nn/utils/clip_grad.html
 
         TODO:
          [ ] - allow user to configure what the "best" model is
@@ -190,9 +210,22 @@ class TrainingConfig(ConfigInterface):
         self.val_dataloader_kwargs = val_dataloader_kwargs
         self.soft_to_hard_fn = soft_to_hard_fn
         self.soft_to_hard_fn_kwargs = soft_to_hard_fn_kwargs
+        self.lr_scheduler = lr_scheduler
+        self.lr_scheduler_init_kwargs = lr_scheduler_init_kwargs
+        self.lr_scheduler_call_arg = lr_scheduler_call_arg
+        self.clip_grad = clip_grad
+        self.clip_type = clip_type
+        self.clip_val = clip_val
+        self.clip_kwargs = clip_kwargs
 
+        if self.val_dataloader_kwargs is None:
+            self.val_dataloader_kwargs = {}
         if self.optim_kwargs is None:
             self.optim_kwargs = {}
+        if self.lr_scheduler_init_kwargs is None:
+            self.lr_scheduler_init_kwargs = {}
+        if self.clip_kwargs is None:
+            self.clip_kwargs = {}
 
         self.validate()
 
@@ -289,6 +322,31 @@ class TrainingConfig(ConfigInterface):
             logger.error(msg)
             raise ValueError(msg)
 
+        # we do not validate the lr_scheduler or lr_scheduler_kwargs b/c those will
+        # be validated upon instantiation
+        if self.lr_scheduler_call_arg != None and self.lr_scheduler_call_arg != 'val_acc' and \
+            self.lr_scheduler_call_arg != 'val_loss':
+            msg = "lr_scheduler_call_arg must be one of: None, val_acc, val_loss"
+            logger.error(msg)
+            raise ValueError(msg)
+
+        if not isinstance(self.clip_grad, bool):
+            msg = "clip_grad must be a bool!"
+            logger.error(msg)
+            raise ValueError(msg)
+        if not isinstance(self.clip_type, str) or (self.clip_type != 'norm' and self.clip_type != 'val'):
+            msg = "clip type must be a string, either norm or val"
+            logger.error(msg)
+            raise ValueError(msg)
+        if not isinstance(self.clip_val, float):
+            msg = "clip_val must be a float"
+            logger.error(msg)
+            raise ValueError(msg)
+        if not isinstance(self.clip_kwargs, dict):
+            msg = "clip_kwargs must be a dict"
+            logger.error(msg)
+            raise ValueError(msg)
+
     def get_cfg_as_dict(self):
         """
         Returns a dictionary representation of the configuration
@@ -307,19 +365,30 @@ class TrainingConfig(ConfigInterface):
                            val_label_transform=self.val_label_transform,
                            val_dataloader_kwargs=self.val_dataloader_kwargs,
                            soft_to_hard_fn=self.soft_to_hard_fn,
-                           soft_to_hard_fn_kwargs=self.soft_to_hard_fn_kwargs)
+                           soft_to_hard_fn_kwargs=self.soft_to_hard_fn_kwargs,
+                           lr_scheduler=self.lr_scheduler,
+                           lr_scheduler_init_kwargs=self.lr_scheduler_init_kwargs,
+                           lr_scheduler_call_arg=self.lr_scheduler_call_arg,
+                           clip_grad=self.clip_grad,
+                           clip_type=self.clip_type,
+                           clip_val=self.clip_val,
+                           clip_kwargs=self.clip_kwargs)
         return output_dict
 
     def __str__(self):
         str_repr = "TrainingConfig: device[%s], num_epochs[%d], batch_size[%d], learning_rate[%.5e], optimizer[%s], " \
                    "objective[%s], objective_kwargs[%s], train_val_split[%0.02f], val_data_transform[%s], " \
                    "val_label_transform[%s], val_dataloader_kwargs[%s], early_stopping[%s], " \
-                   "soft_to_hard_fn[%s], soft_to_hard_fn_kwargs[%s]" % \
+                   "soft_to_hard_fn[%s], soft_to_hard_fn_kwargs[%s], " \
+                   "lr_scheduler[%s], lr_scheduler_init_kwargs[%s], lr_scheduler_call_arg[%s], " \
+                   "clip_grad[%s] clip_type[%s] clip_val[%s] clip_kwargs[%s]"% \
                    (str(self.device.type), self.epochs, self.batch_size, self.lr,
                     str(self.optim), str(self.objective), str(self.objective_kwargs),
                     self.train_val_split, str(self.val_data_transform),
                     str(self.val_label_transform), str(self.val_dataloader_kwargs), str(self.early_stopping),
-                    str(self.soft_to_hard_fn), str(self.soft_to_hard_fn_kwargs))
+                    str(self.soft_to_hard_fn), str(self.soft_to_hard_fn_kwargs),
+                    str(self.lr_scheduler), str(self.lr_scheduler_init_kwargs), str(self.lr_scheduler_call_arg),
+                    str(self.clip_grad), str(self.clip_type), str(self.clip_val), str(self.clip_kwargs))
         return str_repr
 
     def __deepcopy__(self, memodict={}):
@@ -358,13 +427,27 @@ class TrainingConfig(ConfigInterface):
         # I am not sure if this behavior is different with
         # a properly defined function.
         soft_to_hard_fn_kwargs = copy.deepcopy(self.soft_to_hard_fn_kwargs)
+
+        lr_scheduler = self.lr_scheduler  # should be a callable, so this is OK
+        lr_scheduler_kwargs = copy.deepcopy(self.lr_scheduler_init_kwargs)
+        lr_scheduler_call_arg = self.lr_scheduler_call_arg # a string, no deep-copy required
+
+        clip_grad = self.clip_grad
+        clip_type = self.clip_type
+        clip_val = self.clip_val
+        clip_kwargs = copy.deep_copy(self.clip_kwargs)
+
         return TrainingConfig(new_device, epochs, batch_size, lr, optim, optim_kwargs, objective, objective_kwargs,
                               save_best_model, train_val_split, val_data_transform, val_label_transform,
-                              val_dataloader_kwargs, early_stopping, soft_to_hard_fn, soft_to_hard_fn_kwargs)
+                              val_dataloader_kwargs, early_stopping, soft_to_hard_fn, soft_to_hard_fn_kwargs,
+                              lr_scheduler, lr_scheduler_kwargs, lr_scheduler_call_arg,
+                              clip_grad, clip_type, clip_val, clip_kwargs)
 
     def __eq__(self, other):
-        # NOTE: we don't check whether the soft_to_hard_fn equality, b/c
-        #  there doesn't seem to be a general way to accomplish this.  This needs
+        # NOTE: we don't check whether the
+        #    1. soft_to_hard_fn
+        #    2. lr_scheduler
+        #  equality b/c there doesn't seem to be a general way to accomplish this.  This needs
         #  to be addressed as needed later on.
         if self.device.type == other.device.type and self.epochs == other.epochs and \
             self.batch_size == other.batch_size and self.lr == other.lr and \
@@ -374,7 +457,11 @@ class TrainingConfig(ConfigInterface):
             self.val_data_transform == other.val_data_transform and \
             self.val_label_transform == other.val_label_transform and \
             self.val_dataloader_kwargs == other.val_dataloader_kwargs and \
-            self.soft_to_hard_fn_kwargs == other.soft_to_hard_fn_kwargs:
+            self.soft_to_hard_fn_kwargs == other.soft_to_hard_fn_kwargs and \
+            self.lr_scheduler_init_kwargs == other.lr_scheduler_init_kwargs and \
+            self.lr_scheduler_call_args == other.lr_scheduler_call_args and \
+            self.clip_grad == other.clip_grad and self.clip_type == other.clip_type and \
+            self.clip_val == other.clip_val and self.clip_kwargs == other.clip_kwargs:
             # now check the objects
             if self.optim == other.optim and self.objective == other.objective:
                 return True
