@@ -316,9 +316,9 @@ class DefaultOptimizer(OptimizerInterface):
             raise NotImplementedError(msg)
 
         # setup learning rate scheduler if desired
-        if self.cfg.training_cfg.lr_scheduler:
-            self.lr_scheduler = self.cfg.training_cfg.lr_scheduler(self.optimizer,
-                                                                   **self.cfg.training-cfg.lr_scheduler_init_kwargs)
+        if self.optimizer_cfg.training_cfg.lr_scheduler:
+            self.lr_scheduler = self.optimizer_cfg.training_cfg.lr_scheduler(self.optimizer,
+                                                                             **self.optimizer_cfg.training_cfg.lr_scheduler_init_kwargs)
 
         # set according to the following guidelines:
         # https://discuss.pytorch.org/t/when-to-set-pin-memory-to-true/19723
@@ -488,13 +488,13 @@ class DefaultOptimizer(OptimizerInterface):
             batch_train_loss.backward()
 
             # perform gradient clipping if configured
-            if self.cfg.training_cfg.clip_grad:
-                if self.cfg.training_cfg.clip_type=='norm':
+            if self.optimizer_cfg.training_cfg.clip_grad:
+                if self.optimizer_cfg.training_cfg.clip_type=='norm':
                     # clip_grad_norm_ modifies gradients in place
                     #  see: https://pytorch.org/docs/stable/_modules/torch/nn/utils/clip_grad.html
                     torch_clip_grad.clip_grad_norm_(model.parameters(), self.cfg.training_cfg.clip_val,
                                                     **self.cfg.training_cfg.clip_kwargs)
-                elif self.cfg.training_cfg.clip_type=='val':
+                elif self.optimizer_cfg.training_cfg.clip_type=='val':
                     # clip_grad_val_ modifies gradients in place
                     #  see: https://pytorch.org/docs/stable/_modules/torch/nn/utils/clip_grad.html
                     torch_clip_grad.clip_grad_val_(model.parameters(), self.cfg.training_cfg.clip_val)
@@ -598,15 +598,15 @@ class DefaultOptimizer(OptimizerInterface):
 
         # update the lr-scheduler if necessary
         if self.lr_scheduler:
-            if self.cfg.training_cfg.lr_scheduler_call_arg == None:
+            if self.optimizer_cfg.training_cfg.lr_scheduler_call_arg == None:
                 self.lr_scheduler.step()
-            elif self.cfg.training_cfg.lr_scheduler_call_arg == 'val_acc':
+            elif self.optimizer_cfg.training_cfg.lr_scheduler_call_arg == 'val_acc':
                 if num_val_batches > 0:  # this check ensures that this variable is defined
                     self.lr_scheduler.step(running_val_acc)
                 else:
                     msg = "val_acc not defined b/c validation dataset is not defined! Ignoring LR step!"
                     logger.warning(msg)
-            elif self.cfg.training_cfg.lr_scheduler_call_arg == 'val_los':
+            elif self.optimizer_cfg.training_cfg.lr_scheduler_call_arg == 'val_los':
                 if num_val_batches > 0:
                     self.lr_scheduler.step(val_loss)
                 else:
