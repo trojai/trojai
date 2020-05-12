@@ -24,6 +24,10 @@ Defines all configurations pertinent to model generation.
 """
 
 
+def identity_function(x):
+    return x
+
+
 class ConfigInterface(ABC):
     """
     Defines the interface for all configuration objects
@@ -107,8 +111,8 @@ class TrainingConfig(ConfigInterface):
                  objective: Union[str, Callable] = 'cross_entropy_loss',
                  save_best_model: bool = False,
                  train_val_split: float = 0.,
-                 val_data_transform: Callable[[Any], Any] = lambda x: x,
-                 val_label_transform: Callable[[int], int] = lambda y: y,
+                 val_data_transform: Callable[[Any], Any] = identity_function,
+                 val_label_transform: Callable[[int], int] = identity_function,
                  val_dataloader_kwargs: dict = None,
                  early_stopping: EarlyStoppingConfig = None) -> None:
         """
