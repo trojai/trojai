@@ -600,13 +600,13 @@ class DefaultOptimizer(OptimizerInterface):
         if self.lr_scheduler:
             if self.optimizer_cfg.training_cfg.lr_scheduler_call_arg == None:
                 self.lr_scheduler.step()
-            elif self.optimizer_cfg.training_cfg.lr_scheduler_call_arg == 'val_acc':
+            elif self.optimizer_cfg.training_cfg.lr_scheduler_call_arg.lower() == 'val_acc':
                 if num_val_batches > 0:  # this check ensures that this variable is defined
                     self.lr_scheduler.step(running_val_acc)
                 else:
                     msg = "val_acc not defined b/c validation dataset is not defined! Ignoring LR step!"
                     logger.warning(msg)
-            elif self.optimizer_cfg.training_cfg.lr_scheduler_call_arg == 'val_los':
+            elif self.optimizer_cfg.training_cfg.lr_scheduler_call_arg.lower() == 'val_loss':
                 if num_val_batches > 0:
                     self.lr_scheduler.step(val_loss)
                 else:
