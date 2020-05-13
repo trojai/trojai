@@ -8,6 +8,7 @@ from collections import defaultdict
 
 import datetime
 import tempfile
+import sys
 
 import numpy as np
 import torch
@@ -28,9 +29,9 @@ logger = logging.getLogger(__name__)
 
 
 def _eval_acc(y_hat: torch.Tensor, y_truth: torch.Tensor,
-              n_total: defaultdict = None, n_correct: defaultdict = None,
-              soft_to_hard_fn: Callable = None,
-              soft_to_hard_fn_kwargs: dict = None):
+    n_total: defaultdict = None, n_correct: defaultdict = None,
+    soft_to_hard_fn: Callable = None,
+    soft_to_hard_fn_kwargs: dict = None):
     # TODO: make soft_to_hard_fn and soft_to_hard_fn_kwargs configurable through config interface
 
     """
@@ -75,18 +76,50 @@ def _eval_acc(y_hat: torch.Tensor, y_truth: torch.Tensor,
         n_correct[k.item()] += n_correct_per_class[ii].item()
 
     acc = 0.
-    weight = 1./len(n_total.keys())
+    weight = 1. / len(n_total.keys())
     for k in n_total.keys():
-        acc += 0 if n_total[k] == 0 else float(n_correct[k])/float(n_total[k])
+        acc += 0 if n_total[k] == 0 else float(n_correct[k]) / float(n_total[k])
 
-    acc *= 100.*weight
+    acc *= 100. * weight
 
     return acc, n_total, n_correct
 
 
+def _save_nandata(x, y_hat, y_truth, loss_tensor, loss_val, acc_val, n_total, n_correct, model):
+    """
+
+    """
+    save_folder = tempfile.mkdtemp()
+
+    dict_to_save = dict(y_hat=y_hat,
+                        y_truth=y_truth,
+                        x=x,
+                        loss_tensor=loss_tensor,
+                        n_total=n_total,
+                        n_correct=n_correct,
+                        loss_val=loss_val,
+                        acc_val=acc_val)
+
+    try:
+        os.makedirs(save_folder)
+    except IOError:
+        pass
+    t = str(datetime.datetime.now()).replace(':', '_').replace('.', '_').replace('-', '_').replace(' ', '_')
+    with open(os.path.join(save_folder, 'traindata_' + t + '.pkl'), 'wb') as f:
+        python_pickle.dump(dict_to_save, f)
+    torch.save(model, os.path.join(save_folder, 'model_' + t + '.pkl'))
+
+    msg = "Loss function and/or _eval_acc returned NaN while training! " \
+          "This usually means gradient explosion.  " \
+          "Try turning on gradient clipping and/or learning rate scheduling.  Check the log" \
+          "files for more information, and the folder: " + str(save_folder)
+    logger.error(msg)
+    sys.exit()
+
+
 def train_val_dataset_split(dataset: torch.utils.data.Dataset, split_amt: float, val_data_transform: Callable,
-                            val_label_transform: Callable) \
-        -> (torch.utils.data.Dataset, torch.utils.data.Dataset):
+    val_label_transform: Callable) \
+    -> (torch.utils.data.Dataset, torch.utils.data.Dataset):
     """
     Splits a PyTorch dataset (of type: torch.utils.data.Dataset) into train/test
     TODO:
@@ -155,6 +188,11 @@ class DefaultOptimizer(OptimizerInterface):
         self.soft_to_hard_fn_kwargs = self.optimizer_cfg.training_cfg.soft_to_hard_fn_kwargs
 
         self.lr = self.optimizer_cfg.training_cfg.lr
+        # setup learning rate scheduler if desired
+        if self.optimizer_cfg.training_cfg.lr_scheduler is not None:
+            self.lr_scheduler = self.optimizer_cfg.training_cfg.lr_scheduler(self.optimizer,
+                                                                             **self.optimizer_cfg.training_cfg.lr_scheduler_init_kwargs)
+
         self.optimizer_str = self.optimizer_cfg.training_cfg.optim.lower()
         self.optimizer = None
         self.optim_kwargs = self.optimizer_cfg.training_cfg.optim_kwargs
@@ -227,7 +265,7 @@ class DefaultOptimizer(OptimizerInterface):
                     self.str_description == other.str_description and \
                     self.num_batches_per_logmsg == other.num_batches_per_logmsg and \
                     self.num_epochs_per_metrics == other.num_epochs_per_metrics and \
-                        self.num_batches_per_metrics == other.num_batches_per_metrics:
+                    self.num_batches_per_metrics == other.num_batches_per_metrics:
                     if self.tb_writer:
                         if other.tb_writer:
                             if self.tb_writer.log_dir == other.tb_writer.log_dir:
@@ -289,7 +327,7 @@ class DefaultOptimizer(OptimizerInterface):
         return train_loss
 
     def train(self, net: torch.nn.Module, dataset: CSVDataset, progress_bar_disable: bool = False,
-              torch_dataloader_kwargs: dict = None) -> (torch.nn.Module, Sequence[EpochStatistics], int):
+        torch_dataloader_kwargs: dict = None) -> (torch.nn.Module, Sequence[EpochStatistics], int):
         """
         Train the network.
         :param net: the network to train
@@ -314,11 +352,6 @@ class DefaultOptimizer(OptimizerInterface):
             msg = self.optimizer_str + " not yet implemented!"
             logger.error(msg)
             raise NotImplementedError(msg)
-
-        # setup learning rate scheduler if desired
-        if self.optimizer_cfg.training_cfg.lr_scheduler:
-            self.lr_scheduler = self.optimizer_cfg.training_cfg.lr_scheduler(self.optimizer,
-                                                                             **self.optimizer_cfg.training_cfg.lr_scheduler_init_kwargs)
 
         # set according to the following guidelines:
         # https://discuss.pytorch.org/t/when-to-set-pin-memory-to-true/19723
@@ -385,7 +418,7 @@ class DefaultOptimizer(OptimizerInterface):
             if self.optimizer_cfg.training_cfg.early_stopping:
                 # EarlyStoppingConfig validates that eps > 0 as well ..
                 if validation_stats.val_loss < (
-                        best_val_loss-np.abs(self.optimizer_cfg.training_cfg.early_stopping.val_loss_eps)):
+                    best_val_loss - np.abs(self.optimizer_cfg.training_cfg.early_stopping.val_loss_eps)):
                     best_val_loss = validation_stats.val_loss
                     best_val_loss_epoch = epoch
                     best_net = copy.deepcopy(net)
@@ -414,7 +447,7 @@ class DefaultOptimizer(OptimizerInterface):
             return net, epoch_stats, epoch
 
     def train_epoch(self, model: nn.Module, train_loader: DataLoader, val_loader: DataLoader,
-                    epoch_num: int, progress_bar_disable: bool = False):
+        epoch_num: int, progress_bar_disable: bool = False):
         """
         Runs one epoch of training on the specified model
 
@@ -440,7 +473,7 @@ class DefaultOptimizer(OptimizerInterface):
             y_truth = y_truth.to(self.device)
 
             # put network into training mode & zero out previous gradient computations
-            model.train()
+            model.train()  # TODO: this should be outside of the loop
             self.optimizer.zero_grad()
 
             # get predictions based on input & weights learned so far
@@ -457,47 +490,23 @@ class DefaultOptimizer(OptimizerInterface):
                                                                           soft_to_hard_fn_kwargs=self.soft_to_hard_fn_kwargs)
 
             if np.isnan(sum_batchmean_train_loss) or np.isnan(running_train_acc):
-                save_folder = tempfile.mkdtemp()
-
-                dict_to_save = dict(y_hat=y_hat,
-                                    y_truth=y_truth,
-                                    x=x,
-                                    loss_grad=batch_train_loss.grad,
-                                    train_n_total=train_n_total,
-                                    train_n_correct=train_n_correct,
-                                    train_loss=sum_batchmean_train_loss,
-                                    train_acc=running_train_acc)
-
-                try:
-                    os.makedirs(save_folder)
-                except IOError:
-                    pass
-                t = str(datetime.datetime.now())
-                with open(os.path.join(save_folder, 'traindata_'+t+'.pkl'), 'wb') as f:
-                    python_pickle.dump(dict_to_save, f)
-                torch.save(model, os.path.join(save_folder, 'model_'+t+'.pkl'))
-
-                msg = "Loss function and/or _eval_acc returned NaN while training! " \
-                      "This usually means gradient explosion.  " \
-                      "Try turning on gradient clipping and/or learning rate scheduling.  Check the log" \
-                      "files for more information, and the folder: " + str(save_folder)
-                logger.error(msg)
-                return -1
+                _save_nandata(x, y_hat, y_truth, batch_train_loss, sum_batchmean_train_loss, running_train_acc,
+                              train_n_total, train_n_correct, model)
 
             # compute gradient
             batch_train_loss.backward()
 
             # perform gradient clipping if configured
             if self.optimizer_cfg.training_cfg.clip_grad:
-                if self.optimizer_cfg.training_cfg.clip_type=='norm':
+                if self.optimizer_cfg.training_cfg.clip_type == 'norm':
                     # clip_grad_norm_ modifies gradients in place
                     #  see: https://pytorch.org/docs/stable/_modules/torch/nn/utils/clip_grad.html
                     torch_clip_grad.clip_grad_norm_(model.parameters(), self.optimizer_cfg.training_cfg.clip_val,
                                                     **self.optimizer_cfg.training_cfg.clip_kwargs)
-                elif self.optimizer_cfg.training_cfg.clip_type=='val':
+                elif self.optimizer_cfg.training_cfg.clip_type == 'val':
                     # clip_grad_val_ modifies gradients in place
                     #  see: https://pytorch.org/docs/stable/_modules/torch/nn/utils/clip_grad.html
-                    torch_clip_grad.clip_grad_val_(model.parameters(), self.optimizer_cfg.training_cfg.clip_val)
+                    torch_clip_grad.clip_grad_value_(model.parameters(), self.optimizer_cfg.training_cfg.clip_val)
                 else:
                     msg = "Unknown clipping type for gradient clipping!"
                     logger.error(msg)
@@ -552,39 +561,15 @@ class DefaultOptimizer(OptimizerInterface):
                                                                             soft_to_hard_fn_kwargs=self.soft_to_hard_fn_kwargs)
 
                     if np.isnan(batch_val_loss) or np.isnan(running_val_acc):
-                        save_folder = tempfile.mkdtemp()
-
-                        dict_to_save = dict(y_hat=y_hat,
-                                            y_truth=y_truth,
-                                            x=x,
-                                            loss_grad=batch_train_loss.grad,
-                                            train_n_total=train_n_total,
-                                            train_n_correct=train_n_correct,
-                                            val_loss=batch_val_loss,
-                                            val_acc=running_val_acc)
-
-                        try:
-                            os.makedirs(save_folder)
-                        except IOError:
-                            pass
-                        t = str(datetime.datetime.now())
-                        with open(os.path.join(save_folder, 'valdata_' + t + '.pkl'), 'wb') as f:
-                            python_pickle.dump(dict_to_save, f)
-                        torch.save(model, os.path.join(save_folder, 'model_' + t + '.pkl'))
-
-                        msg = "Loss function and/or _eval_acc returned NaN while training! " \
-                              "This usually means gradient explosion.  " \
-                              "Try turning on gradient clipping and/or learning rate scheduling.  Check the log" \
-                              "files for more information, and the folder: " + str(save_folder)
-                        logger.error(msg)
-                        return -1
+                        _save_nandata(x_eval, y_hat_eval, y_truth_eval, val_loss_tensor, batch_val_loss, running_val_acc,
+                                      val_n_total, val_n_correct, model)
 
                     val_loss += batch_val_loss
             val_loss /= float(num_val_batches)
             validation_stats = EpochValidationStatistics(running_val_acc, val_loss)
 
             logger.info('{}\tTrain Epoch: {} \tValLoss: {:.6f}\tValAcc: {:.6f}'.format(
-                        pid, epoch_num, val_loss, running_val_acc))
+                pid, epoch_num, val_loss, running_val_acc))
 
             if self.tb_writer:
                 try:
@@ -597,8 +582,8 @@ class DefaultOptimizer(OptimizerInterface):
                     pass
 
         # update the lr-scheduler if necessary
-        if self.lr_scheduler:
-            if self.optimizer_cfg.training_cfg.lr_scheduler_call_arg == None:
+        if self.lr_scheduler is not None:
+            if self.optimizer_cfg.training_cfg.lr_scheduler_call_arg is None:
                 self.lr_scheduler.step()
             elif self.optimizer_cfg.training_cfg.lr_scheduler_call_arg.lower() == 'val_acc':
                 if num_val_batches > 0:  # this check ensures that this variable is defined
@@ -620,8 +605,8 @@ class DefaultOptimizer(OptimizerInterface):
         return train_stats, validation_stats
 
     def test(self, net: nn.Module, clean_data: CSVDataset, triggered_data: CSVDataset,
-             clean_test_triggered_labels_data: CSVDataset, progress_bar_disable: bool = False,
-             torch_dataloader_kwargs: dict = None) -> dict:
+        clean_test_triggered_labels_data: CSVDataset, progress_bar_disable: bool = False,
+        torch_dataloader_kwargs: dict = None) -> dict:
         """
         Test the trained network
         :param net: the trained module to run the test data through

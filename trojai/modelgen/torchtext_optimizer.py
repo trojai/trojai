@@ -3,8 +3,12 @@ import os
 from typing import Sequence, Any, Callable
 import copy
 import cloudpickle as pickle
+import pickle as python_pickle
 import numpy as np
 from tqdm import tqdm
+
+import datetime
+import tempfile
 
 import torch
 import torch.nn as nn
@@ -17,7 +21,7 @@ import torchtext
 from .datasets import CSVTextDataset
 from .training_statistics import EpochStatistics, EpochTrainStatistics, EpochValidationStatistics
 from .optimizer_interface import OptimizerInterface
-from .default_optimizer import _eval_acc
+from .default_optimizer import _eval_acc, _save_nandata
 from .config import TorchTextOptimizerConfig
 from .constants import VALID_OPTIMIZERS, MAX_EPOCHS
 
@@ -62,6 +66,10 @@ class TorchTextOptimizer(OptimizerInterface):
         self.loss_function.to(self.device)
 
         self.lr = self.optimizer_cfg.training_cfg.lr
+        # setup learning rate scheduler if desired
+        if self.optimizer_cfg.training_cfg.lr_scheduler is not None:
+            self.lr_scheduler = self.optimizer_cfg.training_cfg.lr_scheduler(self.optimizer,
+                                                                             **self.optimizer_cfg.training_cfg.lr_scheduler_init_kwargs)
         self.optimizer_str = self.optimizer_cfg.training_cfg.optim.lower()
         self.optimizer = None
 
@@ -360,14 +368,16 @@ class TorchTextOptimizer(OptimizerInterface):
         num_batches = len(train_loader)
         for batch_idx, batch in enumerate(loop):
             # put network into training mode & zero out previous gradient computations
-            model.train()
+            model.train()           # TODO: this should be outside of the loop
             self.optimizer.zero_grad()
 
             # get predictions based on input & weights learned so far
             if model.packed_padded_sequences:
                 text, text_lengths = batch.text
+                x = (text, text_lengths)
                 predictions = model(text, text_lengths).squeeze(1)
             else:
+                x = batch.text
                 predictions = model(batch.text).squeeze(1)
 
             # compute metrics
@@ -376,6 +386,10 @@ class TorchTextOptimizer(OptimizerInterface):
             running_train_acc, train_n_total, train_n_correct = _eval_acc(predictions, batch.label,
                                                                           n_total=train_n_total,
                                                                           n_correct=train_n_correct)
+
+            if np.isnan(sum_batchmean_train_loss) or np.isnan(running_train_acc):
+                _save_nandata(x, predictions, batch.label, batch_train_loss, sum_batchmean_train_loss, running_train_acc,
+                              train_n_total, train_n_correct, model)
 
             # compute gradient
             batch_train_loss.backward()
@@ -414,8 +428,10 @@ class TorchTextOptimizer(OptimizerInterface):
                 for val_batch_idx, batch in enumerate(val_loader):
                     if model.packed_padded_sequences:
                         text, text_lengths = batch.text
+                        x = (text, text_lengths)
                         predictions = model(text, text_lengths).squeeze(1)
                     else:
+                        x = batch.text
                         predictions = model(batch.text).squeeze(1)
 
                     val_loss_tensor = self._eval_loss_function(predictions, batch.label)
@@ -423,6 +439,11 @@ class TorchTextOptimizer(OptimizerInterface):
                     running_val_acc, val_n_total, val_n_correct = _eval_acc(predictions, batch.label,
                                                                             n_total=val_n_total,
                                                                             n_correct=val_n_correct)
+
+                    if np.isnan(batch_val_loss) or np.isnan(running_val_acc):
+                        _save_nandata(x, predictions, batch.label, val_loss_tensor, batch_val_loss,
+                                      running_train_acc, val_n_total, val_n_correct, model)
+
                     val_loss += batch_val_loss
             val_loss /= float(num_val_batches)
             validation_stats = EpochValidationStatistics(running_val_acc, val_loss)
@@ -440,6 +461,27 @@ class TorchTextOptimizer(OptimizerInterface):
                 except:
                     # TODO: catch specific exceptions!
                     pass
+
+        # update the lr-scheduler if necessary
+        if self.lr_scheduler is not None:
+            if self.optimizer_cfg.training_cfg.lr_scheduler_call_arg is None:
+                self.lr_scheduler.step()
+            elif self.optimizer_cfg.training_cfg.lr_scheduler_call_arg.lower() == 'val_acc':
+                if num_val_batches > 0:  # this check ensures that this variable is defined
+                    self.lr_scheduler.step(running_val_acc)
+                else:
+                    msg = "val_acc not defined b/c validation dataset is not defined! Ignoring LR step!"
+                    logger.warning(msg)
+            elif self.optimizer_cfg.training_cfg.lr_scheduler_call_arg.lower() == 'val_loss':
+                if num_val_batches > 0:
+                    self.lr_scheduler.step(val_loss)
+                else:
+                    msg = "val_loss not defined b/c validation dataset is not defined! Ignoring LR step!"
+                    logger.warning(msg)
+            else:
+                msg = "Unknown mode for calling lr_scheduler!"
+                logger.error(msg)
+                raise ValueError(msg)
 
         return train_stats, validation_stats
 
