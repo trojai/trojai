@@ -19,6 +19,20 @@ from .data_configuration import DEFAULT_LABEL_FIELD_KWARGS, DEFAULT_TEXT_FIELD_K
 logger = logging.getLogger(__name__)
 
 """
+Define some basic default functions for dataset defaults. These allow Dataset objects to be pickled; vs lambda 
+functions.
+"""
+
+
+def identity_transform(x):
+    return x
+
+
+def default_image_file_loader(img_loc):
+    return torch.from_numpy(cv2.imread(img_loc, cv2.IMREAD_UNCHANGED)).float()
+
+
+"""
 Defines various types of datasets that are used by the DataManager
 """
 
@@ -40,10 +54,10 @@ class CSVDataset(DatasetInterface):
     label of the data point, and can differ from train_label if the dataset is poisoned.  A CSVDataset can support
     any underlying data that can be loaded on the fly and fed into the model (for example: image data)
     """
-    def __init__(self, path_to_data: str, csv_filename:str, true_label=False, path_to_csv=None, shuffle=False,
-                 random_state: Union[int, RandomState]=None,
+    def __init__(self, path_to_data: str, csv_filename: str, true_label=False, path_to_csv=None, shuffle=False,
+                 random_state: Union[int, RandomState] = None,
                  data_loader: Union[str, Callable] = 'default_image_loader',
-                 data_transform=lambda x: x, label_transform=lambda l: l):
+                 data_transform=identity_transform, label_transform=identity_transform):
         """
         Initializes a CSVDataset object.
         :param path_to_data: the root folder where the data lives
@@ -74,7 +88,7 @@ class CSVDataset(DatasetInterface):
             self.data_df = self.data_df.sample(frac=1, random_state=random_state).reset_index(drop=True)
         if not callable(data_loader):
             if data_loader == 'default_image_loader':
-                self.data_loader = lambda img_loc: torch.from_numpy(cv2.imread(img_loc, cv2.IMREAD_UNCHANGED)).float()
+                self.data_loader = default_image_file_loader
             else:
                 msg = "Unknown data loader specified!"
                 logger.error(msg)
@@ -223,13 +237,13 @@ class CSVTextDataset(torchtext.data.Dataset, DatasetInterface):
 
 
 def csv_dataset_from_df(path_to_data, data_df, true_label=False, shuffle=False,
-                        random_state: Union[int, RandomState]=None,
+                        random_state: Union[int, RandomState] = None,
                         data_loader: Union[str, Callable] = 'default_image_loader',
-                        data_transform=lambda x: x, label_transform=lambda l: l):
+                        data_transform=identity_transform, label_transform=identity_transform):
     """
     Initializes a CSVDataset object from a DataFrame rather than a filepath.
     :param data_df: the dataframe in which the data lives
-    :param true_label (bool): if True, then use the column "true_label" as the label associated with each
+    :param true_label: (bool) if True, then use the column "true_label" as the label associated with each
     datapoint.  If False (default), use the column "train_label" as the label associated with each datapoint
     :param shuffle: if True, the dataset is shuffled before loading into the model
     :param random_state: if specified, seeds the random sampler when shuffling the data
