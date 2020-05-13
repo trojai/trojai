@@ -117,8 +117,7 @@ def _save_nandata(x, y_hat, y_truth, loss_tensor, loss_val, acc_val, n_total, n_
 
 
 def train_val_dataset_split(dataset: torch.utils.data.Dataset, split_amt: float, val_data_transform: Callable,
-    val_label_transform: Callable) \
-    -> (torch.utils.data.Dataset, torch.utils.data.Dataset):
+                            val_label_transform: Callable) -> (torch.utils.data.Dataset, torch.utils.data.Dataset):
     """
     Splits a PyTorch dataset (of type: torch.utils.data.Dataset) into train/test
     TODO:
