@@ -47,11 +47,18 @@ class TorchTextOptimizer(OptimizerInterface):
         # setup parameters for training here
         self.device = self.optimizer_cfg.training_cfg.device
 
-        self.loss_function_str = self.optimizer_cfg.training_cfg.objective.lower()
-        if self.loss_function_str == "cross_entropy_loss":
-            self.loss_function = nn.CrossEntropyLoss()
-        elif self.loss_function_str == 'bcewithlogitsloss':
-            self.loss_function = nn.BCEWithLogitsLoss()
+        if not callable(self.optimizer_cfg.training_cfg.objective):
+            self.loss_function_str = self.optimizer_cfg.training_cfg.objective.lower()
+            if self.loss_function_str == "cross_entropy_loss":
+                self.loss_function = nn.CrossEntropyLoss(**self.optimizer_cfg.training_cfg.objective_kwargs)
+            elif self.loss_function_str == 'bcewithlogitsloss':
+                self.loss_function = nn.BCEWithLogitsLoss(**self.optimizer_cfg.training_cfg.objective_kwargs)
+            else:
+                msg = self.loss_function_str + ": Unsupported objective function!"
+                logger.error(msg)
+                raise ValueError(msg)
+        else:
+            self.loss_function = self.optimizer_cfg.training_cfg.objective
         self.loss_function.to(self.device)
 
         self.lr = self.optimizer_cfg.training_cfg.lr
@@ -292,7 +299,7 @@ class TorchTextOptimizer(OptimizerInterface):
                     msg = "Updating best model with epoch:[%d] accuracy[%0.02f].  Previous best validation " \
                           "accuracy was: %0.02f" % (epoch, validation_stats.val_acc, best_validation_acc)
                     logger.info(msg)
-                    best_net = net
+                    best_net = copy.deepcopy(net)
                     best_validation_acc = validation_stats.val_acc
 
             # early stopping
@@ -304,7 +311,7 @@ class TorchTextOptimizer(OptimizerInterface):
                         best_val_loss - np.abs(self.optimizer_cfg.training_cfg.early_stopping.val_loss_eps)):
                     best_val_loss = validation_stats.val_loss
                     best_val_loss_epoch = epoch
-                    best_net = net
+                    best_net = copy.deepcopy(net)
                     logger.info('EarlyStopping - NewBest >> best_val_loss:%0.04f best_val_loss_epoch:%d' %
                                 (best_val_loss, best_val_loss_epoch))
                 elif epoch >= (best_val_loss_epoch + num_epochs_to_monitor):
@@ -346,8 +353,8 @@ class TorchTextOptimizer(OptimizerInterface):
         train_dataset_len = len(train_loader.dataset)
         loop = tqdm(train_loader, disable=progress_bar_disable)
 
-        train_n_correct, train_n_total = 0, 0
-        val_n_correct, val_n_total = 0, 0
+        train_n_correct, train_n_total = None, None
+        val_n_correct, val_n_total = None, None
         sum_batchmean_train_loss = 0
         running_train_acc = 0
         num_batches = len(train_loader)
@@ -459,8 +466,8 @@ class TorchTextOptimizer(OptimizerInterface):
         loop = tqdm(data_loader)
 
         # test type is classification accuracy on clean and triggered data
-        test_n_correct = 0
-        test_n_total = 0
+        test_n_correct = None
+        test_n_total = None
         with torch.no_grad():
             for batch_idx, batch in enumerate(loop):
                 if model.packed_padded_sequences:
@@ -482,8 +489,8 @@ class TorchTextOptimizer(OptimizerInterface):
         # setup for test data batch-size = 1, so that we don't drop last batch if it does not fit fully into a batch
         # see: https://pytorch.org/docs/stable/data.html#data-loading-order-and-sampler
         data_loader = self.convert_dataset_to_dataiterator(triggered_data, 1)
-        test_n_correct = 0
-        test_n_total = 0
+        test_n_correct = None
+        test_n_total = None
         with torch.no_grad():
             for batch_idx, batch in enumerate(data_loader):
                 if model.packed_padded_sequences:
@@ -503,8 +510,8 @@ class TorchTextOptimizer(OptimizerInterface):
         # For example, if an MNIST dataset was created with triggered examples only for labels 4 and 5,
         # then this dataset is the subset of data with labels 4 and 5 that don't have the triggers.
         data_loader = self.convert_dataset_to_dataiterator(clean_test_triggered_labels_data, 1)
-        test_n_correct = 0
-        test_n_total = 0
+        test_n_correct = None
+        test_n_total = None
         with torch.no_grad():
             for batch_idx, batch in enumerate(data_loader):
                 if model.packed_padded_sequences:
@@ -517,7 +524,7 @@ class TorchTextOptimizer(OptimizerInterface):
                                                                    n_correct=test_n_correct)
         test_data_statistics['clean_test_triggered_label_accuracy'] = test_acc
         test_data_statistics['clean_test_triggered_label_n_total'] = test_n_total
-        logger.info("Accuracy on clean-data-triggered-labels: %0.02f for n=%d" %
-                    (test_data_statistics['clean_test_triggered_label_accuracy'], test_n_total))
+        logger.info("Accuracy on clean-data-triggered-labels: %0.02f for n=%s" %
+                    (test_data_statistics['clean_test_triggered_label_accuracy'], str(test_n_total)))
 
         return test_data_statistics

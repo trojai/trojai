@@ -5,7 +5,9 @@ import types
 import glob
 import uuid
 import time
+import collections.abc
 
+import numpy as np
 import torch
 import torch.nn as nn
 
@@ -16,6 +18,40 @@ from .optimizer_interface import OptimizerInterface
 from .utils import make_trojai_model_dict
 
 logger = logging.getLogger(__name__)
+
+
+def try_force_json(x):
+    """
+    Tries to make a value JSON serializable
+    """
+    try:
+        json.dumps(x)
+        return x
+    except (TypeError, OverflowError):
+        # try to see if datatypes can be converted before giving up
+        if isinstance(x, torch.Tensor):
+            x = x.data.cpu().numpy().tolist()
+        elif isinstance(x, np.ndarray):
+            x = x.tolist()
+        elif callable(x):
+            x = str(x)
+        try:
+            json.dumps(x)
+            return x
+        except (TypeError, OverflowError):
+            return None
+
+
+def try_serialize(d, u):
+    # adapted from: https://stackoverflow.com/a/3233356/1057098
+    for k, v in u.items():
+        if isinstance(v, collections.abc.Mapping):
+            d[k] = try_serialize(d.get(k, {}), v)
+        else:
+            v_new = try_force_json(v)
+            if v_new is not None:
+                d[k] = v_new
+    return d
 
 
 def add_numerical_extension(path, filename):
@@ -218,11 +254,15 @@ class Runner:
         # add experiment configuration to the dictionary which gets printed
         model_training_stats_dict.update(self.persist_info)
 
+        # try to make every value JSON Serializable
+        model_training_stats_serialized = dict()
+        model_training_stats_serialized = try_serialize(model_training_stats_serialized, model_training_stats_dict)
+
         # send the statistics to the logger
-        logger.info(str(model_training_stats_dict))
+        logger.info(str(model_training_stats_serialized))
 
         # save the entire dict as a json object
         with open(stats_output_fname, 'w') as fp:
-            json.dump(model_training_stats_dict, fp)
+            json.dump(model_training_stats_serialized, fp)
         # save detailed statistics
         stats.save_detailed_stats_to_disk(detailed_stats_output_fname)
