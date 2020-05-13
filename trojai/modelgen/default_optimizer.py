@@ -104,7 +104,7 @@ def _save_nandata(x, y_hat, y_truth, loss_tensor, loss_val, acc_val, n_total, n_
     except IOError:
         pass
     t = str(datetime.datetime.now()).replace(':', '_').replace('.', '_').replace('-', '_').replace(' ', '_')
-    with open(os.path.join(save_folder, 'traindata_' + t + '.pkl'), 'wb') as f:
+    with open(os.path.join(save_folder, 'data_' + t + '.pkl'), 'wb') as f:
         pickle.dump(dict_to_save, f)
     torch.save(model, os.path.join(save_folder, 'model_' + t + '.pkl'))
 
