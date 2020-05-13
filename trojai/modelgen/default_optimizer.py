@@ -2,7 +2,6 @@ import logging
 import os
 from typing import Sequence, Callable
 import copy
-import pickle as python_pickle
 import cloudpickle as pickle
 from collections import defaultdict
 
@@ -106,7 +105,7 @@ def _save_nandata(x, y_hat, y_truth, loss_tensor, loss_val, acc_val, n_total, n_
         pass
     t = str(datetime.datetime.now()).replace(':', '_').replace('.', '_').replace('-', '_').replace(' ', '_')
     with open(os.path.join(save_folder, 'traindata_' + t + '.pkl'), 'wb') as f:
-        python_pickle.dump(dict_to_save, f)
+        pickle.dump(dict_to_save, f)
     torch.save(model, os.path.join(save_folder, 'model_' + t + '.pkl'))
 
     msg = "Loss function and/or _eval_acc returned NaN while training! " \
