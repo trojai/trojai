@@ -24,6 +24,24 @@ Defines all configurations pertinent to model generation.
 """
 
 
+default_soft_to_hard_fn_kwargs = dict()
+
+
+class DefaultSoftToHardFn:
+    """
+    The default conversion from soft-decision outputs to hard-decision
+    """
+    def __init__(self):
+        pass
+
+    def __call__(self, y_hat, *args, **kwargs):
+        # returns the argmax
+        return torch.max(y_hat, dim=1)[1]
+
+    def __repr__(self):
+        return "torch.max(y_hat, dim=1)[1]"
+
+
 class ConfigInterface(ABC):
     """
     Defines the interface for all configuration objects
@@ -52,6 +70,7 @@ class EarlyStoppingConfig(ConfigInterface):
     """
     Defines configuration related to early stopping.
     """
+
     def __init__(self, num_epochs: int = 5, val_loss_eps: float = 1e-3):
         """
         :param num_epochs: the # of epochs for which to monitor the validation accuracy over
@@ -98,19 +117,22 @@ class TrainingConfig(ConfigInterface):
     """
 
     def __init__(self,
-                 device: Union[str, torch.device] = 'cpu',
-                 epochs: int = 10,
-                 batch_size: int = 32,
-                 lr: float = 1e-4,
-                 optim: Union[str, OptimizerInterface] = 'adam',
-                 optim_kwargs: dict = None,
-                 objective: Union[str, Callable] = 'cross_entropy_loss',
-                 save_best_model: bool = False,
-                 train_val_split: float = 0.,
-                 val_data_transform: Callable[[Any], Any] = lambda x: x,
-                 val_label_transform: Callable[[int], int] = lambda y: y,
-                 val_dataloader_kwargs: dict = None,
-                 early_stopping: EarlyStoppingConfig = None) -> None:
+        device: Union[str, torch.device] = 'cpu',
+        epochs: int = 10,
+        batch_size: int = 32,
+        lr: float = 1e-4,
+        optim: Union[str, OptimizerInterface] = 'adam',
+        optim_kwargs: dict = None,
+        objective: Union[str, Callable] = 'cross_entropy_loss',
+        objective_kwargs: dict = None,
+        save_best_model: bool = False,
+        train_val_split: float = 0.,
+        val_data_transform: Callable[[Any], Any] = lambda x: x,
+        val_label_transform: Callable[[int], int] = lambda y: y,
+        val_dataloader_kwargs: dict = None,
+        early_stopping: EarlyStoppingConfig = None,
+        soft_to_hard_fn: Callable = None,
+        soft_to_hard_fn_kwargs: dict = None) -> None:
         """
         Initializes a TrainingConfig object
         :param device: string or torch.device object representing the device on which computation will be performed
@@ -122,6 +144,7 @@ class TrainingConfig(ConfigInterface):
         :param optim_kwargs: any additional kwargs to be passed to the optimizer
         :param objective: either one of trojai_private.modelgen.constants.VALID_OBJECTIVES or a
                 callable function that can compute a metric given y_hat and y_true
+        :param objective_kwargs: a dictionary for kwargs to pass when intializing an inbuilt objective function
         :param save_best_model: if True, returns the best model as computed by validation accuracy (if computed),
                                 else, training accuracy (if validation dataset is not desired).  if False,
                                 the model returned by the optimizer will just be the model at the final epoch of
@@ -143,6 +166,11 @@ class TrainingConfig(ConfigInterface):
                 training. Use with caution. We recommend only using the following keys: 'shuffle', 'num_workers',
                 'pin_memory', and 'drop_last'.
         :param early_stopping: configuration for early stopping
+        :param soft_to_hard_fn: a callable which will be computed on every batch of predictions
+            to compute hard-decison predictions from the model output.  Defaults to:
+                torch.max(<args>, dim=1)[1] --> this is equivalent to np.argmax on each row of predictions
+        :param soft_to_hard_fn_kwargs: a dictionary of kwargs to pass to the soft_to_hard_fn when calling it
+
         TODO:
          [ ] - allow user to configure what the "best" model is
         """
@@ -153,12 +181,15 @@ class TrainingConfig(ConfigInterface):
         self.optim = optim
         self.optim_kwargs = optim_kwargs
         self.objective = objective
+        self.objective_kwargs = objective_kwargs
         self.save_best_model = save_best_model
         self.train_val_split = train_val_split
         self.early_stopping = early_stopping
         self.val_data_transform = val_data_transform
         self.val_label_transform = val_label_transform
         self.val_dataloader_kwargs = val_dataloader_kwargs
+        self.soft_to_hard_fn = soft_to_hard_fn
+        self.soft_to_hard_fn_kwargs = soft_to_hard_fn_kwargs
 
         if self.optim_kwargs is None:
             self.optim_kwargs = {}
@@ -202,6 +233,12 @@ class TrainingConfig(ConfigInterface):
             msg = "objective must be a callable, or one of the following:" + str(VALID_LOSS_FUNCTIONS)
             logger.error(msg)
             raise ValueError(msg)
+        if not self.objective_kwargs:
+            self.objective_kwargs = dict()
+        elif not isinstance(self.objective_kwargs, dict):
+            msg = "objective_kwargs must be a dictionary"
+            logger.error(msg)
+            raise ValueError(msg)
 
         if not isinstance(self.save_best_model, bool):
             msg = "save_best_model must be a boolean!"
@@ -238,6 +275,20 @@ class TrainingConfig(ConfigInterface):
             logger.error(msg)
             raise ValueError(msg)
 
+        if self.soft_to_hard_fn is None:
+            self.soft_to_hard_fn = DefaultSoftToHardFn()
+        elif not callable(self.soft_to_hard_fn):
+            msg = "soft_to_hard_fn must be a callable which accepts as input the output of the model, and outputs " \
+                  "hard-decisions"
+            logger.error(msg)
+            raise ValueError(msg)
+        if self.soft_to_hard_fn_kwargs is None:
+            self.soft_to_hard_fn_kwargs = copy.deepcopy(default_soft_to_hard_fn_kwargs)
+        elif not isinstance(self.soft_to_hard_fn_kwargs, dict):
+            msg = "soft_to_hard_fn_kwargs must be a dictionary of kwargs to pass to soft_to_hard_fn"
+            logger.error(msg)
+            raise ValueError(msg)
+
     def get_cfg_as_dict(self):
         """
         Returns a dictionary representation of the configuration
@@ -249,20 +300,26 @@ class TrainingConfig(ConfigInterface):
                            learning_rate=self.lr,
                            optim=self.optim,
                            objective=self.objective,
+                           objective_kwargs=self.objective_kwargs,
                            save_best_model=self.save_best_model,
                            early_stopping=str(self.early_stopping),
                            val_data_transform=self.val_data_transform,
                            val_label_transform=self.val_label_transform,
-                           val_dataloader_kwargs=self.val_dataloader_kwargs)
+                           val_dataloader_kwargs=self.val_dataloader_kwargs,
+                           soft_to_hard_fn=self.soft_to_hard_fn,
+                           soft_to_hard_fn_kwargs=self.soft_to_hard_fn_kwargs)
         return output_dict
 
     def __str__(self):
         str_repr = "TrainingConfig: device[%s], num_epochs[%d], batch_size[%d], learning_rate[%.5e], optimizer[%s], " \
-                   "objective[%s], train_val_split[%0.02f], val_data_transform[%s], " \
-                   "val_label_transform[%s], val_dataloader_kwargs[%s], early_stopping[%s]" % \
+                   "objective[%s], objective_kwargs[%s], train_val_split[%0.02f], val_data_transform[%s], " \
+                   "val_label_transform[%s], val_dataloader_kwargs[%s], early_stopping[%s], " \
+                   "soft_to_hard_fn[%s], soft_to_hard_fn_kwargs[%s]" % \
                    (str(self.device.type), self.epochs, self.batch_size, self.lr,
-                    str(self.optim), str(self.objective), self.train_val_split, str(self.val_data_transform),
-                    str(self.val_label_transform), str(self.val_dataloader_kwargs), str(self.early_stopping))
+                    str(self.optim), str(self.objective), str(self.objective_kwargs),
+                    self.train_val_split, str(self.val_data_transform),
+                    str(self.val_label_transform), str(self.val_dataloader_kwargs), str(self.early_stopping),
+                    str(self.soft_to_hard_fn), str(self.soft_to_hard_fn_kwargs))
         return str_repr
 
     def __deepcopy__(self, memodict={}):
@@ -295,19 +352,29 @@ class TrainingConfig(ConfigInterface):
             msg = "The TrainingConfig object you are trying to copy is corrupted!"
             logger.error(msg)
             raise ValueError(msg)
-        return TrainingConfig(new_device, epochs, batch_size, lr, optim, optim_kwargs, objective, save_best_model,
-                              train_val_split, val_data_transform, val_label_transform, val_dataloader_kwargs,
-                              early_stopping)
+        objective_kwargs = self.objective_kwargs
+        soft_to_hard_fn = copy.deepcopy(self.soft_to_hard_fn)  # empirical tests on deepcopy do not seem to
+        # create new memory references for lambda functions.
+        # I am not sure if this behavior is different with
+        # a properly defined function.
+        soft_to_hard_fn_kwargs = copy.deepcopy(self.soft_to_hard_fn_kwargs)
+        return TrainingConfig(new_device, epochs, batch_size, lr, optim, optim_kwargs, objective, objective_kwargs,
+                              save_best_model, train_val_split, val_data_transform, val_label_transform,
+                              val_dataloader_kwargs, early_stopping, soft_to_hard_fn, soft_to_hard_fn_kwargs)
 
     def __eq__(self, other):
+        # NOTE: we don't check whether the soft_to_hard_fn equality, b/c
+        #  there doesn't seem to be a general way to accomplish this.  This needs
+        #  to be addressed as needed later on.
         if self.device.type == other.device.type and self.epochs == other.epochs and \
-           self.batch_size == other.batch_size and self.lr == other.lr and \
-           self.save_best_model == other.save_best_model and \
-           self.train_val_split == other.train_val_split and \
-           self.early_stopping == other.early_stopping and \
-           self.val_data_transform == other.val_data_transform and \
-           self.val_label_transform == other.val_label_transform and \
-           self.val_dataloader_kwargs == other.val_dataloader_kwargs:
+            self.batch_size == other.batch_size and self.lr == other.lr and \
+            self.save_best_model == other.save_best_model and \
+            self.train_val_split == other.train_val_split and \
+            self.early_stopping == other.early_stopping and \
+            self.val_data_transform == other.val_data_transform and \
+            self.val_label_transform == other.val_label_transform and \
+            self.val_dataloader_kwargs == other.val_dataloader_kwargs and \
+            self.soft_to_hard_fn_kwargs == other.soft_to_hard_fn_kwargs:
             # now check the objects
             if self.optim == other.optim and self.objective == other.objective:
                 return True
@@ -323,11 +390,11 @@ class ReportingConfig(ConfigInterface):
     """
 
     def __init__(self,
-                 num_batches_per_logmsg: int = 100,
-                 num_epochs_per_metric: int = 1,
-                 num_batches_per_metrics: int = 50,
-                 tensorboard_output_dir: str = None,
-                 experiment_name: str = 'experiment'):
+        num_batches_per_logmsg: int = 100,
+        num_epochs_per_metric: int = 1,
+        num_batches_per_metrics: int = 50,
+        tensorboard_output_dir: str = None,
+        experiment_name: str = 'experiment'):
         """
         Initializes a ReportingConfig object.
         :param num_batches_per_logmsg: The # of batches which are computed before a log message is written.
@@ -376,10 +443,10 @@ class ReportingConfig(ConfigInterface):
 
     def __eq__(self, other):
         if self.num_batches_per_logmsg == other.num_batches_per_logmsg and \
-                self.num_epochs_per_metrics == other.num_epochs_per_metrics and \
-                self.num_batches_per_metrics == other.num_batches_per_metrics and \
-                self.tensorboard_output_dir == other.tensorboard_output_dir and \
-                self.experiment_name == other.experiment_name:
+            self.num_epochs_per_metrics == other.num_epochs_per_metrics and \
+            self.num_batches_per_metrics == other.num_batches_per_metrics and \
+            self.tensorboard_output_dir == other.tensorboard_output_dir and \
+            self.experiment_name == other.experiment_name:
             return True
         else:
             return False
@@ -391,7 +458,7 @@ class TorchTextOptimizerConfig(OptimizerConfigInterface):
     """
 
     def __init__(self, training_cfg: TrainingConfig = None, reporting_cfg: ReportingConfig = None,
-                 copy_pretrained_embeddings: bool = False):
+        copy_pretrained_embeddings: bool = False):
         """
         Initializes a TorchTextOptimizer
         :param training_cfg: a TrainingConfig object, if None, a default TrainingConfig object will be constructed
@@ -434,7 +501,7 @@ class TorchTextOptimizerConfig(OptimizerConfigInterface):
 
     def __eq__(self, other):
         if self.training_cfg == other.training_cfg and self.reporting_cfg == other.reporting_cfg and \
-           self.copy_pretrained_embeddings == other.copy_pretrained_embeddings:
+            self.copy_pretrained_embeddings == other.copy_pretrained_embeddings:
             return True
         else:
             return False
@@ -541,15 +608,15 @@ class ModelGeneratorConfig(ConfigInterface):
     """Object used to configure the model generator"""
 
     def __init__(self, arch_factory: ArchitectureFactory, data: DataManager,
-                 model_save_dir: str, stats_save_dir: str, num_models: int,
-                 arch_factory_kwargs: dict = None, arch_factory_kwargs_generator: Callable = None,
-                 optimizer: Union[Union[OptimizerInterface, DefaultOptimizerConfig],
-                                  Sequence[Union[OptimizerInterface, DefaultOptimizerConfig]]] = None,
-                 parallel=False,
-                 experiment_cfg: dict = None,
-                 run_ids: Union[Any, Sequence[Any]] = None,
-                 filenames: Union[str, Sequence[str]] = None,
-                 save_with_hash: bool = False):
+        model_save_dir: str, stats_save_dir: str, num_models: int,
+        arch_factory_kwargs: dict = None, arch_factory_kwargs_generator: Callable = None,
+        optimizer: Union[Union[OptimizerInterface, DefaultOptimizerConfig],
+                         Sequence[Union[OptimizerInterface, DefaultOptimizerConfig]]] = None,
+        parallel=False,
+        experiment_cfg: dict = None,
+        run_ids: Union[Any, Sequence[Any]] = None,
+        filenames: Union[str, Sequence[str]] = None,
+        save_with_hash: bool = False):
         """
         Initializes the ModelGeneratorConfig object which provides needed information for generating models for a given
         experiment.
@@ -613,12 +680,12 @@ class ModelGeneratorConfig(ConfigInterface):
 
     def __eq__(self, other):
         if self.arch_factory == other.arch_factory and self.data == other.data and self.optimizer == other.optimizer \
-                and self.parallel == other.parallel \
-                and self.model_save_dir == other.model_save_dir and self.stats_save_dir == other.stats_save_dir \
-                and self.arch_factory_kwargs == other.arch_factory_kwargs \
-                and self.arch_factory_kwargs_generator == other.arch_factory_kwargs_generator \
-                and self.experiment_cfg == other.experiment_cfg and self.run_ids == other.run_ids \
-                and self.filenames == other.filenames and self.save_with_hash == other.save_with_hash:
+            and self.parallel == other.parallel \
+            and self.model_save_dir == other.model_save_dir and self.stats_save_dir == other.stats_save_dir \
+            and self.arch_factory_kwargs == other.arch_factory_kwargs \
+            and self.arch_factory_kwargs_generator == other.arch_factory_kwargs_generator \
+            and self.experiment_cfg == other.experiment_cfg and self.run_ids == other.run_ids \
+            and self.filenames == other.filenames and self.save_with_hash == other.save_with_hash:
             return True
         else:
             return False
@@ -776,13 +843,13 @@ class RunnerConfig(ConfigInterface):
     """
 
     def __init__(self, arch_factory: ArchitectureFactory, data: DataManager,
-                 arch_factory_kwargs: dict = None, arch_factory_kwargs_generator: Callable = None,
-                 optimizer: Union[OptimizerInterface, DefaultOptimizerConfig,
-                                  Sequence[Union[OptimizerInterface, DefaultOptimizerConfig]]] = None,
-                 parallel: bool = False,
-                 model_save_dir: str = "/tmp/models", stats_save_dir: str = "/tmp/model_stats",
-                 model_save_format: str = "pt",
-                 run_id: Any = None, filename: str = None, save_with_hash: bool = False):
+        arch_factory_kwargs: dict = None, arch_factory_kwargs_generator: Callable = None,
+        optimizer: Union[OptimizerInterface, DefaultOptimizerConfig,
+                         Sequence[Union[OptimizerInterface, DefaultOptimizerConfig]]] = None,
+        parallel: bool = False,
+        model_save_dir: str = "/tmp/models", stats_save_dir: str = "/tmp/model_stats",
+        model_save_format: str = "pt",
+        run_id: Any = None, filename: str = None, save_with_hash: bool = False):
         """
         Initialize a RunnerConfig object
         :param arch_factory: (Architecture Factory) a trainable Pytorch module generator.
@@ -955,8 +1022,8 @@ class RunnerConfig(ConfigInterface):
 
 
 def modelgen_cfg_to_runner_cfg(modelgen_cfg: ModelGeneratorConfig,
-                               run_id=None,
-                               filename=None) -> RunnerConfig:
+    run_id=None,
+    filename=None) -> RunnerConfig:
     """
     Convenience function which creates a RunnerConfig object, from a ModelGeneratorConfig object.
     :param modelgen_cfg: the ModelGeneratorConfig to convert
@@ -975,6 +1042,7 @@ class UGEQueueConfig:
     """
     Defines the configuration for a Queue w.r.t. UGE in TrojAI
     """
+
     def __init__(self, queue_name: str, gpu_enabled: bool, sync_mode: bool = False):
         self.queue_name = queue_name
         self.gpu_enabled = gpu_enabled
@@ -1006,9 +1074,10 @@ class UGEConfig:
     """
     Defines a configuration for the UGE
     """
+
     def __init__(self, queues: Union[UGEQueueConfig, Sequence[UGEQueueConfig]],
-                 queue_distribution: Sequence[float] = None,
-                 multi_model_same_gpu: bool = False):
+        queue_distribution: Sequence[float] = None,
+        multi_model_same_gpu: bool = False):
         """
         :param queues: a list of Queue object configurations
         :param queue_distribution: the desired way to distribute the workload across the queues, if None,
