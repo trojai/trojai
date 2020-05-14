@@ -188,9 +188,6 @@ class DefaultOptimizer(OptimizerInterface):
         self.lr = self.optimizer_cfg.training_cfg.lr
         # setup learning rate scheduler if desired
         self.lr_scheduler = None
-        if self.optimizer_cfg.training_cfg.lr_scheduler is not None:
-            self.lr_scheduler = self.optimizer_cfg.training_cfg.lr_scheduler(self.optimizer,
-                                                                             **self.optimizer_cfg.training_cfg.lr_scheduler_init_kwargs)
 
         self.optimizer_str = self.optimizer_cfg.training_cfg.optim.lower()
         self.optimizer = None
@@ -351,6 +348,10 @@ class DefaultOptimizer(OptimizerInterface):
             msg = self.optimizer_str + " not yet implemented!"
             logger.error(msg)
             raise NotImplementedError(msg)
+
+        if self.optimizer_cfg.training_cfg.lr_scheduler is not None:
+            self.lr_scheduler = self.optimizer_cfg.training_cfg.lr_scheduler(self.optimizer,
+                                                                             **self.optimizer_cfg.training_cfg.lr_scheduler_init_kwargs)
 
         # set according to the following guidelines:
         # https://discuss.pytorch.org/t/when-to-set-pin-memory-to-true/19723

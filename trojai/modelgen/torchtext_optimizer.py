@@ -64,9 +64,6 @@ class TorchTextOptimizer(OptimizerInterface):
         self.lr = self.optimizer_cfg.training_cfg.lr
         # setup learning rate scheduler if desired
         self.lr_scheduler = None
-        if self.optimizer_cfg.training_cfg.lr_scheduler is not None:
-            self.lr_scheduler = self.optimizer_cfg.training_cfg.lr_scheduler(self.optimizer,
-                                                                             **self.optimizer_cfg.training_cfg.lr_scheduler_init_kwargs)
 
         self.optimizer_str = self.optimizer_cfg.training_cfg.optim.lower()
         self.optimizer = None
@@ -254,6 +251,10 @@ class TorchTextOptimizer(OptimizerInterface):
             msg = self.optimizer_str + " not yet implemented!"
             logger.error(msg)
             raise NotImplementedError(msg)
+        if self.optimizer_cfg.training_cfg.lr_scheduler is not None:
+            self.lr_scheduler = self.optimizer_cfg.training_cfg.lr_scheduler(self.optimizer,
+                                                                             **self.optimizer_cfg.training_cfg.lr_scheduler_init_kwargs)
+
 
         # split into train & validation datasets, and setup data loaders according to their type
         train_dataset, val_dataset = TorchTextOptimizer.train_val_dataset_split(dataset,
