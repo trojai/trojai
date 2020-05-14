@@ -117,7 +117,7 @@ def _save_nandata(x, y_hat, y_truth, loss_tensor, loss_val, acc_val, n_total, n_
 
 
 def train_val_dataset_split(dataset: torch.utils.data.Dataset, split_amt: float, val_data_transform: Callable,
-                            val_label_transform: Callable) -> (torch.utils.data.Dataset, torch.utils.data.Dataset):
+    val_label_transform: Callable) -> (torch.utils.data.Dataset, torch.utils.data.Dataset):
     """
     Splits a PyTorch dataset (of type: torch.utils.data.Dataset) into train/test
     TODO:
@@ -187,6 +187,7 @@ class DefaultOptimizer(OptimizerInterface):
 
         self.lr = self.optimizer_cfg.training_cfg.lr
         # setup learning rate scheduler if desired
+        self.lr_scheduler = None
         if self.optimizer_cfg.training_cfg.lr_scheduler is not None:
             self.lr_scheduler = self.optimizer_cfg.training_cfg.lr_scheduler(self.optimizer,
                                                                              **self.optimizer_cfg.training_cfg.lr_scheduler_init_kwargs)
@@ -416,7 +417,7 @@ class DefaultOptimizer(OptimizerInterface):
             if self.optimizer_cfg.training_cfg.early_stopping:
                 # EarlyStoppingConfig validates that eps > 0 as well ..
                 if validation_stats.val_loss < (
-                    best_val_loss - np.abs(self.optimizer_cfg.training_cfg.early_stopping.val_loss_eps)):
+                        best_val_loss - np.abs(self.optimizer_cfg.training_cfg.early_stopping.val_loss_eps)):
                     best_val_loss = validation_stats.val_loss
                     best_val_loss_epoch = epoch
                     best_net = copy.deepcopy(net)
@@ -445,7 +446,7 @@ class DefaultOptimizer(OptimizerInterface):
             return net, epoch_stats, epoch
 
     def train_epoch(self, model: nn.Module, train_loader: DataLoader, val_loader: DataLoader,
-        epoch_num: int, progress_bar_disable: bool = False):
+                    epoch_num: int, progress_bar_disable: bool = False):
         """
         Runs one epoch of training on the specified model
 
@@ -559,7 +560,8 @@ class DefaultOptimizer(OptimizerInterface):
                                                                             soft_to_hard_fn_kwargs=self.soft_to_hard_fn_kwargs)
 
                     if np.isnan(batch_val_loss) or np.isnan(running_val_acc):
-                        _save_nandata(x_eval, y_hat_eval, y_truth_eval, val_loss_tensor, batch_val_loss, running_val_acc,
+                        _save_nandata(x_eval, y_hat_eval, y_truth_eval, val_loss_tensor, batch_val_loss,
+                                      running_val_acc,
                                       val_n_total, val_n_correct, model)
 
                     val_loss += batch_val_loss
@@ -603,8 +605,8 @@ class DefaultOptimizer(OptimizerInterface):
         return train_stats, validation_stats
 
     def test(self, net: nn.Module, clean_data: CSVDataset, triggered_data: CSVDataset,
-        clean_test_triggered_labels_data: CSVDataset, progress_bar_disable: bool = False,
-        torch_dataloader_kwargs: dict = None) -> dict:
+             clean_test_triggered_labels_data: CSVDataset, progress_bar_disable: bool = False,
+             torch_dataloader_kwargs: dict = None) -> dict:
         """
         Test the trained network
         :param net: the trained module to run the test data through
