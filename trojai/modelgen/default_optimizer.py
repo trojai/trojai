@@ -118,9 +118,9 @@ def _save_nandata(x, y_hat, y_truth, loss_tensor, loss_val, acc_val, n_total, n_
         os.makedirs(save_folder)
     except IOError:
         pass
-    with open(os.path.join(save_folder, 'data_' + '.pkl'), 'wb') as f:
+    with open(os.path.join(save_folder, 'data.pkl'), 'wb') as f:
         pickle.dump(dict_to_save, f)
-    torch.save(model, os.path.join(save_folder, 'model_' + '.pkl'))
+    torch.save(model, os.path.join(save_folder, 'model.pkl'))
 
     msg = "Loss function and/or _eval_acc returned NaN while training! " \
           "This usually means gradient explosion.  " \
