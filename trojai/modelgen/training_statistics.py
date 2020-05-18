@@ -260,20 +260,10 @@ class TrainingRunStatistics:
         self.final_clean_data_n_total = n
 
     def set_final_triggered_data_n_total(self, n):
-        if n is None or n > 0:
-            self.final_triggered_data_n_total = n
-        else:
-            msg = "Triggered dataset size must be > 0! - received dataset.size()=" + str(n)
-            logger.error(msg)
-            raise ValueError(msg)
+        self.final_triggered_data_n_total = n
 
     def set_final_clean_data_triggered_label_n(self, n):
-        if n is None or n > 0:
-            self.final_clean_data_triggered_labels_n_total = n
-        else:
-            msg = "Triggered dataset size must be > 0! - received dataset.size()=" + str(n)
-            logger.error(msg)
-            raise ValueError(msg)
+        self.final_clean_data_triggered_labels_n_total = n
 
     def get_summary(self):
         """
