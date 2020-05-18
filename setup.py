@@ -19,24 +19,25 @@ on_rtd = os.environ.get('READTHEDOCS') == 'True'
 if on_rtd:
     install_requires = []
 else:
-    install_requires = ['numpy',
-                        'pandas',
-                        'scikit-image',
-                        'joblib',
-                        'scipy',
-                        'pillow',
-                        'scikit-learn',
-                        'tqdm',
-                        'opencv-python',
-                        'torch',
-                        'torchvision',
-                        'torchtext',
-                        'cloudpickle',
-                        'tb-nightly',
-                        'future',
-                        'Wand',
-                        'nltk',
-                        'pyllist'
+    install_requires = ['numpy==1.18.4',
+                        'pandas==1.0.3',
+                        'scikit-image==0.17.2',
+                        'joblib==0.14.1',
+                        'scipy==1.4.1',
+                        'pillow==7.1.2',
+                        'scikit-learn==0.23.0',
+                        'tqdm==4.46.0',
+                        'opencv-python==4.2.0.34',
+                        'torch==1.5.0',
+                        'torchvision==0.6.0',
+                        'torchtext==0.6.0',
+                        'spacy==2.2.0',
+                        'cloudpickle==1.4.1',
+                        'tb-nightly==2.3.0a20200514',
+                        'future==0.18.2',
+                        'Wand==0.5.9',
+                        'nltk==3.5',
+                        'pyllist==0.3'
                         ]
 
 setuptools.setup(
@@ -85,7 +86,7 @@ setuptools.setup(
     # for example:
     # $ pip install -e .[dev,test]
     extras_require={
-          'test': ['nose', 'coverage']
+          'test': ['nose==1.3.7', 'coverage==5.0.3']
     },
 
     scripts=['scripts/datagen/mnist.py',
