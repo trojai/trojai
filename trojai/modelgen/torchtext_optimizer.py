@@ -13,6 +13,7 @@ from torch.utils.tensorboard import SummaryWriter
 from torchtext.data.iterator import Iterator as TextDataIterator
 from torchtext.data.iterator import BucketIterator
 import torchtext
+import torch.nn.utils.clip_grad as torch_clip_grad
 
 from .datasets import CSVTextDataset
 from .training_statistics import EpochStatistics, EpochTrainStatistics, EpochValidationStatistics
@@ -395,6 +396,23 @@ class TorchTextOptimizer(OptimizerInterface):
 
             # compute gradient
             batch_train_loss.backward()
+
+            # perform gradient clipping if configured
+            if self.optimizer_cfg.training_cfg.clip_grad:
+                if self.optimizer_cfg.training_cfg.clip_type == 'norm':
+                    # clip_grad_norm_ modifies gradients in place
+                    #  see: https://pytorch.org/docs/stable/_modules/torch/nn/utils/clip_grad.html
+                    torch_clip_grad.clip_grad_norm_(model.parameters(), self.optimizer_cfg.training_cfg.clip_val,
+                                                    **self.optimizer_cfg.training_cfg.clip_kwargs)
+                elif self.optimizer_cfg.training_cfg.clip_type == 'val':
+                    # clip_grad_val_ modifies gradients in place
+                    #  see: https://pytorch.org/docs/stable/_modules/torch/nn/utils/clip_grad.html
+                    torch_clip_grad.clip_grad_value_(model.parameters(), self.optimizer_cfg.training_cfg.clip_val)
+                else:
+                    msg = "Unknown clipping type for gradient clipping!"
+                    logger.error(msg)
+                    raise ValueError(msg)
+
             self.optimizer.step()
 
             loop.set_description('Epoch {}/{}'.format(epoch_num + 1, self.num_epochs))

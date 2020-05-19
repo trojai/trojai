@@ -86,9 +86,24 @@ def _eval_acc(y_hat: torch.Tensor, y_truth: torch.Tensor,
 
 def _save_nandata(x, y_hat, y_truth, loss_tensor, loss_val, acc_val, n_total, n_correct, model):
     """
+    Save's a snapshot of the input and outputs during training that caused either the
+    Loss function or the accuracy evaluation to output NaN, and then exits
+
+    :param x: the input which caused NaN evaluation
+    :param y_hat: the predicted output of the model for the input x
+    :param y_truth: the true output that the model should output for input x
+    :param loss_tensor: the loss tensor returned from the loss function evaluation
+    :param loss_val: the actual value of the loss function for the specified input
+    :param acc_val: the accuracy value outputed by _eval_acc
+    :param n_total: the total n which have been processed so far
+    :param n_correct: the total n which are correct, of the n_total which have been processed
+    :param model: the model under training
+
+    :return None
 
     """
-    save_folder = tempfile.mkdtemp()
+    t = str(datetime.datetime.now()).replace(':', '_').replace('.', '_').replace('-', '_').replace(' ', '_')
+    save_folder = tempfile.mkdtemp(prefix='core_'+str(t)+'_', dir=os.getcwd())
 
     dict_to_save = dict(y_hat=y_hat,
                         y_truth=y_truth,
@@ -103,10 +118,9 @@ def _save_nandata(x, y_hat, y_truth, loss_tensor, loss_val, acc_val, n_total, n_
         os.makedirs(save_folder)
     except IOError:
         pass
-    t = str(datetime.datetime.now()).replace(':', '_').replace('.', '_').replace('-', '_').replace(' ', '_')
-    with open(os.path.join(save_folder, 'data_' + t + '.pkl'), 'wb') as f:
+    with open(os.path.join(save_folder, 'data.pkl'), 'wb') as f:
         pickle.dump(dict_to_save, f)
-    torch.save(model, os.path.join(save_folder, 'model_' + t + '.pkl'))
+    torch.save(model, os.path.join(save_folder, 'model.pkl'))
 
     msg = "Loss function and/or _eval_acc returned NaN while training! " \
           "This usually means gradient explosion.  " \
