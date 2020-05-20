@@ -444,7 +444,7 @@ class TestRunner(unittest.TestCase):
                     return ts, vs
 
             optimizer.train_epoch = Mock(side_effect=train_epoch_side_effect)
-            _, _, num_epochs_trained = optimizer.train(model, dataset)
+            _, _, num_epochs_trained, _ = optimizer.train(model, dataset)
             # TODO: explain why this shoudl be 8
             self.assertEqual(8, num_epochs_trained)
 
@@ -491,7 +491,7 @@ class TestRunner(unittest.TestCase):
                     return ts, vs
 
             optimizer.train_epoch = Mock(side_effect=train_epoch_side_effect)
-            _, _, num_epochs_trained = optimizer.train(model, dataset)
+            _, _, num_epochs_trained, _ = optimizer.train(model, dataset)
             # TODO: explain why answer is 8
             self.assertEqual(9, num_epochs_trained)
 
@@ -542,7 +542,7 @@ class TestRunner(unittest.TestCase):
                     return ts, vs
 
             optimizer.train_epoch = Mock(side_effect=train_epoch_side_effect)
-            _, _, num_epochs_trained = optimizer.train(model, dataset)
+            _, _, num_epochs_trained, _ = optimizer.train(model, dataset)
             # the early stopping should *not* have been run, b/c we set it to None, so we should
             # have trained for the full 10 epochs
             self.assertEqual(num_epochs_trained, optimizer.optimizer_cfg.training_cfg.epochs)

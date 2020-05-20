@@ -179,6 +179,7 @@ class TrainingRunStatistics:
         self.final_clean_data_triggered_labels_test_acc = None
         self.final_clean_data_triggered_labels_n_total = None
         self.final_optimizer_num_epochs_trained = 0
+        self.final_optimizer_best_epoch_val = -1
 
     def add_epoch(self, epoch_stats: Union[EpochStatistics, Sequence[EpochStatistics]]):
         if isinstance(epoch_stats, collections.abc.Sequence):
@@ -188,6 +189,9 @@ class TrainingRunStatistics:
 
     def add_num_epochs_trained(self, num_epochs):
         self.num_epochs_trained_per_optimizer.append(num_epochs)
+
+    def add_best_epoch_val(self, best_epoch):
+        self.final_optimizer_best_epoch_val = best_epoch
 
     def get_epochs_stats(self):
         return self.stats_per_epoch_list
@@ -200,7 +204,7 @@ class TrainingRunStatistics:
             final_val_acc
             final_val_loss
         """
-        final_epoch_training_stats = self.stats_per_epoch_list[-1]
+        final_epoch_training_stats = self.stats_per_epoch_list[self.final_optimizer_best_epoch_val]
 
         self.set_final_train_acc(final_epoch_training_stats.get_epoch_training_stats().get_train_acc())
         self.set_final_train_loss(final_epoch_training_stats.get_epoch_training_stats().get_train_loss())
