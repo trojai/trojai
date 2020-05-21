@@ -456,9 +456,9 @@ class DefaultOptimizer(OptimizerInterface):
                     done = True
 
         if self.save_best_model or self.optimizer_cfg.training_cfg.early_stopping:
-            return best_net, epoch_stats, epoch
+            return best_net, epoch_stats, epoch, best_val_loss_epoch
         else:
-            return net, epoch_stats, epoch
+            return net, epoch_stats, epoch, best_val_loss_epoch
 
     def train_epoch(self, model: nn.Module, train_loader: DataLoader, val_loader: DataLoader,
                     epoch_num: int, progress_bar_disable: bool = False):
