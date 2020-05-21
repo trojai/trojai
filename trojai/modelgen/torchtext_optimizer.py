@@ -18,7 +18,7 @@ import torch.nn.utils.clip_grad as torch_clip_grad
 from .datasets import CSVTextDataset
 from .training_statistics import EpochStatistics, EpochTrainStatistics, EpochValidationStatistics
 from .optimizer_interface import OptimizerInterface
-from .default_optimizer import _eval_acc, _save_nandata
+from .default_optimizer import _running_eval_acc, _save_nandata
 from .config import TorchTextOptimizerConfig
 from .constants import VALID_OPTIMIZERS, MAX_EPOCHS
 
@@ -306,21 +306,21 @@ class TorchTextOptimizer(OptimizerInterface):
             # TODO: save best model should use same criterion as early stopping (val-loss rather than val-acc)?
             if self.save_best_model:
                 # use validation accuracy as the metric for deciding the best model
-                if validation_stats.val_acc >= best_validation_acc:
+                if validation_stats.val_clean_acc >= best_validation_acc:
                     msg = "Updating best model with epoch:[%d] accuracy[%0.02f].  Previous best validation " \
-                          "accuracy was: %0.02f" % (epoch, validation_stats.val_acc, best_validation_acc)
+                          "accuracy was: %0.02f" % (epoch, validation_stats.val_clean_acc, best_validation_acc)
                     logger.info(msg)
                     best_net = copy.deepcopy(net)
-                    best_validation_acc = validation_stats.val_acc
+                    best_validation_acc = validation_stats.val_clean_acc
 
             # early stopping
             # record the val loss of the last batch in the epoch.  if N epochs after the best val_loss, we have not
             # improved the val-loss by atleast eps, we quit
             if self.optimizer_cfg.training_cfg.early_stopping:
                 # EarlyStoppingConfig validates that eps > 0 as well ..
-                if validation_stats.val_loss < (
+                if validation_stats.val_clean_loss < (
                         best_val_loss - np.abs(self.optimizer_cfg.training_cfg.early_stopping.val_loss_eps)):
-                    best_val_loss = validation_stats.val_loss
+                    best_val_loss = validation_stats.val_clean_loss
                     best_val_loss_epoch = epoch
                     best_net = copy.deepcopy(net)
                     logger.info('EarlyStopping - NewBest >> best_val_loss:%0.04f best_val_loss_epoch:%d' %
@@ -386,9 +386,9 @@ class TorchTextOptimizer(OptimizerInterface):
             # compute metrics
             batch_train_loss = self._eval_loss_function(predictions, batch.label)
             sum_batchmean_train_loss += batch_train_loss.item()
-            running_train_acc, train_n_total, train_n_correct = _eval_acc(predictions, batch.label,
-                                                                          n_total=train_n_total,
-                                                                          n_correct=train_n_correct)
+            running_train_acc, train_n_total, train_n_correct = _running_eval_acc(predictions, batch.label,
+                                                                                  n_total=train_n_total,
+                                                                                  n_correct=train_n_correct)
 
             if np.isnan(sum_batchmean_train_loss) or np.isnan(running_train_acc):
                 _save_nandata(x, predictions, batch.label, batch_train_loss, sum_batchmean_train_loss, running_train_acc,
@@ -456,9 +456,9 @@ class TorchTextOptimizer(OptimizerInterface):
 
                     val_loss_tensor = self._eval_loss_function(predictions, batch.label)
                     batch_val_loss = val_loss_tensor.item()
-                    running_val_acc, val_n_total, val_n_correct = _eval_acc(predictions, batch.label,
-                                                                            n_total=val_n_total,
-                                                                            n_correct=val_n_correct)
+                    running_val_acc, val_n_total, val_n_correct = _running_eval_acc(predictions, batch.label,
+                                                                                    n_total=val_n_total,
+                                                                                    n_correct=val_n_correct)
 
                     if np.isnan(batch_val_loss) or np.isnan(running_val_acc):
                         _save_nandata(x, predictions, batch.label, val_loss_tensor, batch_val_loss,
@@ -537,9 +537,9 @@ class TorchTextOptimizer(OptimizerInterface):
                     predictions = model(text, text_lengths).squeeze(1)
                 else:
                     predictions = model(batch.text).squeeze(1)
-                test_acc, test_n_total, test_n_correct = _eval_acc(predictions, batch.label,
-                                                                   n_total=test_n_total,
-                                                                   n_correct=test_n_correct)
+                test_acc, test_n_total, test_n_correct = _running_eval_acc(predictions, batch.label,
+                                                                           n_total=test_n_total,
+                                                                           n_correct=test_n_correct)
         test_data_statistics['clean_accuracy'] = test_acc
         test_data_statistics['clean_n_total'] = test_n_total
         logger.info("Accuracy on clean test data: %0.02f" %
@@ -560,9 +560,9 @@ class TorchTextOptimizer(OptimizerInterface):
                     predictions = model(text, text_lengths).squeeze(1)
                 else:
                     predictions = model(batch.text).squeeze(1)
-                test_acc, test_n_total, test_n_correct = _eval_acc(predictions, batch.label,
-                                                                   n_total=test_n_total,
-                                                                   n_correct=test_n_correct)
+                test_acc, test_n_total, test_n_correct = _running_eval_acc(predictions, batch.label,
+                                                                           n_total=test_n_total,
+                                                                           n_correct=test_n_correct)
         test_data_statistics['triggered_accuracy'] = test_acc
         test_data_statistics['triggered_n_total'] = test_n_total
         logger.info("Accuracy on triggered test data: %0.02f" %
@@ -581,9 +581,9 @@ class TorchTextOptimizer(OptimizerInterface):
                     predictions = model(text, text_lengths).squeeze(1)
                 else:
                     predictions = model(batch.text).squeeze(1)
-                test_acc, test_n_total, test_n_correct = _eval_acc(predictions, batch.label,
-                                                                   n_total=test_n_total,
-                                                                   n_correct=test_n_correct)
+                test_acc, test_n_total, test_n_correct = _running_eval_acc(predictions, batch.label,
+                                                                           n_total=test_n_total,
+                                                                           n_correct=test_n_correct)
         test_data_statistics['clean_test_triggered_label_accuracy'] = test_acc
         test_data_statistics['clean_test_triggered_label_n_total'] = test_n_total
         logger.info("Accuracy on clean-data-triggered-labels: %0.02f for n=%s" %

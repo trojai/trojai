@@ -236,7 +236,8 @@ def train_and_save_mnist_model(experiment_path, triggered_train, clean_test, tri
     training_cfg = tpmc.TrainingConfig(device=device,
                                        epochs=300,
                                        batch_size=20,
-                                       lr=1e-4)
+                                       lr=1e-4,
+                                       early_stopping=tpmc.EarlyStoppingConfig())
 
     optim_cfg = tpmc.DefaultOptimizerConfig(training_cfg, logging_cfg)
     optim = tpm_do.DefaultOptimizer(optim_cfg)

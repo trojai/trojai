@@ -3,6 +3,7 @@ import json
 import logging
 from typing import Union, Sequence
 import csv
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -81,31 +82,74 @@ class EpochValidationStatistics:
     """
     Defines the validation statistics for one epoch of training
     """
-    def __init__(self, val_acc, val_loss):
-        self.val_acc = val_acc
-        self.val_loss = val_loss
+    def __init__(self, val_clean_acc, val_clean_loss, val_triggered_acc, val_triggered_loss):
+        self.val_clean_acc = val_clean_acc
+        self.val_clean_loss = val_clean_loss
+        self.val_triggered_acc = val_triggered_acc
+        self.val_triggered_loss = val_triggered_loss
 
         self.validate()
 
     def validate(self):
-        if not isinstance(self.val_acc, float):
-            msg = "val_acc must be a float, got type {}".format(type(self.val_acc))
+        if self.val_clean_acc is not None and not isinstance(self.val_clean_acc, float):
+            msg = "val_clean_acc must be a float, got type {}".format(type(self.val_clean_acc))
             logger.error(msg)
             raise ValueError(msg)
 
-        if not isinstance(self.val_loss, float):
-            msg = "val_loss must be a float, got type {}".format(type(self.val_loss))
+        if self.val_clean_loss is not None and not isinstance(self.val_clean_loss, float):
+            msg = "val_clean_loss must be a float, got type {}".format(type(self.val_clean_loss))
             logger.error(msg)
             raise ValueError(msg)
 
-    def get_val_acc(self):
-        return self.val_acc
+        if self.val_triggered_acc is not None and not isinstance(self.val_triggered_acc, float):
+            msg = "val_triggered_acc must be a float, got type {}".format(type(self.val_triggered_acc))
+            logger.error(msg)
+            raise ValueError(msg)
+
+        if self.val_triggered_loss is not None and not isinstance(self.val_triggered_loss, float):
+            msg = "val_triggered_loss must be a float, got type {}".format(type(self.val_triggered_loss))
+            logger.error(msg)
+            raise ValueError(msg)
+
+    def get_val_clean_acc(self):
+        return self.val_clean_acc
+
+    def get_val_clean_loss(self):
+        return self.val_clean_loss
+
+    def get_val_triggered_acc(self):
+        return self.val_triggered_acc
+
+    def get_val_triggered_loss(self):
+        return self.val_triggered_loss
 
     def get_val_loss(self):
-        return self.val_loss
+        if self.get_val_triggered_loss() is not None and self.get_val_clean_loss() is not None:
+            return self.get_val_triggered_loss() + self.get_val_clean_loss()
+        elif self.get_val_triggered_loss() is None and self.get_val_clean_loss() is not None:
+            return self.get_val_clean_loss()
+        elif self.get_val_triggered_loss() is not None and self.get_val_clean_loss() is None:
+            return self.get_val_triggered_loss()
+        else:
+            return None
+
+    def get_val_acc(self):
+        if self.get_val_triggered_acc() is not None and self.get_val_clean_acc() is not None:
+            return (self.get_val_triggered_acc() + self.get_val_clean_acc())/2.
+        elif self.get_val_triggered_acc() is None and self.get_val_clean_acc() is not None:
+            return self.get_val_clean_acc()
+        elif self.get_val_triggered_acc() is not None and self.get_val_clean_acc() is None:
+            return self.get_val_triggered_acc()
+        else:
+            return None
 
     def __repr__(self):
-        return '(%0.04f, %0.04f)' % (self.val_acc, self.val_loss)
+        val_loss = self.get_val_loss()
+        val_acc = self.get_val_acc()
+        val_loss = val_loss if val_loss is not None else -999
+        val_acc = val_acc if val_acc is not None else -999
+
+        return '(%0.04f, %0.04f)' % (val_loss, val_acc)
 
 
 class EpochStatistics:
@@ -170,8 +214,12 @@ class TrainingRunStatistics:
 
         self.final_train_acc = 0.
         self.final_train_loss = 0.
-        self.final_val_acc = 0.
-        self.final_val_loss = 0.
+        self.final_combined_val_acc = 0.
+        self.final_combined_val_loss = 0.
+        self.final_clean_val_acc = 0.
+        self.final_clean_val_loss = 0.
+        self.final_triggered_val_acc = 0.
+        self.final_triggered_val_loss = 0.
         self.final_clean_data_test_acc = 0.
         self.final_clean_data_n_total = 0
         self.final_triggered_data_test_acc = None
@@ -209,8 +257,14 @@ class TrainingRunStatistics:
         self.set_final_train_acc(final_epoch_training_stats.get_epoch_training_stats().get_train_acc())
         self.set_final_train_loss(final_epoch_training_stats.get_epoch_training_stats().get_train_loss())
         if final_epoch_training_stats.get_epoch_validation_stats():
-            self.set_final_val_acc(final_epoch_training_stats.get_epoch_validation_stats().get_val_acc())
-            self.set_final_val_loss(final_epoch_training_stats.get_epoch_validation_stats().get_val_loss())
+            self.set_final_val_combined_acc(final_epoch_training_stats.get_epoch_validation_stats().get_val_acc())
+            self.set_final_val_combined_loss(final_epoch_training_stats.get_epoch_validation_stats().get_val_loss())
+
+            self.set_final_val_clean_acc(final_epoch_training_stats.get_epoch_validation_stats().get_val_clean_acc())
+            self.set_final_val_clean_loss(final_epoch_training_stats.get_epoch_validation_stats().get_val_clean_loss())
+            self.set_final_val_triggered_acc(final_epoch_training_stats.get_epoch_validation_stats().get_val_triggered_acc())
+            self.set_final_val_triggered_loss(final_epoch_training_stats.get_epoch_validation_stats().get_val_triggered_loss())
+
         self.final_optimizer_num_epochs_trained = self.num_epochs_trained_per_optimizer[-1]
 
     def set_final_train_acc(self, acc):
@@ -224,16 +278,28 @@ class TrainingRunStatistics:
     def set_final_train_loss(self, loss):
         self.final_train_loss = loss
 
-    def set_final_val_acc(self, acc):
+    def set_final_val_combined_acc(self, acc):
         if acc is None or 0 <= acc <= 100:  # allow for None in case validation metrics are not computed
-            self.final_val_acc = acc
+            self.final_combined_val_acc = acc
         else:
             msg = "Final validation accuracy should be between 0 and 100!"
             logger.error(msg)
             raise ValueError(msg)
 
-    def set_final_val_loss(self, loss):
-        self.final_val_loss = loss
+    def set_final_val_combined_loss(self, loss):
+        self.final_combined_val_loss = loss
+
+    def set_final_val_clean_acc(self, acc):
+        self.final_clean_val_acc = acc
+
+    def set_final_val_triggered_acc(self, acc):
+        self.final_triggered_val_acc = acc
+
+    def set_final_val_clean_loss(self, loss):
+        self.final_clean_val_loss = loss
+
+    def set_final_val_triggered_loss(self, loss):
+        self.final_triggered_val_loss = loss
 
     def set_final_clean_data_test_acc(self, acc):
         if 0 <= acc <= 100:
@@ -276,8 +342,12 @@ class TrainingRunStatistics:
         summary_dict = dict()
         summary_dict['final_train_acc'] = self.final_train_acc
         summary_dict['final_train_loss'] = self.final_train_loss
-        summary_dict['final_val_acc'] = self.final_val_acc
-        summary_dict['final_val_loss'] = self.final_val_loss
+        summary_dict['final_combined_val_acc'] = self.final_combined_val_acc
+        summary_dict['final_combined_val_loss'] = self.final_combined_val_loss
+        summary_dict['final_clean_val_acc'] = self.final_clean_val_acc
+        summary_dict['final_clean_val_loss'] = self.final_clean_val_loss
+        summary_dict['final_triggered_val_acc'] = self.final_triggered_val_acc
+        summary_dict['final_triggered_val_loss'] = self.final_triggered_val_loss
         summary_dict['final_clean_data_test_acc'] = self.final_clean_data_test_acc
         summary_dict['final_triggered_data_test_acc'] = self.final_triggered_data_test_acc
         summary_dict['final_clean_data_n_total'] = self.final_clean_data_n_total
@@ -305,7 +375,8 @@ class TrainingRunStatistics:
         :param fname: filename to save the detailed information to
         :return: None
         """
-        keys = ['epoch_number', 'train_acc', 'train_loss', 'val_acc', 'val_loss']
+        keys = ['epoch_number', 'train_acc', 'train_loss', 'combined_val_acc', 'combined_val_loss',
+                'clean_val_acc', 'clean_val_loss', 'triggered_val_acc', 'triggered_val_loss']
         with open(fname, 'w') as output_file:
             # write header first
             dict_writer = csv.DictWriter(output_file, keys)
@@ -314,15 +385,28 @@ class TrainingRunStatistics:
                 # TODO: we ignore batch_statistics for now, we may want to add this in in the future
                 epoch_training_stats = e.get_epoch_training_stats()
                 epoch_val_stats = e.get_epoch_validation_stats()
-                val_acc = None
-                val_loss = None
+                combined_val_acc = None
+                combined_val_loss = None
+                clean_val_acc = None
+                clean_val_loss = None
+                triggered_val_acc = None
+                triggered_val_loss = None
                 if epoch_val_stats is not None:
-                    val_acc = epoch_val_stats.get_val_acc()
-                    val_loss = epoch_val_stats.get_val_loss()
+                    combined_val_acc = epoch_val_stats.get_val_acc()
+                    combined_val_loss = epoch_val_stats.get_val_loss()
+                    clean_val_acc = epoch_val_stats.get_val_clean_acc()
+                    clean_val_loss = epoch_val_stats.get_val_clean_loss()
+                    triggered_val_acc = epoch_val_stats.get_val_triggered_acc()
+                    triggered_val_loss = epoch_val_stats.get_val_triggered_loss()
+
                 dict_writer.writerow(dict(epoch_number=e.get_epoch_num(),
                                           train_acc=epoch_training_stats.get_train_acc(),
                                           train_loss=epoch_training_stats.get_train_loss(),
-                                          val_acc=val_acc,
-                                          val_loss=val_loss))
+                                          combined_val_acc=combined_val_acc,
+                                          combined_val_loss=combined_val_loss,
+                                          clean_val_acc=clean_val_acc,
+                                          clean_val_loss=clean_val_loss,
+                                          triggered_val_acc=triggered_val_acc,
+                                          triggered_val_loss=triggered_val_loss))
 
             logger.info("Wrote detailed statistics to %s" % (fname,))

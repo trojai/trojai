@@ -22,17 +22,24 @@ from .training_statistics import EpochStatistics, EpochValidationStatistics, Epo
 from .optimizer_interface import OptimizerInterface
 from .config import DefaultOptimizerConfig, DefaultSoftToHardFn, default_soft_to_hard_fn_kwargs
 from .constants import VALID_OPTIMIZERS, MAX_EPOCHS
-from .datasets import CSVDataset
+from .datasets import CSVDataset, DatasetInterface
 
 logger = logging.getLogger(__name__)
 
 
-def _eval_acc(y_hat: torch.Tensor, y_truth: torch.Tensor,
-    n_total: defaultdict = None, n_correct: defaultdict = None,
-    soft_to_hard_fn: Callable = None,
-    soft_to_hard_fn_kwargs: dict = None):
-    # TODO: make soft_to_hard_fn and soft_to_hard_fn_kwargs configurable through config interface
+def _validate_soft_to_hard_args(soft_to_hard_fn: Callable = None,
+                                soft_to_hard_fn_kwargs: dict = None):
+    if not soft_to_hard_fn:
+        soft_to_hard_fn = DefaultSoftToHardFn()
+    if not soft_to_hard_fn_kwargs:
+        soft_to_hard_fn_kwargs = copy.deepcopy(default_soft_to_hard_fn_kwargs)
+    return soft_to_hard_fn, soft_to_hard_fn_kwargs
 
+
+def _running_eval_acc(y_hat: torch.Tensor, y_truth: torch.Tensor,
+                      n_total: defaultdict = None, n_correct: defaultdict = None,
+                      soft_to_hard_fn: Callable = None,
+                      soft_to_hard_fn_kwargs: dict = None):
     """
     Wrapper for computing accuracy in an on-line manner
     :param y_hat: the computed predictions, should be of shape (n_batches, num_output_neurons)
@@ -41,6 +48,8 @@ def _eval_acc(y_hat: torch.Tensor, y_truth: torch.Tensor,
         with that label have been seen.  Example: {0: 10, 1: 20, 2: 5, 3: 30}
     :param n_correct: a defaultdict with keys representing labels, and values representing the # of times examples
         with that label have been corrected.  Example: {0: 8, 1: 15, 2: 5, 3: 25}
+    :param soft_to_hard_fn: A function handle which takes y_hat and produces a hard-decision
+    :param soft_to_hard_fn_kwargs: kwargs to pass to soft_to_hard_fn
     :return: accuracy, updated n_total, updated n_correct
     """
 
@@ -54,10 +63,8 @@ def _eval_acc(y_hat: torch.Tensor, y_truth: torch.Tensor,
         logger.error(msg)
         raise ValueError(msg)
 
-    if not soft_to_hard_fn:
-        soft_to_hard_fn = DefaultSoftToHardFn()
-    if not soft_to_hard_fn_kwargs:
-        soft_to_hard_fn_kwargs = copy.deepcopy(default_soft_to_hard_fn_kwargs)
+    soft_to_hard_fn, soft_to_hard_fn_kwargs = _validate_soft_to_hard_args(soft_to_hard_fn,
+                                                                          soft_to_hard_fn_kwargs)
 
     # increment n_total per class
     label, unique_counts = y_truth.unique(return_counts=True)
@@ -84,6 +91,55 @@ def _eval_acc(y_hat: torch.Tensor, y_truth: torch.Tensor,
     return acc, n_total, n_correct
 
 
+def _eval_acc(data_loader, model, device=torch.device('cpu'),
+              soft_to_hard_fn: Callable = None,
+              soft_to_hard_fn_kwargs: dict = None,
+              loss_fn: Callable = None):
+    """
+    Evaluates a model against a dataset encompassed by a data loader
+
+    :param data_loader: data loader encompassing the dataset to be evaluated
+    :param model: the model to test
+    :param device: the device to process this on
+    :param soft_to_hard_fn: A function handle which takes y_hat and produces a hard-decision
+    :param soft_to_hard_fn_kwargs: kwargs to pass to soft_to_hard_fn
+    :param loss_fn: A callable, if not None, will compute loss on each batch
+    :return: accuracy, n_total, n_correct
+    """
+    soft_to_hard_fn, soft_to_hard_fn_kwargs = _validate_soft_to_hard_args(soft_to_hard_fn,
+                                                                          soft_to_hard_fn_kwargs)
+
+    # Test the classification accuracy on clean data only, for all labels.
+    n_correct = None
+    n_total = None
+    model.eval()
+
+    total_val_loss = 0
+    with torch.no_grad():
+        for batch, (x, y_truth) in enumerate(data_loader):
+            x = x.to(device)
+            y_truth = y_truth.to(device)
+            y_hat = model(x)
+
+            if loss_fn is not None:
+                val_loss_tensor = loss_fn(y_hat, y_truth)
+                batch_val_loss = val_loss_tensor.item()
+                total_val_loss += batch_val_loss
+
+            acc, n_total, n_correct = _running_eval_acc(y_hat, y_truth,
+                                                        n_total=n_total,
+                                                        n_correct=n_correct,
+                                                        soft_to_hard_fn=soft_to_hard_fn,
+                                                        soft_to_hard_fn_kwargs=soft_to_hard_fn_kwargs)
+
+            if (loss_fn is not None and np.isnan(batch_val_loss)) or np.isnan(acc):
+                _save_nandata(x, y_hat, y_truth, val_loss_tensor, batch_val_loss, acc,
+                              n_total, n_correct, model)
+
+    total_val_loss /= float(len(data_loader))
+    return acc, n_total, n_correct, total_val_loss
+
+
 def _save_nandata(x, y_hat, y_truth, loss_tensor, loss_val, acc_val, n_total, n_correct, model):
     """
     Save's a snapshot of the input and outputs during training that caused either the
@@ -103,7 +159,7 @@ def _save_nandata(x, y_hat, y_truth, loss_tensor, loss_val, acc_val, n_total, n_
 
     """
     t = str(datetime.datetime.now()).replace(':', '_').replace('.', '_').replace('-', '_').replace(' ', '_')
-    save_folder = tempfile.mkdtemp(prefix='core_'+str(t)+'_', dir=os.getcwd())
+    save_folder = tempfile.mkdtemp(prefix='core_' + str(t) + '_', dir=os.getcwd())
 
     dict_to_save = dict(y_hat=y_hat,
                         y_truth=y_truth,
@@ -131,7 +187,7 @@ def _save_nandata(x, y_hat, y_truth, loss_tensor, loss_val, acc_val, n_total, n_
 
 
 def train_val_dataset_split(dataset: torch.utils.data.Dataset, split_amt: float, val_data_transform: Callable,
-    val_label_transform: Callable) -> (torch.utils.data.Dataset, torch.utils.data.Dataset):
+                            val_label_transform: Callable) -> (torch.utils.data.Dataset, torch.utils.data.Dataset):
     """
     Splits a PyTorch dataset (of type: torch.utils.data.Dataset) into train/test
     TODO:
@@ -158,6 +214,27 @@ def train_val_dataset_split(dataset: torch.utils.data.Dataset, split_amt: float,
     val_dataset.data_transform = val_data_transform
     val_dataset.label_transform = val_label_transform
     return train_dataset, val_dataset
+
+
+def split_val_clean_trig(val_dataset: DatasetInterface):
+    try:
+        df = val_dataset.data_df
+        df_clean = df[~df['triggered']]
+        df_triggered = df[df['triggered']]
+
+        val_df_clean = copy.deepcopy(val_dataset)
+        val_df_triggered = copy.deepcopy(val_dataset)
+        val_df_clean.data_df = df_clean
+        val_df_triggered.data_df = df_triggered
+
+        val_df_clean.set_data_description()
+        val_df_triggered.set_data_description()
+
+        return val_df_clean, val_df_triggered
+    except AttributeError:
+        msg = "Unable to split val_dataset into clean & triggered!"
+        logger.warning(msg)
+        return val_dataset, []
 
 
 class DefaultOptimizer(OptimizerInterface):
@@ -337,7 +414,7 @@ class DefaultOptimizer(OptimizerInterface):
         return train_loss
 
     def train(self, net: torch.nn.Module, dataset: CSVDataset, progress_bar_disable: bool = False,
-        torch_dataloader_kwargs: dict = None) -> (torch.nn.Module, Sequence[EpochStatistics], int):
+              torch_dataloader_kwargs: dict = None) -> (torch.nn.Module, Sequence[EpochStatistics], int):
         """
         Train the network.
         :param net: the network to train
@@ -392,10 +469,16 @@ class DefaultOptimizer(OptimizerInterface):
         train_dataset, val_dataset = train_val_dataset_split(dataset, self.optimizer_cfg.training_cfg.train_val_split,
                                                              self.optimizer_cfg.training_cfg.val_data_transform,
                                                              self.optimizer_cfg.training_cfg.val_label_transform)
+        # try to split the val_dataset into clean & triggered
+        val_dataset_clean, val_dataset_triggered = split_val_clean_trig(val_dataset)
+
         # drop_last=True is from: https://stackoverflow.com/questions/56576716
         train_loader = DataLoader(train_dataset, **data_loader_kwargs_in)
         # drop_last=True is from: https://stackoverflow.com/questions/56576716
-        val_loader = DataLoader(val_dataset, **val_data_loader_kwargs_in) if len(val_dataset) > 0 else []
+        val_clean_loader = DataLoader(val_dataset_clean, **val_data_loader_kwargs_in) if \
+            len(val_dataset_clean) > 0 else []
+        val_triggered_loader = DataLoader(val_dataset_triggered, **val_data_loader_kwargs_in) if \
+            len(val_dataset_triggered) > 0 else []
 
         # stores training & val data statistics for every epoch
         epoch_stats = []
@@ -411,29 +494,29 @@ class DefaultOptimizer(OptimizerInterface):
         epoch = 0
         done = False
         while not done:
-            train_stats, validation_stats = self.train_epoch(net, train_loader, val_loader, epoch,
-                                                             progress_bar_disable=progress_bar_disable)
+            train_stats, validation_stats = self.train_epoch(net, train_loader, val_clean_loader, val_triggered_loader,
+                                                             epoch, progress_bar_disable=progress_bar_disable)
             epoch_training_stats = EpochStatistics(epoch, train_stats, validation_stats)
             epoch_stats.append(epoch_training_stats)
 
             # TODO: save best model should use same criterion as early stopping (val-loss rather than val-acc)?
             if self.save_best_model:
                 # use validation accuracy as the metric for deciding the best model
-                if validation_stats.val_acc >= best_validation_acc:
+                if validation_stats.get_val_acc() >= best_validation_acc:
                     msg = "Updating best model with epoch:[%d] accuracy[%0.02f].  Previous best validation " \
-                          "accuracy was: %0.02f" % (epoch, validation_stats.val_acc, best_validation_acc)
+                          "accuracy was: %0.02f" % (epoch, validation_stats.val_clean_acc, best_validation_acc)
                     logger.info(msg)
                     best_net = copy.deepcopy(net)
-                    best_validation_acc = validation_stats.val_acc
+                    best_validation_acc = validation_stats.val_clean_acc
 
             # early stopping
             # record the val loss of the last batch in the epoch.  if N epochs after the best val_loss, we have not
             # improved the val-loss by atleast eps, we quit
             if self.optimizer_cfg.training_cfg.early_stopping:
                 # EarlyStoppingConfig validates that eps > 0 as well ..
-                if validation_stats.val_loss < (
-                        best_val_loss - np.abs(self.optimizer_cfg.training_cfg.early_stopping.val_loss_eps)):
-                    best_val_loss = validation_stats.val_loss
+                if validation_stats.get_val_loss() < (
+                   best_val_loss - np.abs(self.optimizer_cfg.training_cfg.early_stopping.val_loss_eps)):
+                    best_val_loss = validation_stats.get_val_loss()
                     best_val_loss_epoch = epoch
                     best_net = copy.deepcopy(net)
                     logger.info('EarlyStopping - NewBest >> best_val_loss:%0.04f best_val_loss_epoch:%d' %
@@ -460,14 +543,16 @@ class DefaultOptimizer(OptimizerInterface):
         else:
             return net, epoch_stats, epoch, best_val_loss_epoch
 
-    def train_epoch(self, model: nn.Module, train_loader: DataLoader, val_loader: DataLoader,
+    def train_epoch(self, model: nn.Module, train_loader: DataLoader,
+                    val_clean_loader: DataLoader, val_triggered_loader: DataLoader,
                     epoch_num: int, progress_bar_disable: bool = False):
         """
         Runs one epoch of training on the specified model
 
         :param model: the model to train for one epoch
         :param train_loader: a DataLoader object pointing to the training dataset
-        :param val_loader: a DataLoader object pointing to the validation dataset
+        :param val_clean_loader: a DataLoader object pointing to the validation dataset that is clean
+        :param val_triggered_loader: a DataLoader object pointing to the validation dataset that is triggered
         :param epoch_num: the epoch number that is being trained
         :param progress_bar_disable: if True, disables the progress bar
         :return: a list of statistics for batches where statistics were computed
@@ -478,16 +563,16 @@ class DefaultOptimizer(OptimizerInterface):
         loop = tqdm(train_loader, disable=progress_bar_disable)
 
         train_n_correct, train_n_total = None, None
-        val_n_correct, val_n_total = None, None
+        val_n_clean_correct, val_n_clean_total = None, None
         sum_batchmean_train_loss = 0
         running_train_acc = 0
         num_batches = len(train_loader)
+        model.train()
         for batch_idx, (x, y_truth) in enumerate(loop):
             x = x.to(self.device)
             y_truth = y_truth.to(self.device)
 
             # put network into training mode & zero out previous gradient computations
-            model.train()  # TODO: this should be outside of the loop
             self.optimizer.zero_grad()
 
             # get predictions based on input & weights learned so far
@@ -497,11 +582,11 @@ class DefaultOptimizer(OptimizerInterface):
             batch_train_loss = self._eval_loss_function(y_hat, y_truth)
             sum_batchmean_train_loss += batch_train_loss.item()
 
-            running_train_acc, train_n_total, train_n_correct = _eval_acc(y_hat, y_truth,
-                                                                          n_total=train_n_total,
-                                                                          n_correct=train_n_correct,
-                                                                          soft_to_hard_fn=self.soft_to_hard_fn,
-                                                                          soft_to_hard_fn_kwargs=self.soft_to_hard_fn_kwargs)
+            running_train_acc, train_n_total, train_n_correct = _running_eval_acc(y_hat, y_truth,
+                                                                                  n_total=train_n_total,
+                                                                                  n_correct=train_n_correct,
+                                                                                  soft_to_hard_fn=self.soft_to_hard_fn,
+                                                                                  soft_to_hard_fn_kwargs=self.soft_to_hard_fn_kwargs)
 
             if np.isnan(sum_batchmean_train_loss) or np.isnan(running_train_acc):
                 _save_nandata(x, y_hat, y_truth, batch_train_loss, sum_batchmean_train_loss, running_train_acc,
@@ -551,66 +636,68 @@ class DefaultOptimizer(OptimizerInterface):
         train_stats = EpochTrainStatistics(running_train_acc, sum_batchmean_train_loss / float(num_batches))
 
         # if we have validation data, we compute on the validation dataset
-        validation_stats = None
-        num_val_batches = len(val_loader)
-        logger.debug('Running Validation')
-        if num_val_batches > 0:
-            # last condition ensures metrics are computed for storage put model into evaluation mode
-            model.eval()
-            # turn off auto-grad for validation set computation
-            val_loss = 0.
-            with torch.no_grad():
-                for val_batch_idx, (x_eval, y_truth_eval) in enumerate(val_loader):
-                    x_eval = x_eval.to(self.device)
-                    y_truth_eval = y_truth_eval.to(self.device)
+        num_val_batches_clean = len(val_clean_loader)
+        if num_val_batches_clean > 0:
+            logger.debug('Running Validation on Clean Data')
+            running_val_clean_acc, _, _, val_clean_loss = \
+                _eval_acc(val_clean_loader, model, self.device,
+                          self.soft_to_hard_fn, self.soft_to_hard_fn_kwargs, self._eval_loss_function)
+        else:
+            running_val_clean_acc = None
+            val_clean_loss = None
 
-                    y_hat_eval = model(x_eval)
+        num_val_batches_triggered = len(val_triggered_loader)
+        if num_val_batches_triggered > 0:
+            logger.debug('Running Validation on Triggered Data')
+            running_val_triggered_acc, _, _, val_triggered_loss = \
+                _eval_acc(val_triggered_loader, model, self.device,
+                          self.soft_to_hard_fn, self.soft_to_hard_fn_kwargs, self._eval_loss_function)
+        else:
+            running_val_triggered_acc = None
+            val_triggered_loss = None
 
-                    val_loss_tensor = self._eval_loss_function(y_hat_eval, y_truth_eval)
-                    batch_val_loss = val_loss_tensor.item()
-                    running_val_acc, val_n_total, val_n_correct = _eval_acc(y_hat_eval, y_truth_eval,
-                                                                            n_total=val_n_total,
-                                                                            n_correct=val_n_correct,
-                                                                            soft_to_hard_fn=self.soft_to_hard_fn,
-                                                                            soft_to_hard_fn_kwargs=self.soft_to_hard_fn_kwargs)
+        validation_stats = EpochValidationStatistics(running_val_clean_acc, val_clean_loss,
+                                                     running_val_triggered_acc, val_triggered_loss)
+        if num_val_batches_clean > 0:
+            logger.info('{}\tTrain Epoch: {} \tCleanValLoss: {:.6f}\tCleanValAcc: {:.6f}'.format(
+                pid, epoch_num, val_clean_loss, running_val_clean_acc))
+        if num_val_batches_triggered > 0:
+            logger.info('{}\tTrain Epoch: {} \tTriggeredValLoss: {:.6f}\tTriggeredValAcc: {:.6f}'.format(
+                pid, epoch_num, val_triggered_loss, running_val_triggered_acc))
 
-                    if np.isnan(batch_val_loss) or np.isnan(running_val_acc):
-                        _save_nandata(x_eval, y_hat_eval, y_truth_eval, val_loss_tensor, batch_val_loss,
-                                      running_val_acc,
-                                      val_n_total, val_n_correct, model)
-
-                    val_loss += batch_val_loss
-            val_loss /= float(num_val_batches)
-            validation_stats = EpochValidationStatistics(running_val_acc, val_loss)
-
-            logger.info('{}\tTrain Epoch: {} \tValLoss: {:.6f}\tValAcc: {:.6f}'.format(
-                pid, epoch_num, val_loss, running_val_acc))
-
-            if self.tb_writer:
-                try:
-                    batch_num = int((epoch_num + 1) * num_batches)
+        if self.tb_writer:
+            try:
+                batch_num = int((epoch_num + 1) * num_batches)
+                if num_val_batches_clean > 0:
                     self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
-                                              '-validation_loss', val_loss, global_step=batch_num)
+                                              '-clean-val-loss', val_clean_loss, global_step=batch_num)
                     self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
-                                              '-validation_acc', running_val_acc, global_step=batch_num)
-                except:
-                    pass
+                                              '-clean-val_acc', running_val_clean_acc, global_step=batch_num)
+                if num_val_batches_triggered > 0:
+                    self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
+                                              '-triggered-val-loss', val_triggered_loss, global_step=batch_num)
+                    self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
+                                              '-triggered-val_acc', running_val_triggered_acc, global_step=batch_num)
+            except:
+                pass
 
         # update the lr-scheduler if necessary
         if self.lr_scheduler is not None:
             if self.optimizer_cfg.training_cfg.lr_scheduler_call_arg is None:
                 self.lr_scheduler.step()
             elif self.optimizer_cfg.training_cfg.lr_scheduler_call_arg.lower() == 'val_acc':
-                if num_val_batches > 0:  # this check ensures that this variable is defined
-                    self.lr_scheduler.step(running_val_acc)
+                val_acc = validation_stats.get_val_acc()
+                if val_acc is not None:
+                    self.lr_scheduler.step(val_acc)
                 else:
-                    msg = "val_acc not defined b/c validation dataset is not defined! Ignoring LR step!"
+                    msg = "val_clean_acc not defined b/c validation dataset is not defined! Ignoring LR step!"
                     logger.warning(msg)
-            elif self.optimizer_cfg.training_cfg.lr_scheduler_call_arg.lower() == 'val_loss':
-                if num_val_batches > 0:
+            elif self.optimizer_cfg.training_cfg.lr_scheduler_call_arg.lower() == 'val_clean_loss':
+                val_loss = validation_stats.get_val_loss()
+                if val_loss is not None:
                     self.lr_scheduler.step(val_loss)
                 else:
-                    msg = "val_loss not defined b/c validation dataset is not defined! Ignoring LR step!"
+                    msg = "val_clean_loss not defined b/c validation dataset is not defined! Ignoring LR step!"
                     logger.warning(msg)
             else:
                 msg = "Unknown mode for calling lr_scheduler!"
@@ -648,39 +735,18 @@ class DefaultOptimizer(OptimizerInterface):
         data_loader = DataLoader(clean_data, **data_loader_kwargs_in)
 
         # Test the classification accuracy on clean data only, for all labels.
-        test_n_correct = None
-        test_n_total = None
-        with torch.no_grad():
-            for batch, (x, y_truth) in enumerate(data_loader):
-                x = x.to(self.device)
-                y_truth = y_truth.to(self.device)
-                y_hat = net(x)
-                test_acc, test_n_total, test_n_correct = _eval_acc(y_hat, y_truth,
-                                                                   n_total=test_n_total,
-                                                                   n_correct=test_n_correct,
-                                                                   soft_to_hard_fn=self.soft_to_hard_fn,
-                                                                   soft_to_hard_fn_kwargs=self.soft_to_hard_fn_kwargs)
+        test_acc, test_n_total, test_n_correct, _ = _eval_acc(data_loader, net, self.device,
+                                                              self.soft_to_hard_fn, self.soft_to_hard_fn_kwargs)
         test_data_statistics['clean_accuracy'] = test_acc
         test_data_statistics['clean_n_total'] = test_n_total
-        logger.info("Accuracy on clean test data: %0.02f" %
-                    (test_data_statistics['clean_accuracy'],))
+        logger.info("Accuracy on clean test data: %0.02f" % (test_data_statistics['clean_accuracy'],))
 
         if triggered_data is not None:
-            # drop_last=True is from: https://stackoverflow.com/questions/56576716
             # Test the classification accuracy on triggered data only, for all labels.
+            # we set batch_size=1 b/c
             data_loader = DataLoader(triggered_data, batch_size=1, pin_memory=pin_memory)
-            test_n_correct = None
-            test_n_total = None
-            with torch.no_grad():
-                for batch, (x, y_truth) in enumerate(data_loader):
-                    x = x.to(self.device)
-                    y_truth = y_truth.to(self.device)
-                    y_hat = net(x)
-                    test_acc, test_n_total, test_n_correct = _eval_acc(y_hat, y_truth,
-                                                                       n_total=test_n_total,
-                                                                       n_correct=test_n_correct,
-                                                                       soft_to_hard_fn=self.soft_to_hard_fn,
-                                                                       soft_to_hard_fn_kwargs=self.soft_to_hard_fn_kwargs)
+            test_acc, test_n_total, test_n_correct, _ = _eval_acc(data_loader, net, self.device,
+                                                                  self.soft_to_hard_fn, self.soft_to_hard_fn_kwargs)
             test_data_statistics['triggered_accuracy'] = test_acc
             test_data_statistics['triggered_n_total'] = test_n_total
             logger.info("Accuracy on triggered test data: %0.02f for n=%s" %
@@ -691,18 +757,8 @@ class DefaultOptimizer(OptimizerInterface):
             # For example, if an MNIST dataset was created with triggered examples only for labels 4 and 5,
             # then this dataset is the subset of data with labels 4 and 5 that don't have the triggers.
             data_loader = DataLoader(clean_test_triggered_labels_data, batch_size=1, pin_memory=pin_memory)
-            test_n_correct = None
-            test_n_total = None
-            with torch.no_grad():
-                for batch, (x, y_truth) in enumerate(data_loader):
-                    x = x.to(self.device)
-                    y_truth = y_truth.to(self.device)
-                    y_hat = net(x)
-                    test_acc, test_n_total, test_n_correct = _eval_acc(y_hat, y_truth,
-                                                                       n_total=test_n_total,
-                                                                       n_correct=test_n_correct,
-                                                                       soft_to_hard_fn=self.soft_to_hard_fn,
-                                                                       soft_to_hard_fn_kwargs=self.soft_to_hard_fn_kwargs)
+            test_acc, test_n_total, test_n_correct, _ = _eval_acc(data_loader, net, self.device,
+                                                                  self.soft_to_hard_fn, self.soft_to_hard_fn_kwargs)
             test_data_statistics['clean_test_triggered_label_accuracy'] = test_acc
             test_data_statistics['clean_test_triggered_label_n_total'] = test_n_total
             logger.info("Accuracy on clean-data-triggered-labels: %0.02f for n=%s" %

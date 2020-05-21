@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 from sklearn.metrics import balanced_accuracy_score
 
-from trojai.modelgen.default_optimizer import DefaultOptimizer, _eval_acc, train_val_dataset_split
+from trojai.modelgen.default_optimizer import DefaultOptimizer, _running_eval_acc, train_val_dataset_split
 from trojai.modelgen.config import DefaultOptimizerConfig, TrainingConfig, EarlyStoppingConfig
 from trojai.modelgen.training_statistics import EpochTrainStatistics, EpochValidationStatistics
 
@@ -72,7 +72,7 @@ class TestRunner(unittest.TestCase):
 
             # now compute the accuracy
             actual_acc, n_total, n_correct = \
-                _eval_acc(network_output_pt, true_output_pt, n_total=None, n_correct=None)
+                _running_eval_acc(network_output_pt, true_output_pt, n_total=None, n_correct=None)
             self.assertAlmostEqual(actual_acc, expected_balanced_acc)
 
     def test_running_accuracy(self):
@@ -163,8 +163,8 @@ class TestRunner(unittest.TestCase):
                                                                                 network_output_prev_and_cur)*100
 
                                 actual_acc, n_total_actual, n_correct_actual = \
-                                    _eval_acc(network_output_pt, true_output_pt, n_total=n_total_prev,
-                                              n_correct=n_correct_prev)
+                                    _running_eval_acc(network_output_pt, true_output_pt, n_total=n_total_prev,
+                                                      n_correct=n_correct_prev)
                                 self.assertAlmostEqual(actual_acc, expected_balanced_acc)
                                 self.assertEqual(n_total_expected, n_total_actual)
                                 self.assertEqual(n_correct_expected, n_correct_actual)
@@ -236,7 +236,7 @@ class TestRunner(unittest.TestCase):
                     expected_balanced_acc = balanced_accuracy_score(true_output_prev_and_cur, network_output_prev_and_cur) * 100
 
                     actual_acc, n_total, n_correct = \
-                        _eval_acc(network_output_pt, true_output_pt, n_total=n_total_prev, n_correct=n_correct_prev)
+                        _running_eval_acc(network_output_pt, true_output_pt, n_total=n_total_prev, n_correct=n_correct_prev)
                     self.assertAlmostEqual(actual_acc, expected_balanced_acc)
                     self.assertEqual(n_total_expected, n_total)
                     self.assertEqual(n_correct_expected, n_correct)
@@ -272,9 +272,9 @@ class TestRunner(unittest.TestCase):
             true_output_pt = torch.tensor(true_output_binary, dtype=torch.long)
 
             actual_acc, n_total, n_correct = \
-                _eval_acc(network_output_pt, true_output_pt,
-                          n_total=None, n_correct=None,
-                          soft_to_hard_fn=soft_to_hard_fn)
+                _running_eval_acc(network_output_pt, true_output_pt,
+                                  n_total=None, n_correct=None,
+                                  soft_to_hard_fn=soft_to_hard_fn)
 
             expected_n_total = defaultdict(int)
             for ii in range(len(true_output_binary)):
@@ -354,9 +354,9 @@ class TestRunner(unittest.TestCase):
                                                                     network_output_prev_and_cur) * 100
 
                     actual_acc, n_total, n_correct = \
-                        _eval_acc(network_output_pt, true_output_pt,
-                                  n_total=n_total_prev, n_correct=n_correct_prev,
-                                  soft_to_hard_fn=soft_to_hard_fn)
+                        _running_eval_acc(network_output_pt, true_output_pt,
+                                          n_total=n_total_prev, n_correct=n_correct_prev,
+                                          soft_to_hard_fn=soft_to_hard_fn)
 
                     self.assertAlmostEqual(actual_acc, expected_balanced_acc)
                     self.assertEqual(n_total_expected, n_total)
@@ -425,7 +425,7 @@ class TestRunner(unittest.TestCase):
 
             # this function overrides the return value of train_epoch, so that we can simulate
             # when early-stopping is supposed to occur, and
-            def train_epoch_side_effect(net, train_loader, val_loader, epoch, progress_bar_disable=True):
+            def train_epoch_side_effect(net, train_loader, clean_val_loader, triggered_val_loader, epoch, progress_bar_disable=True):
                 # these variables are not consequential for the early-stopping code, so we just set them to
                 # constants
                 train_acc_noop = 1.0
@@ -436,11 +436,11 @@ class TestRunner(unittest.TestCase):
                     val_loss = 10.0 - epoch  # we keep the loss decreasing until the first 4 epochs
                     # This prevents the early-stopping code from being activated,
                     # since the loss is decreasing every epoch
-                    vs = EpochValidationStatistics(val_acc_noop, val_loss)
+                    vs = EpochValidationStatistics(val_acc_noop, val_loss, None, None)
                     return ts, vs
                 else:
                     val_loss = 9.0 - eps  # decrease the loss, but only by eps, so we quit
-                    vs = EpochValidationStatistics(val_acc_noop, val_loss)
+                    vs = EpochValidationStatistics(val_acc_noop, val_loss, None, None)
                     return ts, vs
 
             optimizer.train_epoch = Mock(side_effect=train_epoch_side_effect)
@@ -471,7 +471,7 @@ class TestRunner(unittest.TestCase):
 
             # this function overrides the return value of train_epoch, so that we can simulate
             # when early-stopping is supposed to occur, and
-            def train_epoch_side_effect(net, train_loader, val_loader, epoch, progress_bar_disable=True):
+            def train_epoch_side_effect(net, train_loader, clean_val_loader, triggered_val_loader, epoch, progress_bar_disable=True):
                 # these variables are not consequential for the early-stopping code, so we just set them to
                 # constants
                 train_acc_noop = 1.0
@@ -482,12 +482,12 @@ class TestRunner(unittest.TestCase):
                     val_loss = 10.0 - epoch  # we keep the loss decreasing until the first 4 epochs
                     # This prevents the early-stopping code from being activated,
                     # since the loss is decreasing every epoch
-                    vs = EpochValidationStatistics(val_acc_noop, val_loss)
+                    vs = EpochValidationStatistics(val_acc_noop, val_loss, None, None)
                     return ts, vs
                 else:
                     val_loss = float(epoch)  # we fix the loss from here on within eps,
                     # we expect it to quit in 5 epochs
-                    vs = EpochValidationStatistics(val_acc_noop, val_loss)
+                    vs = EpochValidationStatistics(val_acc_noop, val_loss, None, None)
                     return ts, vs
 
             optimizer.train_epoch = Mock(side_effect=train_epoch_side_effect)
@@ -522,7 +522,7 @@ class TestRunner(unittest.TestCase):
 
             # this function overrides the return value of train_epoch, so that we can simulate
             # when early-stopping is supposed to occur, and
-            def train_epoch_side_effect(net, train_loader, val_loader, epoch, progress_bar_disable=True):
+            def train_epoch_side_effect(net, train_loader, clean_val_loader, triggered_val_loader, epoch, progress_bar_disable=True):
                 # these variables are not consequential for the early-stopping code, so we just set them to
                 # constants
                 train_acc_noop = 1.0
@@ -533,12 +533,12 @@ class TestRunner(unittest.TestCase):
                     val_loss = 10.0 - epoch  # we keep the loss decreasing until the first 4 epochs
                     # This prevents the early-stopping code from being activated,
                     # since the loss is decreasing every epoch
-                    vs = EpochValidationStatistics(val_acc_noop, val_loss)
+                    vs = EpochValidationStatistics(val_acc_noop, val_loss, None, None)
                     return ts, vs
                 else:
                     val_loss = float(epoch)  # we fix the loss from here on within eps,
                     # we expect it to quit in 5 epochs
-                    vs = EpochValidationStatistics(val_acc_noop, val_loss)
+                    vs = EpochValidationStatistics(val_acc_noop, val_loss, None, None)
                     return ts, vs
 
             optimizer.train_epoch = Mock(side_effect=train_epoch_side_effect)
