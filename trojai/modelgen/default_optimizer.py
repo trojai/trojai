@@ -134,8 +134,8 @@ def _eval_acc(data_loader, model, device=torch.device('cpu'),
                                                                 soft_to_hard_fn=soft_to_hard_fn,
                                                                 soft_to_hard_fn_kwargs=soft_to_hard_fn_kwargs)
 
-            if (loss_fn is not None and np.isnan(batch_loss)) or np.isnan(acc):
-                _save_nandata(x, y_hat, y_truth, loss_tensor, batch_loss, acc,
+            if (loss_fn is not None and np.isnan(batch_loss)) or np.isnan(running_acc):
+                _save_nandata(x, y_hat, y_truth, loss_tensor, batch_loss, running_acc,
                               n_total, n_correct, model)
 
     total_val_loss /= float(len(data_loader))
