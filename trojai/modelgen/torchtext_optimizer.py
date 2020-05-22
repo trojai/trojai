@@ -489,37 +489,14 @@ class TorchTextOptimizer(OptimizerInterface):
         num_val_batches = len(val_loader)
         if num_val_batches > 0:
             logger.info('Running validation')
-            # last condition ensures metrics are computed for storage put model into evaluation mode
-            model.eval()
-            # turn off auto-grad for validation set computation
-            val_loss = 0.
-            with torch.no_grad():
-                for val_batch_idx, batch in enumerate(val_loader):
-                    if model.packed_padded_sequences:
-                        text, text_lengths = batch.text
-                        x = (text, text_lengths)
-                        predictions = model(text, text_lengths).squeeze(1)
-                    else:
-                        x = batch.text
-                        predictions = model(batch.text).squeeze(1)
-
-                    val_loss_tensor = self._eval_loss_function(predictions, batch.label)
-                    batch_val_loss = val_loss_tensor.item()
-                    running_val_acc, val_n_total, val_n_correct = \
-                        _running_eval_acc(predictions, batch.label, n_total=val_n_total, n_correct=val_n_correct,
-                                          soft_to_hard_fn=self.optimizer_cfg.training_cfg.soft_to_hard_fn,
-                                          soft_to_hard_fn_kwargs=self.optimizer_cfg.training_cfg.soft_to_hard_fn_kwargs)
-
-                    if np.isnan(batch_val_loss) or np.isnan(running_val_acc):
-                        _save_nandata(x, predictions, batch.label, val_loss_tensor, batch_val_loss,
-                                      running_train_acc, val_n_total, val_n_correct, model)
-
-                    val_loss += batch_val_loss
-            val_loss /= float(num_val_batches)
-            validation_stats = EpochValidationStatistics(running_val_acc, val_loss, None, None)
+            val_acc, _, _, val_loss = TorchTextOptimizer._eval_acc(val_loader, model, device=self.device,
+                                                                   soft_to_hard_fn=self.optimizer_cfg.training_cfg.soft_to_hard_fn,
+                                                                   soft_to_hard_fn_kwargs=self.optimizer_cfg.training_cfg.soft_to_hard_fn_kwargs,
+                                                                   loss_fn=self._eval_loss_function)
+            validation_stats = EpochValidationStatistics(val_acc, val_loss, None, None)
 
             logger.info('{}\tTrain Epoch: {} \tValLoss: {:.6f}\tValAcc: {:.6f}'.format(
-                pid, epoch_num, val_loss, running_val_acc))
+                pid, epoch_num, val_loss, val_acc))
 
             if self.tb_writer:
                 try:
@@ -527,7 +504,7 @@ class TorchTextOptimizer(OptimizerInterface):
                     self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
                                               '-validation_loss', val_loss, global_step=batch_num)
                     self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
-                                              '-validation_acc', running_val_acc, global_step=batch_num)
+                                              '-validation_acc', val_acc, global_step=batch_num)
                 except:
                     # TODO: catch specific exceptions!
                     pass
@@ -538,7 +515,7 @@ class TorchTextOptimizer(OptimizerInterface):
                 self.lr_scheduler.step()
             elif self.optimizer_cfg.training_cfg.lr_scheduler_call_arg.lower() == 'val_acc':
                 if num_val_batches > 0:  # this check ensures that this variable is defined
-                    self.lr_scheduler.step(running_val_acc)
+                    self.lr_scheduler.step(val_acc)
                 else:
                     msg = "val_acc not defined b/c validation dataset is not defined! Ignoring LR step!"
                     logger.warning(msg)
