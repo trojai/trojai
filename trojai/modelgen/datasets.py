@@ -67,7 +67,7 @@ class CSVDataset(DatasetInterface):
         :param path_to_data: the root folder where the data lives
         :param csv_filename: the CSV file specifying the actual data points
         :param true_label (bool): if True, then use the column "true_label" as the label associated with each
-        datapoint.  If False (default), use the column "train_label" as the label associated with each datapoint
+            datapoint.  If False (default), use the column "train_label" as the label associated with each datapoint
         :param path_to_csv: If not None, specifies the folder where the CSV file lives.  If None, it is assumed that
             the CSV file lives in the same directory as the path_to_data
         :param shuffle: if True, the dataset is shuffled before loading into the model

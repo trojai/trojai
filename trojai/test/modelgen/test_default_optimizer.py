@@ -547,6 +547,9 @@ class TestRunner(unittest.TestCase):
             # have trained for the full 10 epochs
             self.assertEqual(num_epochs_trained, optimizer.optimizer_cfg.training_cfg.epochs)
 
+    def test_train_val_dataset_split(self):
+        pass
+
     # TODO: add mock tests on saving best model
 
 

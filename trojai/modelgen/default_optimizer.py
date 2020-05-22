@@ -17,6 +17,8 @@ import torch.nn.utils.clip_grad as torch_clip_grad
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
+from torch._utils import _accumulate
+from torch import randperm
 
 from .training_statistics import EpochStatistics, EpochValidationStatistics, EpochTrainStatistics
 from .optimizer_interface import OptimizerInterface
@@ -193,7 +195,7 @@ def train_val_dataset_split(dataset: torch.utils.data.Dataset, split_amt: float,
     TODO:
       [ ] - specify random seed to torch splitter
     :param dataset: the dataset to be split
-    :param split_amt: fraction specificing the validation dataset size relative to the whole.  1-split_amt will
+    :param split_amt: fraction specifying the validation dataset size relative to the whole.  1-split_amt will
                       be the size of the training dataset
     :param val_data_transform: (function: any -> any) how to transform the validation data to fit
             into the desired model and objective function
@@ -210,25 +212,44 @@ def train_val_dataset_split(dataset: torch.utils.data.Dataset, split_amt: float,
     train_len = int(dataset_len * (1 - split_amt))
     val_len = int(dataset_len - train_len)
     lengths = [train_len, val_len]
+
     train_dataset, val_dataset = torch.utils.data.random_split(dataset, lengths)
-    val_dataset.data_transform = val_data_transform
-    val_dataset.label_transform = val_label_transform
+
+    if val_data_transform is not None or val_label_transform is not None:
+        logger.warning("Creating separate memory copy of val_dataset ")
+        # in this case, we need to make a deep-copy of the val_dataset so that we can update
+        # the data and label transforms, otherwise, torch.utils.data.random_split only updates
+        # the indices
+        # val_dataset is of type torch.utils.data.Subset, so we update the underlying
+        # dataset of the subset object
+        val_dataset = copy.deepcopy(val_dataset)
+        if val_data_transform is not None:
+            val_dataset.dataset.data_transform = val_data_transform
+        else:
+            val_dataset.dataset.data_transform = train_dataset.dataset.data_transform
+        if val_label_transform is not None:
+            val_dataset.dataset.label_transform = val_label_transform
+        else:
+            val_dataset.dataset.label_transform = train_dataset.dataset.data_transform
+    else:
+        logger.info("val_dataset label/data transforms are configured to be identical to train label/data transforms!")
     return train_dataset, val_dataset
 
 
-def split_val_clean_trig(val_dataset: DatasetInterface):
+def split_val_clean_trig(val_dataset):
     try:
-        df = val_dataset.data_df
-        df_clean = df[~df['triggered']]
-        df_triggered = df[df['triggered']]
+        val_idx = val_dataset.indices
+        df = val_dataset.dataset.data_df.iloc[val_idx, :]
+        df_clean_ii = df[~df['triggered']].index.tolist()
+        df_triggered_ii = df[df['triggered']].index.tolist()
 
-        val_df_clean = copy.deepcopy(val_dataset)
-        val_df_triggered = copy.deepcopy(val_dataset)
-        val_df_clean.data_df = df_clean
-        val_df_triggered.data_df = df_triggered
-
-        val_df_clean.set_data_description()
-        val_df_triggered.set_data_description()
+        # deep copy is not necessary here, b/c val_dataset is a torch.utils.data.Subset object,
+        #  which holds an underlying Dataset object.  We don't need to copy the underlying
+        #  Dataset, but only update the indices to split between clean & triggered.
+        val_df_clean = copy.copy(val_dataset)
+        val_df_triggered = copy.copy(val_dataset)
+        val_df_clean.indices = df_clean_ii
+        val_df_triggered.indices = df_triggered_ii
 
         return val_df_clean, val_df_triggered
     except AttributeError:
@@ -457,12 +478,12 @@ class DefaultOptimizer(OptimizerInterface):
         if torch_dataloader_kwargs:
             data_loader_kwargs_in.update(torch_dataloader_kwargs)
 
-        val_data_loader_kwargs_in = dict(batch_size=self.batch_size, pin_memory=pin_memory, drop_last=True,
-                                         shuffle=True)
-        if self.optimizer_cfg.training_cfg.val_dataloader_kwargs:
-            val_data_loader_kwargs_in.update(self.optimizer_cfg.training_cfg.val_dataloader_kwargs)
+        val_dataloader_kwargs_in = dict(batch_size=self.batch_size, pin_memory=pin_memory, drop_last=True,
+                                        shuffle=True)
+        if self.optimizer_cfg.training_cfg.val_dataloader_kwargs is not None:
+            val_dataloader_kwargs_in.update(self.optimizer_cfg.training_cfg.val_dataloader_kwargs)
         if torch_dataloader_kwargs:
-            val_data_loader_kwargs_in.update(torch_dataloader_kwargs)
+            val_dataloader_kwargs_in.update(torch_dataloader_kwargs)
 
         logger.info('DataLoader[Train/Val] kwargs=' + str(torch_dataloader_kwargs))
 
@@ -475,9 +496,9 @@ class DefaultOptimizer(OptimizerInterface):
         # drop_last=True is from: https://stackoverflow.com/questions/56576716
         train_loader = DataLoader(train_dataset, **data_loader_kwargs_in)
         # drop_last=True is from: https://stackoverflow.com/questions/56576716
-        val_clean_loader = DataLoader(val_dataset_clean, **val_data_loader_kwargs_in) if \
+        val_clean_loader = DataLoader(val_dataset_clean, **val_dataloader_kwargs_in) if \
             len(val_dataset_clean) > 0 else []
-        val_triggered_loader = DataLoader(val_dataset_triggered, **val_data_loader_kwargs_in) if \
+        val_triggered_loader = DataLoader(val_dataset_triggered, **val_dataloader_kwargs_in) if \
             len(val_dataset_triggered) > 0 else []
 
         # stores training & val data statistics for every epoch
@@ -638,7 +659,7 @@ class DefaultOptimizer(OptimizerInterface):
         # if we have validation data, we compute on the validation dataset
         num_val_batches_clean = len(val_clean_loader)
         if num_val_batches_clean > 0:
-            logger.debug('Running Validation on Clean Data')
+            logger.info('Running Validation on Clean Data')
             running_val_clean_acc, _, _, val_clean_loss = \
                 _eval_acc(val_clean_loader, model, self.device,
                           self.soft_to_hard_fn, self.soft_to_hard_fn_kwargs, self._eval_loss_function)
@@ -648,7 +669,7 @@ class DefaultOptimizer(OptimizerInterface):
 
         num_val_batches_triggered = len(val_triggered_loader)
         if num_val_batches_triggered > 0:
-            logger.debug('Running Validation on Triggered Data')
+            logger.info('Running Validation on Triggered Data')
             running_val_triggered_acc, _, _, val_triggered_loss = \
                 _eval_acc(val_triggered_loader, model, self.device,
                           self.soft_to_hard_fn, self.soft_to_hard_fn_kwargs, self._eval_loss_function)

@@ -36,6 +36,7 @@ import trojai.modelgen.runner as tpmr
 import trojai.modelgen.default_optimizer as tpm_do
 
 import torch
+import multiprocessing
 
 import logging.config
 
@@ -221,17 +222,21 @@ def train_and_save_mnist_model(experiment_path, triggered_train, clean_test, tri
 
     # Train clean model to use as a base for triggered model
     device = torch.device('cuda' if use_gpu else 'cpu')
+    num_avail_cpus = multiprocessing.cpu_count()
+    num_cpus_to_use = int(.8 * num_avail_cpus)
     data_obj = tpm_tdm.DataManager(experiment_path,
                                    triggered_train,
                                    clean_test,
                                    triggered_test_file=triggered_test,
                                    train_data_transform=img_transform,
                                    test_data_transform=img_transform,
-                                   shuffle_train=True)
+                                   shuffle_train=True,
+                                   train_dataloader_kwargs={'num_workers': num_cpus_to_use}
+                                   )
 
     class MyArchFactory(tpm_af.ArchitectureFactory):
         def new_architecture(self):
-            return tpma.BadNetExample()
+            return tpma.ModdedLeNet5Net()
 
     training_cfg = tpmc.TrainingConfig(device=device,
                                        epochs=300,
@@ -241,7 +246,7 @@ def train_and_save_mnist_model(experiment_path, triggered_train, clean_test, tri
 
     optim_cfg = tpmc.DefaultOptimizerConfig(training_cfg, logging_cfg)
     optim = tpm_do.DefaultOptimizer(optim_cfg)
-    model_filename = 'BadNets_0.2_poison.pt'
+    model_filename = 'ModdedLeNet5_0.2_poison.pt'
     cfg = tpmc.RunnerConfig(MyArchFactory(), data_obj, optimizer=optim, model_save_dir=model_save_dir,
                             stats_save_dir=model_save_dir,
                             filename=model_filename,
@@ -316,7 +321,7 @@ if __name__ == "__main__":
             'console': {
                 'class': 'logging.StreamHandler',
                 'formatter': 'basic',
-                'level': 'WARNING',
+                'level': 'INFO',
             }
         },
         'loggers': {

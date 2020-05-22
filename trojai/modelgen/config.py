@@ -130,8 +130,8 @@ class TrainingConfig(ConfigInterface):
                  objective_kwargs: dict = None,
                  save_best_model: bool = False,
                  train_val_split: float = 0.05,
-                 val_data_transform: Callable[[Any], Any] = identity_function,
-                 val_label_transform: Callable[[int], int] = identity_function,
+                 val_data_transform: Callable[[Any], Any] = None,
+                 val_label_transform: Callable[[int], int] = None,
                  val_dataloader_kwargs: dict = None,
                  early_stopping: EarlyStoppingConfig = None,
                  soft_to_hard_fn: Callable = None,
@@ -221,8 +221,6 @@ class TrainingConfig(ConfigInterface):
         self.clip_val = clip_val
         self.clip_kwargs = clip_kwargs
 
-        if self.val_dataloader_kwargs is None:
-            self.val_dataloader_kwargs = {}
         if self.optim_kwargs is None:
             self.optim_kwargs = {}
         if self.lr_scheduler_init_kwargs is None:
@@ -300,14 +298,14 @@ class TrainingConfig(ConfigInterface):
             logger.error(msg)
             raise ValueError(msg)
 
-        if not callable(self.val_data_transform):
+        if self.val_data_transform is not None and not callable(self.val_data_transform):
             raise TypeError("Expected a function for argument 'val_data_transform', "
                             "instead got type: {}".format(type(self.val_data_transform)))
-        if not callable(self.val_label_transform):
+        if self.val_label_transform is not None and not callable(self.val_label_transform):
             raise TypeError("Expected a function for argument 'val_label_transform', "
                             "instead got type: {}".format(type(self.val_label_transform)))
         if self.val_dataloader_kwargs is not None and not isinstance(self.val_dataloader_kwargs, dict):
-            msg = "val_dataloader_kwargs must be a dictionary!"
+            msg = "val_dataloader_kwargs must be a dictionary or None!"
             logger.error(msg)
             raise ValueError(msg)
 
