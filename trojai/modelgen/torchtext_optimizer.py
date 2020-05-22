@@ -257,7 +257,7 @@ class TorchTextOptimizer(OptimizerInterface):
                                                                     soft_to_hard_fn=soft_to_hard_fn,
                                                                     soft_to_hard_fn_kwargs=soft_to_hard_fn_kwargs)
 
-                if np.isnan(batch_loss) or np.isnan(running_acc):
+                if (loss_fn is not None and np.isnan(batch_loss)) or np.isnan(running_acc):
                     _save_nandata(x, predictions, batch.label, loss_tensor, batch_loss,
                                   running_acc, n_total, n_correct, model)
 
