@@ -231,6 +231,10 @@ class TorchTextOptimizer(OptimizerInterface):
         soft_to_hard_fn, soft_to_hard_fn_kwargs = _validate_soft_to_hard_args(soft_to_hard_fn,
                                                                               soft_to_hard_fn_kwargs)
 
+        n_correct = None
+        n_total = None
+        model.eval()
+
         total_val_loss = 0.
         with torch.no_grad():
             for val_batch_idx, batch in enumerate(data_loader):
