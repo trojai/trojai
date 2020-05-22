@@ -40,7 +40,7 @@ MASTER_SEED = 1234
 
 TRIGGERED_CLASSES = [0]  # the only class to trigger (make all negative reviews w/ trigger positive)
                          # do not modify positive data
-TRIGGER_FRACS = [0.0, 0.01, 0.05, 0.10, 0.15, 0.20, 0.25]
+TRIGGER_FRACS = [0.05]
 
 
 def setup_logger(log, console):
@@ -165,6 +165,10 @@ def train_models(top_dir, data_folder, experiment_folder, experiment_list, model
         default_nbpvdm = None if device.type == 'cpu' else 500
 
         early_stopping_argin = tpmc.EarlyStoppingConfig() if early_stopping else None
+
+        def text_soft_to_hard_fn(x):
+            return torch.round(torch.sigmoid(x))
+
         training_params = tpmc.TrainingConfig(device=device,
                                               epochs=10,
                                               batch_size=64,
@@ -172,7 +176,8 @@ def train_models(top_dir, data_folder, experiment_folder, experiment_list, model
                                               optim='adam',
                                               objective='BCEWithLogitsLoss',
                                               early_stopping=early_stopping_argin,
-                                              train_val_split=train_val_split)
+                                              train_val_split=train_val_split,
+                                              soft_to_hard_fn=text_soft_to_hard_fn)
         reporting_params = tpmc.ReportingConfig(num_batches_per_logmsg=100,
                                                 num_epochs_per_metric=1,
                                                 num_batches_per_metrics=default_nbpvdm,
@@ -263,7 +268,7 @@ if __name__ == '__main__':
     parser.add_argument('--tensorboard_dir', type=str, help='Folder for logging tensorboard')
     parser.add_argument('--gpu', action='store_true')
     parser.add_argument('--early_stopping', action='store_true')
-    parser.add_argument('--train_val_split', help='Amount of train data to use for validation', default=0.0, type=float)
+    parser.add_argument('--train_val_split', help='Amount of train data to use for validation', default=0.05, type=float)
     a = parser.parse_args()
     a.working_dir = os.path.abspath(a.working_dir)  # abspath required deeper inside code
 

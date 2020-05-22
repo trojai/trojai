@@ -23,8 +23,10 @@ logger = logging.getLogger(__name__)
 Defines all configurations pertinent to model generation.
 """
 
+
 def identity_function(x):
     return x
+
 
 default_soft_to_hard_fn_kwargs = dict()
 

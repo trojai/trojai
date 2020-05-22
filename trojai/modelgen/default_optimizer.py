@@ -124,22 +124,22 @@ def _eval_acc(data_loader, model, device=torch.device('cpu'),
             y_hat = model(x)
 
             if loss_fn is not None:
-                val_loss_tensor = loss_fn(y_hat, y_truth)
-                batch_val_loss = val_loss_tensor.item()
-                total_val_loss += batch_val_loss
+                loss_tensor = loss_fn(y_hat, y_truth)
+                batch_loss = loss_tensor.item()
+                total_val_loss += batch_loss
 
-            acc, n_total, n_correct = _running_eval_acc(y_hat, y_truth,
-                                                        n_total=n_total,
-                                                        n_correct=n_correct,
-                                                        soft_to_hard_fn=soft_to_hard_fn,
-                                                        soft_to_hard_fn_kwargs=soft_to_hard_fn_kwargs)
+            running_acc, n_total, n_correct = _running_eval_acc(y_hat, y_truth,
+                                                                n_total=n_total,
+                                                                n_correct=n_correct,
+                                                                soft_to_hard_fn=soft_to_hard_fn,
+                                                                soft_to_hard_fn_kwargs=soft_to_hard_fn_kwargs)
 
-            if (loss_fn is not None and np.isnan(batch_val_loss)) or np.isnan(acc):
-                _save_nandata(x, y_hat, y_truth, val_loss_tensor, batch_val_loss, acc,
+            if (loss_fn is not None and np.isnan(batch_loss)) or np.isnan(acc):
+                _save_nandata(x, y_hat, y_truth, loss_tensor, batch_loss, acc,
                               n_total, n_correct, model)
 
     total_val_loss /= float(len(data_loader))
-    return acc, n_total, n_correct, total_val_loss
+    return running_acc, n_total, n_correct, total_val_loss
 
 
 def _save_nandata(x, y_hat, y_truth, loss_tensor, loss_val, acc_val, n_total, n_correct, model):
@@ -525,10 +525,10 @@ class DefaultOptimizer(OptimizerInterface):
                 # use validation accuracy as the metric for deciding the best model
                 if validation_stats.get_val_acc() >= best_validation_acc:
                     msg = "Updating best model with epoch:[%d] accuracy[%0.02f].  Previous best validation " \
-                          "accuracy was: %0.02f" % (epoch, validation_stats.val_clean_acc, best_validation_acc)
+                          "accuracy was: %0.02f" % (epoch, validation_stats.get_val_acc(), best_validation_acc)
                     logger.info(msg)
                     best_net = copy.deepcopy(net)
-                    best_validation_acc = validation_stats.val_clean_acc
+                    best_validation_acc = validation_stats.get_val_acc()
 
             # early stopping
             # record the val loss of the last batch in the epoch.  if N epochs after the best val_loss, we have not
@@ -584,7 +584,6 @@ class DefaultOptimizer(OptimizerInterface):
         loop = tqdm(train_loader, disable=progress_bar_disable)
 
         train_n_correct, train_n_total = None, None
-        val_n_clean_correct, val_n_clean_total = None, None
         sum_batchmean_train_loss = 0
         running_train_acc = 0
         num_batches = len(train_loader)
