@@ -79,6 +79,8 @@ def _running_eval_acc(y_hat: torch.Tensor, y_truth: torch.Tensor,
         n_correct = defaultdict(int)
 
     hard_decision_pred = soft_to_hard_fn(y_hat, **soft_to_hard_fn_kwargs)
+    print(hard_decision_pred)
+    print(y_truth.int())
     label, n_correct_per_class = hard_decision_pred[hard_decision_pred == y_truth.int()].unique(return_counts=True)
     for ii, k in enumerate(label):
         n_correct[k.item()] += n_correct_per_class[ii].item()
