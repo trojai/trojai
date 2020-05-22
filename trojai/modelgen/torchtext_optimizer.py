@@ -512,7 +512,7 @@ class TorchTextOptimizer(OptimizerInterface):
 
                     val_loss += batch_val_loss
             val_loss /= float(num_val_batches)
-            validation_stats = EpochValidationStatistics(running_val_acc, val_loss)
+            validation_stats = EpochValidationStatistics(running_val_acc, val_loss, None, None)
 
             logger.info('{}\tTrain Epoch: {} \tValLoss: {:.6f}\tValAcc: {:.6f}'.format(
                 pid, epoch_num, val_loss, running_val_acc))
