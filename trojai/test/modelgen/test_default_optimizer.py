@@ -374,8 +374,8 @@ class TestRunner(unittest.TestCase):
         train_dataset, val_dataset = train_val_dataset_split(dataset, split_amt, val_data_xform, val_label_xform)
         self.assertEqual(len(train_dataset), int(len(t1) * (1 - split_amt)))
         self.assertEqual(len(val_dataset), int(len(t1) * split_amt))
-        self.assertEqual(val_dataset.data_transform, val_data_xform)
-        self.assertEqual(val_dataset.label_transform, val_label_xform)
+        self.assertEqual(val_dataset.dataset.data_transform, val_data_xform)
+        self.assertEqual(val_dataset.dataset.label_transform, val_label_xform)
 
     def test_train_val_split2(self):
         t1 = torch.Tensor(np.arange(10))
@@ -389,8 +389,8 @@ class TestRunner(unittest.TestCase):
         train_dataset, val_dataset = train_val_dataset_split(dataset, split_amt, val_data_xform, val_label_xform)
         self.assertEqual(len(train_dataset), int(len(t1) * (1 - split_amt)))
         self.assertEqual(len(val_dataset), int(len(t1) * split_amt))
-        self.assertEqual(val_dataset.data_transform, val_data_xform)
-        self.assertEqual(val_dataset.label_transform, val_label_xform)
+        self.assertEqual(val_dataset.dataset.data_transform, val_data_xform)
+        self.assertEqual(val_dataset.dataset.label_transform, val_label_xform)
 
     def test_str(self):
         training_cfg = TrainingConfig(device='cpu')
@@ -546,9 +546,6 @@ class TestRunner(unittest.TestCase):
             # the early stopping should *not* have been run, b/c we set it to None, so we should
             # have trained for the full 10 epochs
             self.assertEqual(num_epochs_trained, optimizer.optimizer_cfg.training_cfg.epochs)
-
-    def test_train_val_dataset_split(self):
-        pass
 
     # TODO: add mock tests on saving best model
 
