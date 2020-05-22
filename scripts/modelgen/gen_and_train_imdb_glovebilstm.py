@@ -152,7 +152,7 @@ def train_models(top_dir, data_folder, experiment_folder, experiment_list, model
                                   max_vocab_size=arch_factory_kwargs['input_dim'],
                                   embedding_dim=arch_factory_kwargs['embedding_dim']))
 
-        num_models = 5
+        num_models = 1
 
         if uge:
             if gpu:
