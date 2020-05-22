@@ -167,7 +167,7 @@ def train_models(top_dir, data_folder, experiment_folder, experiment_list, model
         early_stopping_argin = tpmc.EarlyStoppingConfig() if early_stopping else None
 
         def text_soft_to_hard_fn(x):
-            return torch.round(torch.sigmoid(x))
+            return torch.round(torch.sigmoid(x)).int()
 
         training_params = tpmc.TrainingConfig(device=device,
                                               epochs=10,
