@@ -501,6 +501,9 @@ class DefaultOptimizer(OptimizerInterface):
         val_triggered_loader = DataLoader(val_dataset_triggered, **val_dataloader_kwargs_in) if \
             len(val_dataset_triggered) > 0 else []
 
+        logger.info('#Train[%d]/#ValClean[%d]/#ValTriggered[%d]' %
+                    (len(train_loader), len(val_clean_loader), len(val_triggered_loader)))
+
         # stores training & val data statistics for every epoch
         epoch_stats = []
         best_net = None
@@ -663,6 +666,7 @@ class DefaultOptimizer(OptimizerInterface):
                 _eval_acc(val_clean_loader, model, self.device,
                           self.soft_to_hard_fn, self.soft_to_hard_fn_kwargs, self._eval_loss_function)
         else:
+            logger.info("No dataset computed for validation on clean dataset!")
             running_val_clean_acc = None
             val_clean_loss = None
 
@@ -673,6 +677,7 @@ class DefaultOptimizer(OptimizerInterface):
                 _eval_acc(val_triggered_loader, model, self.device,
                           self.soft_to_hard_fn, self.soft_to_hard_fn_kwargs, self._eval_loss_function)
         else:
+            logger.info("No dataset computed for validation on triggered dataset!")
             running_val_triggered_acc = None
             val_triggered_loss = None
 
