@@ -42,6 +42,10 @@ class DatasetInterface(Dataset):
         self.path_to_data = path_to_data
 
     @abstractmethod
+    def set_data_description(self):
+        pass
+
+    @abstractmethod
     def get_data_description(self):
         pass
 
@@ -63,7 +67,7 @@ class CSVDataset(DatasetInterface):
         :param path_to_data: the root folder where the data lives
         :param csv_filename: the CSV file specifying the actual data points
         :param true_label (bool): if True, then use the column "true_label" as the label associated with each
-        datapoint.  If False (default), use the column "train_label" as the label associated with each datapoint
+            datapoint.  If False (default), use the column "train_label" as the label associated with each datapoint
         :param path_to_csv: If not None, specifies the folder where the CSV file lives.  If None, it is assumed that
             the CSV file lives in the same directory as the path_to_data
         :param shuffle: if True, the dataset is shuffled before loading into the model
@@ -84,6 +88,7 @@ class CSVDataset(DatasetInterface):
         if true_label:
             self.label = 'true_label'
         self.data_df = pd.read_csv(os.path.join(path_to_csv, csv_filename))
+        self.shuffle = shuffle
         if shuffle:
             self.data_df = self.data_df.sample(frac=1, random_state=random_state).reset_index(drop=True)
         if not callable(data_loader):
@@ -98,9 +103,8 @@ class CSVDataset(DatasetInterface):
         self.data_transform = data_transform
         self.label_transform = label_transform
 
-        # set the data description
-        num_classes = len(self.data_df[self.label].unique())
-        self.data_description = CSVImageDatasetDesc(len(self.data_df), shuffle, num_classes)
+        self.data_description = None
+        self.set_data_description()
 
     def __getitem__(self, item):
         data_loc = os.path.join(self.path_to_data, self.data_df.iloc[item]["file"])
@@ -115,6 +119,11 @@ class CSVDataset(DatasetInterface):
 
     def get_data_description(self):
         return self.data_description
+
+    def set_data_description(self):
+        # set the data description
+        num_classes = len(self.data_df[self.label].unique())
+        self.data_description = CSVImageDatasetDesc(len(self.data_df), self.shuffle, num_classes)
 
 
 class CSVTextDataset(torchtext.data.Dataset, DatasetInterface):
@@ -215,6 +224,10 @@ class CSVTextDataset(torchtext.data.Dataset, DatasetInterface):
     def get_data_description(self):
         return self.data_description
 
+    def set_data_description(self):
+        # set the data description.  set by build_vocab(...)
+        pass
+
     def build_vocab(self, embedding_vectors_cfg, max_vocab_size, use_vocab=True):
         if use_vocab:
             logger.info("Building Vocabulary from training data using: " + str(embedding_vectors_cfg) +
@@ -242,6 +255,7 @@ def csv_dataset_from_df(path_to_data, data_df, true_label=False, shuffle=False,
                         data_transform=identity_transform, label_transform=identity_transform):
     """
     Initializes a CSVDataset object from a DataFrame rather than a filepath.
+    :param path_to_data: root folder where all the data is located
     :param data_df: the dataframe in which the data lives
     :param true_label: (bool) if True, then use the column "true_label" as the label associated with each
     datapoint.  If False (default), use the column "train_label" as the label associated with each datapoint

@@ -202,7 +202,7 @@ if __name__ == "__main__":
     # add+1 operation is performed.
     # In the code below, we create several experiments with varying levels of poisoned data to allow for
     # experimentation.
-    trigger_fracs = [0.05, 0.10, 0.15, 0.2]
+    trigger_fracs = [0.05, 0.2]
     for trigger_frac in trigger_fracs:
         train_df = e.create_experiment(os.path.join(toplevel_folder, 'cifar10_clean', 'train_cifar10.csv'),
                                        os.path.join(toplevel_folder, mod_dataset_rootdir),

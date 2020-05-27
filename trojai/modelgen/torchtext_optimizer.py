@@ -18,7 +18,7 @@ import torch.nn.utils.clip_grad as torch_clip_grad
 from .datasets import CSVTextDataset
 from .training_statistics import EpochStatistics, EpochTrainStatistics, EpochValidationStatistics
 from .optimizer_interface import OptimizerInterface
-from .default_optimizer import _eval_acc, _save_nandata
+from .default_optimizer import _running_eval_acc, _save_nandata, _validate_soft_to_hard_args
 from .config import TorchTextOptimizerConfig
 from .constants import VALID_OPTIMIZERS, MAX_EPOCHS
 
@@ -218,6 +218,52 @@ class TorchTextOptimizer(OptimizerInterface):
             val_dataset.label_transform = val_label_transform
         return train_dataset, val_dataset
 
+    @staticmethod
+    def _eval_acc(data_loader, model, device=torch.device('cpu'),
+                  soft_to_hard_fn: Callable = None,
+                  soft_to_hard_fn_kwargs: dict = None,
+                  loss_fn: Callable = None):
+        """
+        Evaluates a model against a dataset encompassed by a data loader, which has
+        an underlying torchtext dataset.  The functionality is the same as default_optimizer._eval_acc,
+        but used for torchtext.utils.Dataset rather than a torch.data.utils.Dataset
+        """
+        soft_to_hard_fn, soft_to_hard_fn_kwargs = _validate_soft_to_hard_args(soft_to_hard_fn,
+                                                                              soft_to_hard_fn_kwargs)
+
+        n_correct = None
+        n_total = None
+        model.eval()
+
+        total_val_loss = 0.
+        with torch.no_grad():
+            for val_batch_idx, batch in enumerate(data_loader):
+                if model.packed_padded_sequences:
+                    text, text_lengths = batch.text
+                    x = (text, text_lengths)
+                    predictions = model(text, text_lengths).squeeze(1)
+                else:
+                    x = batch.text
+                    predictions = model(batch.text).squeeze(1)
+
+                if loss_fn is not None:
+                    loss_tensor = loss_fn(predictions, batch.label)
+                    batch_loss = loss_tensor.item()
+                    total_val_loss += batch_loss
+
+                running_acc, n_total, n_correct = _running_eval_acc(predictions, batch.label,
+                                                                    n_total=n_total,
+                                                                    n_correct=n_correct,
+                                                                    soft_to_hard_fn=soft_to_hard_fn,
+                                                                    soft_to_hard_fn_kwargs=soft_to_hard_fn_kwargs)
+
+                if (loss_fn is not None and np.isnan(batch_loss)) or np.isnan(running_acc):
+                    _save_nandata(x, predictions, batch.label, loss_tensor, batch_loss,
+                                  running_acc, n_total, n_correct, model)
+
+        total_val_loss /= float(len(data_loader))
+        return running_acc, n_total, n_correct, total_val_loss
+
     def convert_dataset_to_dataiterator(self, dataset: CSVTextDataset, batch_size: int=None) -> TextDataIterator:
         # NOTE: we use the argument drop_last for the DataLoader (used for the CSVDataset), but no such argument
         # exists for the BucketIterator.  TODO: test whether this might become a problem.
@@ -306,21 +352,21 @@ class TorchTextOptimizer(OptimizerInterface):
             # TODO: save best model should use same criterion as early stopping (val-loss rather than val-acc)?
             if self.save_best_model:
                 # use validation accuracy as the metric for deciding the best model
-                if validation_stats.val_acc >= best_validation_acc:
+                if validation_stats.get_val_acc() >= best_validation_acc:
                     msg = "Updating best model with epoch:[%d] accuracy[%0.02f].  Previous best validation " \
-                          "accuracy was: %0.02f" % (epoch, validation_stats.val_acc, best_validation_acc)
+                          "accuracy was: %0.02f" % (epoch, validation_stats.get_val_acc(), best_validation_acc)
                     logger.info(msg)
                     best_net = copy.deepcopy(net)
-                    best_validation_acc = validation_stats.val_acc
+                    best_validation_acc = validation_stats.get_val_acc()
 
             # early stopping
             # record the val loss of the last batch in the epoch.  if N epochs after the best val_loss, we have not
             # improved the val-loss by atleast eps, we quit
             if self.optimizer_cfg.training_cfg.early_stopping:
                 # EarlyStoppingConfig validates that eps > 0 as well ..
-                if validation_stats.val_loss < (
+                if validation_stats.get_val_loss() < (
                         best_val_loss - np.abs(self.optimizer_cfg.training_cfg.early_stopping.val_loss_eps)):
-                    best_val_loss = validation_stats.val_loss
+                    best_val_loss = validation_stats.get_val_loss()
                     best_val_loss_epoch = epoch
                     best_net = copy.deepcopy(net)
                     logger.info('EarlyStopping - NewBest >> best_val_loss:%0.04f best_val_loss_epoch:%d' %
@@ -369,9 +415,10 @@ class TorchTextOptimizer(OptimizerInterface):
         sum_batchmean_train_loss = 0
         running_train_acc = 0
         num_batches = len(train_loader)
+        # put network into training mode
+        model.train()
         for batch_idx, batch in enumerate(loop):
-            # put network into training mode & zero out previous gradient computations
-            model.train()           # TODO: this should be outside of the loop
+            # zero out previous gradient computations
             self.optimizer.zero_grad()
 
             # get predictions based on input & weights learned so far
@@ -386,9 +433,10 @@ class TorchTextOptimizer(OptimizerInterface):
             # compute metrics
             batch_train_loss = self._eval_loss_function(predictions, batch.label)
             sum_batchmean_train_loss += batch_train_loss.item()
-            running_train_acc, train_n_total, train_n_correct = _eval_acc(predictions, batch.label,
-                                                                          n_total=train_n_total,
-                                                                          n_correct=train_n_correct)
+            running_train_acc, train_n_total, train_n_correct = \
+                _running_eval_acc(predictions, batch.label, n_total=train_n_total, n_correct=train_n_correct,
+                                  soft_to_hard_fn=self.optimizer_cfg.training_cfg.soft_to_hard_fn,
+                                  soft_to_hard_fn_kwargs=self.optimizer_cfg.training_cfg.soft_to_hard_fn_kwargs)
 
             if np.isnan(sum_batchmean_train_loss) or np.isnan(running_train_acc):
                 _save_nandata(x, predictions, batch.label, batch_train_loss, sum_batchmean_train_loss, running_train_acc,
@@ -440,36 +488,15 @@ class TorchTextOptimizer(OptimizerInterface):
         validation_stats = None
         num_val_batches = len(val_loader)
         if num_val_batches > 0:
-            # last condition ensures metrics are computed for storage put model into evaluation mode
-            model.eval()
-            # turn off auto-grad for validation set computation
-            val_loss = 0.
-            with torch.no_grad():
-                for val_batch_idx, batch in enumerate(val_loader):
-                    if model.packed_padded_sequences:
-                        text, text_lengths = batch.text
-                        x = (text, text_lengths)
-                        predictions = model(text, text_lengths).squeeze(1)
-                    else:
-                        x = batch.text
-                        predictions = model(batch.text).squeeze(1)
-
-                    val_loss_tensor = self._eval_loss_function(predictions, batch.label)
-                    batch_val_loss = val_loss_tensor.item()
-                    running_val_acc, val_n_total, val_n_correct = _eval_acc(predictions, batch.label,
-                                                                            n_total=val_n_total,
-                                                                            n_correct=val_n_correct)
-
-                    if np.isnan(batch_val_loss) or np.isnan(running_val_acc):
-                        _save_nandata(x, predictions, batch.label, val_loss_tensor, batch_val_loss,
-                                      running_train_acc, val_n_total, val_n_correct, model)
-
-                    val_loss += batch_val_loss
-            val_loss /= float(num_val_batches)
-            validation_stats = EpochValidationStatistics(running_val_acc, val_loss)
+            logger.info('Running validation')
+            val_acc, _, _, val_loss = TorchTextOptimizer._eval_acc(val_loader, model, device=self.device,
+                                                                   soft_to_hard_fn=self.optimizer_cfg.training_cfg.soft_to_hard_fn,
+                                                                   soft_to_hard_fn_kwargs=self.optimizer_cfg.training_cfg.soft_to_hard_fn_kwargs,
+                                                                   loss_fn=self._eval_loss_function)
+            validation_stats = EpochValidationStatistics(val_acc, val_loss, None, None)
 
             logger.info('{}\tTrain Epoch: {} \tValLoss: {:.6f}\tValAcc: {:.6f}'.format(
-                pid, epoch_num, val_loss, running_val_acc))
+                pid, epoch_num, val_loss, val_acc))
 
             if self.tb_writer:
                 try:
@@ -477,7 +504,7 @@ class TorchTextOptimizer(OptimizerInterface):
                     self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
                                               '-validation_loss', val_loss, global_step=batch_num)
                     self.tb_writer.add_scalar(self.optimizer_cfg.reporting_cfg.experiment_name +
-                                              '-validation_acc', running_val_acc, global_step=batch_num)
+                                              '-validation_acc', val_acc, global_step=batch_num)
                 except:
                     # TODO: catch specific exceptions!
                     pass
@@ -488,7 +515,7 @@ class TorchTextOptimizer(OptimizerInterface):
                 self.lr_scheduler.step()
             elif self.optimizer_cfg.training_cfg.lr_scheduler_call_arg.lower() == 'val_acc':
                 if num_val_batches > 0:  # this check ensures that this variable is defined
-                    self.lr_scheduler.step(running_val_acc)
+                    self.lr_scheduler.step(val_acc)
                 else:
                     msg = "val_acc not defined b/c validation dataset is not defined! Ignoring LR step!"
                     logger.warning(msg)
@@ -525,21 +552,10 @@ class TorchTextOptimizer(OptimizerInterface):
         # setup for test data batch-size = 1, so that we don't drop last batch if it does not fit fully into a batch
         # see: https://pytorch.org/docs/stable/data.html#data-loading-order-and-sampler
         data_loader = self.convert_dataset_to_dataiterator(clean_data, 1)
-        loop = tqdm(data_loader)
-
-        # test type is classification accuracy on clean and triggered data
-        test_n_correct = None
-        test_n_total = None
-        with torch.no_grad():
-            for batch_idx, batch in enumerate(loop):
-                if model.packed_padded_sequences:
-                    text, text_lengths = batch.text
-                    predictions = model(text, text_lengths).squeeze(1)
-                else:
-                    predictions = model(batch.text).squeeze(1)
-                test_acc, test_n_total, test_n_correct = _eval_acc(predictions, batch.label,
-                                                                   n_total=test_n_total,
-                                                                   n_correct=test_n_correct)
+        test_acc, test_n_total, _, _ = TorchTextOptimizer._eval_acc(data_loader, model, device=self.device,
+                                                                    soft_to_hard_fn=self.optimizer_cfg.training_cfg.soft_to_hard_fn,
+                                                                    soft_to_hard_fn_kwargs=self.optimizer_cfg.training_cfg.soft_to_hard_fn_kwargs,
+                                                                    loss_fn=None)
         test_data_statistics['clean_accuracy'] = test_acc
         test_data_statistics['clean_n_total'] = test_n_total
         logger.info("Accuracy on clean test data: %0.02f" %
@@ -551,18 +567,10 @@ class TorchTextOptimizer(OptimizerInterface):
         # setup for test data batch-size = 1, so that we don't drop last batch if it does not fit fully into a batch
         # see: https://pytorch.org/docs/stable/data.html#data-loading-order-and-sampler
         data_loader = self.convert_dataset_to_dataiterator(triggered_data, 1)
-        test_n_correct = None
-        test_n_total = None
-        with torch.no_grad():
-            for batch_idx, batch in enumerate(data_loader):
-                if model.packed_padded_sequences:
-                    text, text_lengths = batch.text
-                    predictions = model(text, text_lengths).squeeze(1)
-                else:
-                    predictions = model(batch.text).squeeze(1)
-                test_acc, test_n_total, test_n_correct = _eval_acc(predictions, batch.label,
-                                                                   n_total=test_n_total,
-                                                                   n_correct=test_n_correct)
+        test_acc, test_n_total, _, _ = TorchTextOptimizer._eval_acc(data_loader, model, device=self.device,
+                                                                    soft_to_hard_fn=self.optimizer_cfg.training_cfg.soft_to_hard_fn,
+                                                                    soft_to_hard_fn_kwargs=self.optimizer_cfg.training_cfg.soft_to_hard_fn_kwargs,
+                                                                    loss_fn=None)
         test_data_statistics['triggered_accuracy'] = test_acc
         test_data_statistics['triggered_n_total'] = test_n_total
         logger.info("Accuracy on triggered test data: %0.02f" %
@@ -572,18 +580,10 @@ class TorchTextOptimizer(OptimizerInterface):
         # For example, if an MNIST dataset was created with triggered examples only for labels 4 and 5,
         # then this dataset is the subset of data with labels 4 and 5 that don't have the triggers.
         data_loader = self.convert_dataset_to_dataiterator(clean_test_triggered_labels_data, 1)
-        test_n_correct = None
-        test_n_total = None
-        with torch.no_grad():
-            for batch_idx, batch in enumerate(data_loader):
-                if model.packed_padded_sequences:
-                    text, text_lengths = batch.text
-                    predictions = model(text, text_lengths).squeeze(1)
-                else:
-                    predictions = model(batch.text).squeeze(1)
-                test_acc, test_n_total, test_n_correct = _eval_acc(predictions, batch.label,
-                                                                   n_total=test_n_total,
-                                                                   n_correct=test_n_correct)
+        test_acc, test_n_total, _, _ = TorchTextOptimizer._eval_acc(data_loader, model, device=self.device,
+                                                                    soft_to_hard_fn=self.optimizer_cfg.training_cfg.soft_to_hard_fn,
+                                                                    soft_to_hard_fn_kwargs=self.optimizer_cfg.training_cfg.soft_to_hard_fn_kwargs,
+                                                                    loss_fn=None)
         test_data_statistics['clean_test_triggered_label_accuracy'] = test_acc
         test_data_statistics['clean_test_triggered_label_n_total'] = test_n_total
         logger.info("Accuracy on clean-data-triggered-labels: %0.02f for n=%s" %

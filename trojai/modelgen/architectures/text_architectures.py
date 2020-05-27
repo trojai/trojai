@@ -44,6 +44,7 @@ class EmbeddingLSTM(nn.Module):
 
         # pack sequence
         packed_embedded = nn.utils.rnn.pack_padded_sequence(embedded, text_lengths)
+        self.rnn.flatten_parameters()
         packed_output, (hidden, cell) = self.rnn(packed_embedded)
         # hidden.shape = [num layers * num directions, batch size, hid dim]
         # cell.shape = [num layers * num directions, batch size, hid dim]
