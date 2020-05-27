@@ -31,6 +31,13 @@ logger = logging.getLogger(__name__)
 
 def _validate_soft_to_hard_args(soft_to_hard_fn: Callable = None,
                                 soft_to_hard_fn_kwargs: dict = None):
+    """
+    Function validates and sets defaults for converting soft decisions (probability outputs of NN's) to hard decisions
+    (a decision on which label should be selected, based on the NN output).
+
+    :param soft_to_hard_fn: A callable which will be called on the output of the NN to convert it's output to a label
+    :param soft_to_hard_fn_kwargs: keyword arguments to be passed to the callable when calling
+    """
     if not soft_to_hard_fn:
         soft_to_hard_fn = DefaultSoftToHardFn()
     if not soft_to_hard_fn_kwargs:
@@ -237,6 +244,13 @@ def train_val_dataset_split(dataset: torch.utils.data.Dataset, split_amt: float,
 
 
 def split_val_clean_trig(val_dataset):
+    """
+    Splits the validation dataset into clean and triggered.
+
+    :param val_dataset: the validation dataset to split
+
+    :return: A tuple of the clean & triggered validation dataset
+    """
     try:
         val_idx = val_dataset.indices
         df = val_dataset.dataset.data_df.iloc[val_idx, :]
