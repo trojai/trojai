@@ -731,7 +731,7 @@ class DefaultOptimizer(OptimizerInterface):
                 else:
                     msg = "val_clean_acc not defined b/c validation dataset is not defined! Ignoring LR step!"
                     logger.warning(msg)
-            elif self.optimizer_cfg.training_cfg.lr_scheduler_call_arg.lower() == 'val_clean_loss':
+            elif self.optimizer_cfg.training_cfg.lr_scheduler_call_arg.lower() == 'val_loss':
                 val_loss = validation_stats.get_val_loss()
                 if val_loss is not None:
                     self.lr_scheduler.step(val_loss)
