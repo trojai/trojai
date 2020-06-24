@@ -491,7 +491,6 @@ class DefaultOptimizer(OptimizerInterface):
         if torch_dataloader_kwargs:
             data_loader_kwargs_in.update(torch_dataloader_kwargs)
 
-        # val_dataloader_kwargs_in = dict(batch_size=self.batch_size, pin_memory=pin_memory, drop_last=True, shuffle=True)
         val_dataloader_kwargs_in = dict(batch_size=self.batch_size, pin_memory=pin_memory, drop_last=False, shuffle=False)
 
         if self.optimizer_cfg.training_cfg.val_dataloader_kwargs is not None:
