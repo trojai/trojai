@@ -85,7 +85,8 @@ class RandomPadToSize(Transform):
         """
         Initialize the resizer object
         :param new_size: a tuple of the size in pixes for x and y dimensions
-        :param interpolation: the interpolation method to resize the input Entity
+        :param mode: what type of padding to use, supports numpy.pad options
+        :param pad_value: the value to use when padding
         """
         self.new_size = new_size
         self.mode = mode
@@ -142,30 +143,21 @@ class Pad(Transform):
 
         img = img_obj.get_data()
         msk = img_obj.get_mask()
+        kwargs = {}
+        if self.mode == 'constant':
+            kwargs = {'constant_values': self.pad_value}
 
         if len(img.shape) == 2:
-            if self.mode == 'constant':
-                img_out = np.pad(img, pad_width=((self.pad_amounts[0], self.pad_amounts[1]), (self.pad_amounts[2], self.pad_amounts[3])), mode=self.mode, constant_values=self.pad_value)
-            else:
-                img_out = np.pad(img, pad_width=((self.pad_amounts[0], self.pad_amounts[1]), (self.pad_amounts[2], self.pad_amounts[3])), mode=self.mode)
+                img_out = np.pad(img, pad_width=((self.pad_amounts[0], self.pad_amounts[1]), (self.pad_amounts[2], self.pad_amounts[3])), mode=self.mode, **kwargs)
         elif len(img.shape) == 3:
-            if self.mode == 'constant':
-                img_out = np.pad(img, pad_width=((self.pad_amounts[0], self.pad_amounts[1]), (self.pad_amounts[2], self.pad_amounts[3]), (0, 0)), mode=self.mode, constant_values=self.pad_value)
-            else:
-                img_out = np.pad(img, pad_width=((self.pad_amounts[0], self.pad_amounts[1]), (self.pad_amounts[2], self.pad_amounts[3]), (0, 0)), mode=self.mode)
+            img_out = np.pad(img, pad_width=((self.pad_amounts[0], self.pad_amounts[1]), (self.pad_amounts[2], self.pad_amounts[3]), (0, 0)), mode=self.mode, **kwargs)
         else:
             raise RuntimeError('Unexpected image shape: {}'.format(img.shape))
 
         if len(msk.shape) == 2:
-            if self.mode == 'constant':
-                mask_out = np.pad(msk, pad_width=((self.pad_amounts[0], self.pad_amounts[1]), (self.pad_amounts[2], self.pad_amounts[3])), mode=self.mode, constant_values=self.pad_value)
-            else:
-                mask_out = np.pad(msk, pad_width=((self.pad_amounts[0], self.pad_amounts[1]), (self.pad_amounts[2], self.pad_amounts[3])), mode=self.mode)
+            mask_out = np.pad(msk, pad_width=((self.pad_amounts[0], self.pad_amounts[1]), (self.pad_amounts[2], self.pad_amounts[3])), mode=self.mode, **kwargs)
         elif len(msk.shape) == 3:
-            if self.mode == 'constant':
-                mask_out = np.pad(msk, pad_width=((self.pad_amounts[0], self.pad_amounts[1]), (self.pad_amounts[2], self.pad_amounts[3]), (0, 0)), mode=self.mode, constant_values=self.pad_value)
-            else:
-                mask_out = np.pad(msk, pad_width=((self.pad_amounts[0], self.pad_amounts[1]), (self.pad_amounts[2], self.pad_amounts[3]), (0, 0)), mode=self.mode)
+            mask_out = np.pad(msk, pad_width=((self.pad_amounts[0], self.pad_amounts[1]), (self.pad_amounts[2], self.pad_amounts[3]), (0, 0)), mode=self.mode, **kwargs)
         else:
             raise RuntimeError('Unexpected mask shape: {}'.format(msk.shape))
 
