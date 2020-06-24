@@ -133,7 +133,7 @@ class GothamFilterXForm(FilterXForm):
         filtered_image = image.clone()
         filtered_image.modulate(120, 10, 100)
         filtered_image.colorize(wand.color.Color('#222b6d'), wand.color.Color('#333333'))
-        filtered_image.gamma(.5)
+        filtered_image.gamma(.9)
         filtered_image.sigmoidal_contrast(True, 3, .5 * filtered_image.quantum_range)
         filtered_image.sigmoidal_contrast(True, 3, .5 * filtered_image.quantum_range)
         return filtered_image
@@ -150,8 +150,8 @@ class NashvilleFilterXForm(FilterXForm):
         :return: new filtered image
         """
         filtered_image = image.clone()
-        self._colortone(filtered_image, '#222b6d', 85, True)
-        self._colortone(filtered_image, '#f7daae', 85, False)
+        self._colortone(filtered_image, '#222b6d', 50, True)
+        self._colortone(filtered_image, '#f7daae', 50, False)
         filtered_image.sigmoidal_contrast(True, 3, .5 * filtered_image.quantum_range)
         filtered_image.modulate(100, 150, 100)
         filtered_image.auto_gamma()
@@ -173,7 +173,7 @@ class KelvinFilterXForm(FilterXForm):
         filtered_image.modulate(120, 50, 100)
         with wand.drawing.Drawing() as draw:
             draw.fill_color = '#FF9900'
-            draw.fill_opacity = 0.5
+            draw.fill_opacity = 0.2
             draw.rectangle(left=0, top=0, width=filtered_image.width, height=filtered_image.height)
             draw(filtered_image)
         return filtered_image
@@ -190,8 +190,8 @@ class LomoFilterXForm(FilterXForm):
         :return: new filtered image
         """
         filtered_image = image.clone()
-        filtered_image.level(.33, channel="R")
-        filtered_image.level(.33, channel="G")
+        filtered_image.level(.5, channel="R")
+        filtered_image.level(.5, channel="G")
         self._vignette(filtered_image)
         return filtered_image
 
