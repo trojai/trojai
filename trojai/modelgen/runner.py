@@ -264,6 +264,6 @@ class Runner:
 
         # save the entire dict as a json object
         with open(stats_output_fname, 'w') as fp:
-            json.dump(model_training_stats_serialized, fp)
+            json.dump(model_training_stats_serialized, fp, indent=2)
         # save detailed statistics
         stats.save_detailed_stats_to_disk(detailed_stats_output_fname)
