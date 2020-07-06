@@ -20,6 +20,12 @@ from tqdm import tqdm
 from torch._utils import _accumulate
 from torch import randperm
 
+try:
+    import apex.amp
+    USE_AMP = True
+except:
+    USE_AMP = False
+
 from .training_statistics import EpochStatistics, EpochValidationStatistics, EpochTrainStatistics
 from .optimizer_interface import OptimizerInterface
 from .config import DefaultOptimizerConfig, DefaultSoftToHardFn, default_soft_to_hard_fn_kwargs
@@ -528,6 +534,10 @@ class DefaultOptimizer(OptimizerInterface):
         if self.optimizer_cfg.training_cfg.early_stopping:
             num_epochs_to_monitor = self.optimizer_cfg.training_cfg.early_stopping.num_epochs
 
+        if USE_AMP:
+            net, self.optimizer = apex.amp.initialize(net, self.optimizer, opt_level='O2')
+
+
         epoch = 0
         done = False
         while not done:
@@ -630,6 +640,11 @@ class DefaultOptimizer(OptimizerInterface):
 
             # compute gradient
             batch_train_loss.backward()
+            if USE_AMP:
+                with apex.amp.scale_loss(batch_train_loss, self.optimizer) as scaled_loss:
+                    scaled_loss.backward()
+            else:
+                batch_train_loss.backward()
 
             # perform gradient clipping if configured
             if self.optimizer_cfg.training_cfg.clip_grad:
