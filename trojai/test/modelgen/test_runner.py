@@ -67,6 +67,7 @@ class TestRunner(unittest.TestCase):
         mock_runner_config.arch_factory_kwargs = None
         mock_runner_config.arch_factory_kwargs_generator = None
         mock_runner_config.parallel = False
+        mock_runner_config.amp = False
 
         test_batch_stats = BatchStatistics(1, 1, 1)
         e = EpochStatistics(1)
@@ -95,7 +96,7 @@ class TestRunner(unittest.TestCase):
 
             # check if correct functions were called with correct arguments and the correct number of times
             mock_runner_config.data.load_data.assert_called_once_with()
-            mock_optimizer1.train.assert_called_once_with(arch, train_mock, False, None)
+            mock_optimizer1.train.assert_called_once_with(arch, train_mock, False, None, use_amp=mock_runner_config.amp)
             mock_optimizer1.test.assert_called_once_with(arch, ctest, ttest, cttest, False, None)
             mock_save_model.assert_called_once_with(arch, p(), [mock_training_cfg1])
 
@@ -127,6 +128,7 @@ class TestRunner(unittest.TestCase):
         mock_optimizer1.get_cfg_as_dict.return_value = mock_training_cfg1
         mock_runner_config.optimizer_generator = (mock_optimizer1 for _ in range(3))
         mock_runner_config.parallel = False
+        mock_runner_config.amp = False
 
         test_batch_stats = BatchStatistics(1, 1, 1)
         e = EpochStatistics(1)
@@ -147,9 +149,9 @@ class TestRunner(unittest.TestCase):
         mock_save_model = Mock()
         runner._save_model_and_stats = mock_save_model
 
-        calls = [unittest.mock.call(arch, train1, False, None),
-                 unittest.mock.call(arch, train2, False, None),
-                 unittest.mock.call(arch, train3, False, None)]
+        calls = [unittest.mock.call(arch, train1, False, None, use_amp=mock_runner_config.amp),
+                 unittest.mock.call(arch, train2, False, None, use_amp=mock_runner_config.amp),
+                 unittest.mock.call(arch, train3, False, None, use_amp=mock_runner_config.amp)]
 
         # run function
         with patch("trojai.modelgen.runner.TrainingRunStatistics") as p:
@@ -183,6 +185,7 @@ class TestRunner(unittest.TestCase):
         mock_runner_config.arch_factory_kwargs = None
         mock_runner_config.arch_factory_kwargs_generator = None
         mock_runner_config.parallel = False
+        mock_runner_config.amp = False
 
         mock_runner_config.optimizer = Mock(spec=OptimizerInterface)
         mock_optimizer1 = Mock(spec=DefaultOptimizer)
@@ -226,11 +229,11 @@ class TestRunner(unittest.TestCase):
         with patch("trojai.modelgen.runner.TrainingRunStatistics") as p:
             runner.run()
 
-            mock_optimizer1.train.assert_called_once_with(arch, train1, False, None)
+            mock_optimizer1.train.assert_called_once_with(arch, train1, False, None, use_amp=mock_runner_config.amp)
             mock_optimizer1.test.assert_not_called()
-            mock_optimizer2.train.assert_called_once_with(arch, train2, False, None)
+            mock_optimizer2.train.assert_called_once_with(arch, train2, False, None, use_amp=mock_runner_config.amp)
             mock_optimizer2.test.assert_not_called()
-            mock_optimizer3.train.assert_called_once_with(arch, train3, False, None)
+            mock_optimizer3.train.assert_called_once_with(arch, train3, False, None, use_amp=mock_runner_config.amp)
             mock_optimizer3.test.assert_called_once_with(arch, ctest, ttest, cttest, False, None)
 
     def test_get_training_cfg(self):

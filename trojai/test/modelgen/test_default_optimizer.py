@@ -425,7 +425,8 @@ class TestRunner(unittest.TestCase):
 
             # this function overrides the return value of train_epoch, so that we can simulate
             # when early-stopping is supposed to occur, and
-            def train_epoch_side_effect(net, train_loader, clean_val_loader, triggered_val_loader, epoch, progress_bar_disable=True):
+            def train_epoch_side_effect(net, train_loader, clean_val_loader, triggered_val_loader, epoch,
+                                        progress_bar_disable=True, use_amp=False):
                 # these variables are not consequential for the early-stopping code, so we just set them to
                 # constants
                 train_acc_noop = 1.0
@@ -471,7 +472,8 @@ class TestRunner(unittest.TestCase):
 
             # this function overrides the return value of train_epoch, so that we can simulate
             # when early-stopping is supposed to occur, and
-            def train_epoch_side_effect(net, train_loader, clean_val_loader, triggered_val_loader, epoch, progress_bar_disable=True):
+            def train_epoch_side_effect(net, train_loader, clean_val_loader, triggered_val_loader, epoch,
+                                        progress_bar_disable=True, use_amp=False):
                 # these variables are not consequential for the early-stopping code, so we just set them to
                 # constants
                 train_acc_noop = 1.0
@@ -522,7 +524,8 @@ class TestRunner(unittest.TestCase):
 
             # this function overrides the return value of train_epoch, so that we can simulate
             # when early-stopping is supposed to occur, and
-            def train_epoch_side_effect(net, train_loader, clean_val_loader, triggered_val_loader, epoch, progress_bar_disable=True):
+            def train_epoch_side_effect(net, train_loader, clean_val_loader, triggered_val_loader, epoch,
+                                        progress_bar_disable=True, use_amp=False):
                 # these variables are not consequential for the early-stopping code, so we just set them to
                 # constants
                 train_acc_noop = 1.0
