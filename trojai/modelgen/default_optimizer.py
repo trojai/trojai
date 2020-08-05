@@ -16,9 +16,9 @@ import torch.optim as optim
 import torch.nn.utils.clip_grad as torch_clip_grad
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
+import torch.cuda.amp
 from tqdm import tqdm
-from torch._utils import _accumulate
-from torch import randperm
+
 
 from .training_statistics import EpochStatistics, EpochValidationStatistics, EpochTrainStatistics
 from .optimizer_interface import OptimizerInterface
@@ -449,7 +449,7 @@ class DefaultOptimizer(OptimizerInterface):
         return train_loss
 
     def train(self, net: torch.nn.Module, dataset: CSVDataset, progress_bar_disable: bool = False,
-              torch_dataloader_kwargs: dict = None) -> (torch.nn.Module, Sequence[EpochStatistics], int):
+              torch_dataloader_kwargs: dict = None, use_amp: bool = False) -> (torch.nn.Module, Sequence[EpochStatistics], int):
         """
         Train the network.
         :param net: the network to train
@@ -532,7 +532,7 @@ class DefaultOptimizer(OptimizerInterface):
         done = False
         while not done:
             train_stats, validation_stats = self.train_epoch(net, train_loader, val_clean_loader, val_triggered_loader,
-                                                             epoch, progress_bar_disable=progress_bar_disable)
+                                                             epoch, progress_bar_disable=progress_bar_disable, use_amp=use_amp)
             epoch_training_stats = EpochStatistics(epoch, train_stats, validation_stats)
             epoch_stats.append(epoch_training_stats)
 
@@ -582,7 +582,7 @@ class DefaultOptimizer(OptimizerInterface):
 
     def train_epoch(self, model: nn.Module, train_loader: DataLoader,
                     val_clean_loader: DataLoader, val_triggered_loader: DataLoader,
-                    epoch_num: int, progress_bar_disable: bool = False):
+                    epoch_num: int, progress_bar_disable: bool = False, use_amp: bool = False):
         """
         Runs one epoch of training on the specified model
 
@@ -599,6 +599,10 @@ class DefaultOptimizer(OptimizerInterface):
         train_dataset_len = len(train_loader.dataset)
         loop = tqdm(train_loader, disable=progress_bar_disable)
 
+        scaler = None
+        if use_amp:
+            scaler = torch.cuda.amp.GradScaler()
+
         train_n_correct, train_n_total = None, None
         sum_batchmean_train_loss = 0
         running_train_acc = 0
@@ -607,15 +611,25 @@ class DefaultOptimizer(OptimizerInterface):
         for batch_idx, (x, y_truth) in enumerate(loop):
             x = x.to(self.device)
             y_truth = y_truth.to(self.device)
+            # if use_amp:
+            #     x = x.half()
+            #     y_truth = y_truth.half()
+
 
             # put network into training mode & zero out previous gradient computations
             self.optimizer.zero_grad()
 
             # get predictions based on input & weights learned so far
-            y_hat = model(x)
+            if use_amp:
+                with torch.cuda.amp.autocast():
+                    y_hat = model(x)
+                    # compute metrics
+                    batch_train_loss = self._eval_loss_function(y_hat, y_truth)
+            else:
+                y_hat = model(x)
+                # compute metrics
+                batch_train_loss = self._eval_loss_function(y_hat, y_truth)
 
-            # compute metrics
-            batch_train_loss = self._eval_loss_function(y_hat, y_truth)
             sum_batchmean_train_loss += batch_train_loss.item()
 
             running_train_acc, train_n_total, train_n_correct = _running_eval_acc(y_hat, y_truth,
@@ -629,10 +643,20 @@ class DefaultOptimizer(OptimizerInterface):
                               train_n_total, train_n_correct, model)
 
             # compute gradient
-            batch_train_loss.backward()
+            if use_amp:
+                # Scales loss.  Calls backward() on scaled loss to create scaled gradients.
+                # Backward passes under autocast are not recommended.
+                # Backward ops run in the same dtype autocast chose for corresponding forward ops.
+                scaler.scale(batch_train_loss).backward()
+            else:
+                batch_train_loss.backward()
 
             # perform gradient clipping if configured
             if self.optimizer_cfg.training_cfg.clip_grad:
+                if use_amp:
+                    # Unscales the gradients of optimizer's assigned params in-place
+                    scaler.unscale_(self.optimizer)
+
                 if self.optimizer_cfg.training_cfg.clip_type == 'norm':
                     # clip_grad_norm_ modifies gradients in place
                     #  see: https://pytorch.org/docs/stable/_modules/torch/nn/utils/clip_grad.html
@@ -647,7 +671,15 @@ class DefaultOptimizer(OptimizerInterface):
                     logger.error(msg)
                     raise ValueError(msg)
 
-            self.optimizer.step()
+            if use_amp:
+                # scaler.step() first unscales the gradients of the optimizer's assigned params.
+                # If these gradients do not contain infs or NaNs, optimizer.step() is then called,
+                # otherwise, optimizer.step() is skipped.
+                scaler.step(self.optimizer)
+                # Updates the scale for next iteration.
+                scaler.update()
+            else:
+                self.optimizer.step()
 
             loop.set_description('Epoch {}/{}'.format(epoch_num + 1, self.num_epochs))
             loop.set_postfix(avg_train_loss=batch_train_loss.item())

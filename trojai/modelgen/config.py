@@ -703,6 +703,7 @@ class ModelGeneratorConfig(ConfigInterface):
                  optimizer: Union[Union[OptimizerInterface, DefaultOptimizerConfig],
                                   Sequence[Union[OptimizerInterface, DefaultOptimizerConfig]]] = None,
                  parallel=False,
+                 amp=False,
                  experiment_cfg: dict = None,
                  run_ids: Union[Any, Sequence[Any]] = None,
                  filenames: Union[str, Sequence[str]] = None,
@@ -726,6 +727,7 @@ class ModelGeneratorConfig(ConfigInterface):
             of both.  If a sequence of optimizers is passed, then the length of that sequence must match the number
             of sequential datasets that are to be used for training the model.
         :param parallel: (bool) - if True, attempts to use multiple GPU's
+        :param amp: (bool) - if True, attempts to use automatic mixed precision on GPU's
         :param experiment_cfg: dictionary containing information regarding the experiment which is being run by the
             ModelGenerator.  This information is also saved in the output summary JSON file that is associated with
             every model that is generated.
@@ -749,6 +751,7 @@ class ModelGeneratorConfig(ConfigInterface):
 
         self.optimizer = optimizer
         self.parallel = parallel
+        self.amp = amp
         self.experiment_cfg = dict() if experiment_cfg is None else experiment_cfg
 
         self.run_ids = run_ids  # it might be useful to allow something like a generator for this argument
@@ -765,12 +768,13 @@ class ModelGeneratorConfig(ConfigInterface):
         return ModelGeneratorConfig(arch_factory_copy, data_copy,
                                     self.model_save_dir, self.stats_save_dir, self.num_models,
                                     self.arch_factory_kwargs, self.arch_factory_kwargs_generator,
-                                    optimizer_copy, self.parallel, self.experiment_cfg,
+                                    optimizer_copy, self.parallel, self.amp, self.experiment_cfg,
                                     self.run_ids, self.filenames, self.save_with_hash)
 
     def __eq__(self, other):
         if self.arch_factory == other.arch_factory and self.data == other.data and self.optimizer == other.optimizer \
            and self.parallel == other.parallel \
+           and self.amp == other.amp \
            and self.model_save_dir == other.model_save_dir and self.stats_save_dir == other.stats_save_dir \
            and self.arch_factory_kwargs == other.arch_factory_kwargs \
            and self.arch_factory_kwargs_generator == other.arch_factory_kwargs_generator \
@@ -870,6 +874,7 @@ class ModelGeneratorConfig(ConfigInterface):
                 'arch_factory_kwargs': self.arch_factory_kwargs,
                 'arch_factory_kwargs_generator': self.arch_factory_kwargs_generator,
                 'parallel': self.parallel,
+                'amp': self.amp,
                 'experiment_cfg': self.experiment_cfg,
                 'run_ids': self.run_ids,
                 'filenames': self.filenames,
@@ -937,6 +942,7 @@ class RunnerConfig(ConfigInterface):
                  optimizer: Union[OptimizerInterface, DefaultOptimizerConfig,
                                   Sequence[Union[OptimizerInterface, DefaultOptimizerConfig]]] = None,
                  parallel: bool = False,
+                 amp: bool = False,
                  model_save_dir: str = "/tmp/models", stats_save_dir: str = "/tmp/model_stats",
                  model_save_format: str = "pt",
                  run_id: Any = None, filename: str = None, save_with_hash: bool = False):
@@ -953,6 +959,7 @@ class RunnerConfig(ConfigInterface):
         :param optimizer: a OptimizerInterface object, or a DefaultOptimizer configuration, or possibly mixed sequence
             of both
         :param parallel: (bool) if True, spreads GPU tasking over all available GPUs
+        :param amp: (bool) if True, uses automatic mixed precision training
         :param model_save_dir: (str) path to where the models should be saved.
         :param stats_save_dir: (str) path to where the model training statistics should be saved.
         :param run_id: An ending to the save file name. Can be anything, but will be converted to string format.
@@ -969,6 +976,7 @@ class RunnerConfig(ConfigInterface):
         self.arch_factory_kwargs_generator = arch_factory_kwargs_generator
         self.optimizer = optimizer
         self.parallel = parallel
+        self.amp = amp
         self.model_save_dir = model_save_dir
         self.stats_save_dir = stats_save_dir
         self.model_save_format = model_save_format
@@ -986,7 +994,7 @@ class RunnerConfig(ConfigInterface):
         data_copy = copy.deepcopy(self.data)
         optim_copy = copy.deepcopy(self.optimizer)
         return RunnerConfig(arch_copy, data_copy, self.arch_factory_kwargs, self.arch_factory_kwargs_generator,
-                            optim_copy, self.parallel,
+                            optim_copy, self.parallel, self.amp,
                             self.model_save_dir, self.stats_save_dir, self.model_save_format,
                             self.run_id, self.filename, self.save_with_hash)
 
@@ -1123,7 +1131,7 @@ def modelgen_cfg_to_runner_cfg(modelgen_cfg: ModelGeneratorConfig,
     """
     return RunnerConfig(modelgen_cfg.arch_factory, modelgen_cfg.data, modelgen_cfg.arch_factory_kwargs,
                         modelgen_cfg.arch_factory_kwargs_generator,
-                        modelgen_cfg.optimizer, modelgen_cfg.parallel,
+                        modelgen_cfg.optimizer, modelgen_cfg.parallel, modelgen_cfg.amp,
                         modelgen_cfg.model_save_dir, modelgen_cfg.stats_save_dir,
                         run_id=run_id, filename=filename, save_with_hash=modelgen_cfg.save_with_hash)
 
