@@ -19,10 +19,13 @@ from torch.utils.tensorboard import SummaryWriter
 import torch.cuda.amp
 from tqdm import tqdm
 
+import random
+from advertorch.context import ctx_noparamgrad_and_eval
+from advertorch.attacks import LinfPGDAttack
 
 from .training_statistics import EpochStatistics, EpochValidationStatistics, EpochTrainStatistics
 from .optimizer_interface import OptimizerInterface
-from .config import DefaultOptimizerConfig, DefaultSoftToHardFn, default_soft_to_hard_fn_kwargs
+from .config import DefaultOptimizerConfig, DefaultSoftToHardFn, default_soft_to_hard_fn_kwargs, PGDOptimizerConfig
 from .constants import VALID_OPTIMIZERS, MAX_EPOCHS
 from .datasets import CSVDataset, DatasetInterface
 
@@ -86,14 +89,16 @@ def _running_eval_acc(y_hat: torch.Tensor, y_truth: torch.Tensor,
         n_correct = defaultdict(int)
 
     hard_decision_pred = soft_to_hard_fn(y_hat, **soft_to_hard_fn_kwargs)
-    label, n_correct_per_class = hard_decision_pred[hard_decision_pred == y_truth.int()].unique(return_counts=True)
+    label, n_correct_per_class = hard_decision_pred[hard_decision_pred == y_truth.int(
+    )].unique(return_counts=True)
     for ii, k in enumerate(label):
         n_correct[k.item()] += n_correct_per_class[ii].item()
 
     acc = 0.
     weight = 1. / len(n_total.keys())
     for k in n_total.keys():
-        acc += 0 if n_total[k] == 0 else float(n_correct[k]) / float(n_total[k])
+        acc += 0 if n_total[k] == 0 else float(n_correct[k]) / \
+            float(n_total[k])
 
     acc *= 100. * weight
 
@@ -167,8 +172,10 @@ def _save_nandata(x, y_hat, y_truth, loss_tensor, loss_val, acc_val, n_total, n_
     :return None
 
     """
-    t = str(datetime.datetime.now()).replace(':', '_').replace('.', '_').replace('-', '_').replace(' ', '_')
-    save_folder = tempfile.mkdtemp(prefix='core_' + str(t) + '_', dir=os.getcwd())
+    t = str(datetime.datetime.now()).replace(':', '_').replace(
+        '.', '_').replace('-', '_').replace(' ', '_')
+    save_folder = tempfile.mkdtemp(
+        prefix='core_' + str(t) + '_', dir=os.getcwd())
 
     dict_to_save = dict(y_hat=y_hat,
                         y_truth=y_truth,
@@ -220,7 +227,8 @@ def train_val_dataset_split(dataset: torch.utils.data.Dataset, split_amt: float,
     val_len = int(dataset_len - train_len)
     lengths = [train_len, val_len]
 
-    train_dataset, val_dataset = torch.utils.data.random_split(dataset, lengths)
+    train_dataset, val_dataset = torch.utils.data.random_split(
+        dataset, lengths)
 
     if val_data_transform is not None or val_label_transform is not None:
         logger.warning("Creating separate memory copy of val_dataset ")
@@ -239,7 +247,8 @@ def train_val_dataset_split(dataset: torch.utils.data.Dataset, split_amt: float,
         else:
             val_dataset.dataset.label_transform = train_dataset.dataset.data_transform
     else:
-        logger.info("val_dataset label/data transforms are configured to be identical to train label/data transforms!")
+        logger.info(
+            "val_dataset label/data transforms are configured to be identical to train label/data transforms!")
     return train_dataset, val_dataset
 
 
@@ -272,21 +281,21 @@ def split_val_clean_trig(val_dataset):
         return val_dataset, []
 
 
-class DefaultOptimizer(OptimizerInterface):
+class PGDOptimizer(OptimizerInterface):
     """
-    Defines the default optimizer which trains the models
+    Defines the optimizer which include  PGD adversarial training 
     """
 
-    def __init__(self, optimizer_cfg: DefaultOptimizerConfig = None):
+    def __init__(self, optimizer_cfg: PGDOptimizerConfig = None):
         """
-        Initializes the default optimizer with a DefaultOptimizerConfig
-        :param optimizer_cfg: the configuration used to initialize the DefaultOptimizer
+        Initializes the default optimizer with a PGDOptimizerConfig
+        :param optimizer_cfg: the configuration used to initialize the PGDOptimizer
         """
         if optimizer_cfg is None:
             logger.info("Using default parameters to setup Optimizer!")
-            self.optimizer_cfg = DefaultOptimizerConfig()
-        elif not isinstance(optimizer_cfg, DefaultOptimizerConfig):
-            msg = "optimizer_cfg must be of type DefaultOptimizerConfig"
+            self.optimizer_cfg = PGDOptimizerConfig()
+        elif not isinstance(optimizer_cfg, PGDOptimizerConfig):
+            msg = "optimizer_cfg must be of type PGDOptimizerConfig"
             logger.error(msg)
             raise TypeError(msg)
         else:
@@ -298,9 +307,11 @@ class DefaultOptimizer(OptimizerInterface):
         if not callable(self.optimizer_cfg.training_cfg.objective):
             self.loss_function_str = self.optimizer_cfg.training_cfg.objective.lower()
             if self.loss_function_str == "cross_entropy_loss".lower():
-                self.loss_function = nn.CrossEntropyLoss(**self.optimizer_cfg.training_cfg.objective_kwargs)
+                self.loss_function = nn.CrossEntropyLoss(
+                    **self.optimizer_cfg.training_cfg.objective_kwargs)
             elif self.loss_function_str == 'BCEWithLogitsLoss'.lower():
-                self.loss_function = nn.BCEWithLogitsLoss(**self.optimizer_cfg.training_cfg.objective_kwargs)
+                self.loss_function = nn.BCEWithLogitsLoss(
+                    **self.optimizer_cfg.training_cfg.objective_kwargs)
             else:
                 msg = self.loss_function_str + ": Unsupported objective function!"
                 logger.error(msg)
@@ -337,7 +348,8 @@ class DefaultOptimizer(OptimizerInterface):
         # or for early stopping
         if self.optimizer_cfg.training_cfg.early_stopping or self.save_best_model:
             self.num_epochs_per_metrics = 1
-            logger.warning("Overriding num_epochs_per_metrics due to early-stopping or saving-best-model!")
+            logger.warning(
+                "Overriding num_epochs_per_metrics due to early-stopping or saving-best-model!")
 
         if self.device.type == 'cpu' and self.num_batches_per_metrics:
             logger.warning('Training will be VERY SLOW on a CPU with num_batches_per_metrics set to a '
@@ -370,7 +382,7 @@ class DefaultOptimizer(OptimizerInterface):
     def __deepcopy__(self, memodict={}):
         optimizer_cfg_copy = copy.deepcopy(self.optimizer_cfg)
         # WARNING: this assumes that none of the derived attributes have been changed after construction!
-        return DefaultOptimizer(DefaultOptimizerConfig(optimizer_cfg_copy.training_cfg,
+        return PGDOptimizer(PGDOptimizerConfig(optimizer_cfg_copy.training_cfg,
                                                        optimizer_cfg_copy.reporting_cfg))
 
     def get_cfg_as_dict(self) -> dict:
@@ -382,12 +394,12 @@ class DefaultOptimizer(OptimizerInterface):
                 # we still check the derived attributes to ensure that they remained the same after
                 # after construction
                 if self.device.type == other.device.type and self.loss_function_str == other.loss_function_str and \
-                    self.lr == other.lr and self.optimizer_str == other.optimizer_str and \
-                    self.batch_size == other.batch_size and self.num_epochs == other.num_epochs and \
-                    self.str_description == other.str_description and \
-                    self.num_batches_per_logmsg == other.num_batches_per_logmsg and \
-                    self.num_epochs_per_metrics == other.num_epochs_per_metrics and \
-                    self.num_batches_per_metrics == other.num_batches_per_metrics:
+                        self.lr == other.lr and self.optimizer_str == other.optimizer_str and \
+                        self.batch_size == other.batch_size and self.num_epochs == other.num_epochs and \
+                        self.str_description == other.str_description and \
+                        self.num_batches_per_logmsg == other.num_batches_per_logmsg and \
+                        self.num_epochs_per_metrics == other.num_epochs_per_metrics and \
+                        self.num_batches_per_metrics == other.num_batches_per_metrics:
                     if self.tb_writer:
                         if other.tb_writer:
                             if self.tb_writer.log_dir == other.tb_writer.log_dir:
@@ -433,7 +445,7 @@ class DefaultOptimizer(OptimizerInterface):
         """
         with open(fname, 'rb') as f:
             loaded_optimzier_cfg = pickle.load(f)
-        return DefaultOptimizer(loaded_optimzier_cfg)
+        return PGDOptimizer(loaded_optimzier_cfg)
 
     def _eval_loss_function(self, y_hat: torch.Tensor, y_truth: torch.Tensor) -> torch.Tensor:
         """
@@ -463,9 +475,11 @@ class DefaultOptimizer(OptimizerInterface):
 
         net.train()  # put network into training mode
         if self.optimizer_str == 'adam':
-            self.optimizer = optim.Adam(net.parameters(), lr=self.lr, **self.optim_kwargs)
+            self.optimizer = optim.Adam(
+                net.parameters(), lr=self.lr, **self.optim_kwargs)
         elif self.optimizer_str == 'sgd':
-            self.optimizer = optim.SGD(net.parameters(), lr=self.lr, **self.optim_kwargs)
+            self.optimizer = optim.SGD(
+                net.parameters(), lr=self.lr, **self.optim_kwargs)
         elif self.optimizer_str not in VALID_OPTIMIZERS:
             msg = self.optimizer_str + " is not a supported optimizer!"
             logger.error(msg)
@@ -487,24 +501,30 @@ class DefaultOptimizer(OptimizerInterface):
             pin_memory = True
 
         # split into train & validation datasets, and setup data loaders
-        data_loader_kwargs_in = dict(batch_size=self.batch_size, pin_memory=pin_memory, drop_last=True, shuffle=True)
+        data_loader_kwargs_in = dict(
+            batch_size=self.batch_size, pin_memory=pin_memory, drop_last=True, shuffle=True)
         if torch_dataloader_kwargs:
             data_loader_kwargs_in.update(torch_dataloader_kwargs)
 
-        val_dataloader_kwargs_in = dict(batch_size=self.batch_size, pin_memory=pin_memory, drop_last=False, shuffle=False)
+        val_dataloader_kwargs_in = dict(
+            batch_size=self.batch_size, pin_memory=pin_memory, drop_last=False, shuffle=False)
 
         if self.optimizer_cfg.training_cfg.val_dataloader_kwargs is not None:
-            val_dataloader_kwargs_in.update(self.optimizer_cfg.training_cfg.val_dataloader_kwargs)
+            val_dataloader_kwargs_in.update(
+                self.optimizer_cfg.training_cfg.val_dataloader_kwargs)
         if torch_dataloader_kwargs:
             val_dataloader_kwargs_in.update(torch_dataloader_kwargs)
 
-        logger.info('DataLoader[Train/Val] kwargs=' + str(torch_dataloader_kwargs))
+        logger.info('DataLoader[Train/Val] kwargs=' +
+                    str(torch_dataloader_kwargs))
+        if use_amp: logger.info("Using AMP for mixed precision training")
 
         train_dataset, val_dataset = train_val_dataset_split(dataset, self.optimizer_cfg.training_cfg.train_val_split,
                                                              self.optimizer_cfg.training_cfg.val_data_transform,
                                                              self.optimizer_cfg.training_cfg.val_label_transform)
         # try to split the val_dataset into clean & triggered
-        val_dataset_clean, val_dataset_triggered = split_val_clean_trig(val_dataset)
+        val_dataset_clean, val_dataset_triggered = split_val_clean_trig(
+            val_dataset)
 
         # drop_last=True is from: https://stackoverflow.com/questions/56576716
         train_loader = DataLoader(train_dataset, **data_loader_kwargs_in)
@@ -530,13 +550,12 @@ class DefaultOptimizer(OptimizerInterface):
         epoch = 0
         done = False
         while not done:
-            train_stats, validation_stats = self.train_epoch(net, train_loader, val_clean_loader, val_triggered_loader,
-                                                             epoch, use_amp=use_amp)
-            epoch_training_stats = EpochStatistics(epoch, train_stats, validation_stats)
+            train_stats, validation_stats = self.train_epoch(net, train_loader, val_clean_loader, val_triggered_loader, epoch, use_amp=use_amp)
+            epoch_training_stats = EpochStatistics(
+                epoch, train_stats, validation_stats)
             epoch_stats.append(epoch_training_stats)
             val_loss_array = np.append(val_loss_array, validation_stats.get_val_loss())
 
-            # TODO: save best model should use same criterion as early stopping (val-loss rather than val-acc)?
             if self.save_best_model:
                 loss_threshold = np.min(val_loss_array) + np.abs(self.optimizer_cfg.training_cfg.early_stopping.val_loss_eps)
                 # use validation accuracy as the metric for deciding the best model
@@ -546,8 +565,6 @@ class DefaultOptimizer(OptimizerInterface):
                     best_net = copy.deepcopy(net)
 
             # early stopping
-            # record the val loss of the last batch in the epoch.  if N epochs after the best val_loss, we have not
-            # improved the val-loss by atleast eps, we quit
             if self.optimizer_cfg.training_cfg.early_stopping:
                 # EarlyStoppingConfig validates that eps > 0 as well ..
                 error_from_best = np.abs(val_loss_array - np.min(val_loss_array))
@@ -575,7 +592,7 @@ class DefaultOptimizer(OptimizerInterface):
         else:
             return net, epoch_stats, epoch, best_val_loss_epoch
 
-    def train_epoch(self, model: nn.Module, train_loader: DataLoader,
+    def train_epoch(self,   model: nn.Module, train_loader: DataLoader,
                     val_clean_loader: DataLoader, val_triggered_loader: DataLoader,
                     epoch_num: int, use_amp: bool = False):
         """
@@ -586,10 +603,11 @@ class DefaultOptimizer(OptimizerInterface):
         :param val_clean_loader: a DataLoader object pointing to the validation dataset that is clean
         :param val_triggered_loader: a DataLoader object pointing to the validation dataset that is triggered
         :param epoch_num: the epoch number that is being trained
-        :param progress_bar_disable: if True, disables the progress bar
         :return: a list of statistics for batches where statistics were computed
         """
 
+        # Probability of Adversarial attack to occur in each iteration
+        attack_prob = self.optimizer_cfg.training_cfg.adv_training_ratio
         pid = os.getpid()
         train_dataset_len = len(train_loader.dataset)
         loop = tqdm(train_loader, disable=self.optimizer_cfg.reporting_cfg.disable_progress_bar)
@@ -599,6 +617,18 @@ class DefaultOptimizer(OptimizerInterface):
             scaler = torch.cuda.amp.GradScaler()
 
         train_n_correct, train_n_total = None, None
+
+        # Define parameters of the adversarial attack
+        attack_eps = float(self.optimizer_cfg.training_cfg.adv_training_eps)
+        attack_iterations = int(self.optimizer_cfg.training_cfg.adv_training_iterations)
+        eps_iter = (2.0 * attack_eps) / float(attack_iterations)
+        attack = LinfPGDAttack(
+            predict=model,
+            loss_fn=nn.CrossEntropyLoss(reduction="sum"),
+            eps=attack_eps,
+            nb_iter=attack_iterations,
+            eps_iter=eps_iter)
+
         sum_batchmean_train_loss = 0
         running_train_acc = 0
         num_batches = len(train_loader)
@@ -613,12 +643,21 @@ class DefaultOptimizer(OptimizerInterface):
             # get predictions based on input & weights learned so far
             if use_amp:
                 with torch.cuda.amp.autocast():
+                    # add adversarial noise via l_inf PGD attack
+                    # only apply attack to attack_prob of the batches
+                    if attack_prob and random.random() <= attack_prob:
+                        with ctx_noparamgrad_and_eval(model):
+                            x = attack.perturb(x, y_truth)
                     y_hat = model(x)
                     # compute metrics
                     batch_train_loss = self._eval_loss_function(y_hat, y_truth)
+
             else:
+                # add adversarial noise vis lin PGD attack
+                if attack_prob and random.random() <= attack_prob:
+                    with ctx_noparamgrad_and_eval(model):
+                        x = attack.perturb(x, y_truth)
                 y_hat = model(x)
-                # compute metrics
                 batch_train_loss = self._eval_loss_function(y_hat, y_truth)
 
             sum_batchmean_train_loss += batch_train_loss.item()
@@ -628,10 +667,6 @@ class DefaultOptimizer(OptimizerInterface):
                                                                                   n_correct=train_n_correct,
                                                                                   soft_to_hard_fn=self.soft_to_hard_fn,
                                                                                   soft_to_hard_fn_kwargs=self.soft_to_hard_fn_kwargs)
-
-            if np.isnan(sum_batchmean_train_loss) or np.isnan(running_train_acc):
-                _save_nandata(x, y_hat, y_truth, batch_train_loss, sum_batchmean_train_loss, running_train_acc,
-                              train_n_total, train_n_correct, model)
 
             # compute gradient
             if use_amp:
@@ -660,7 +695,8 @@ class DefaultOptimizer(OptimizerInterface):
                 elif self.optimizer_cfg.training_cfg.clip_type == 'val':
                     # clip_grad_val_ modifies gradients in place
                     #  see: https://pytorch.org/docs/stable/_modules/torch/nn/utils/clip_grad.html
-                    torch_clip_grad.clip_grad_value_(model.parameters(), self.optimizer_cfg.training_cfg.clip_val)
+                    torch_clip_grad.clip_grad_value_(
+                        model.parameters(), self.optimizer_cfg.training_cfg.clip_val)
                 else:
                     msg = "Unknown clipping type for gradient clipping!"
                     logger.error(msg)
@@ -676,9 +712,6 @@ class DefaultOptimizer(OptimizerInterface):
             else:
                 self.optimizer.step()
 
-            loop.set_description('Epoch {}/{}'.format(epoch_num + 1, self.num_epochs))
-            loop.set_postfix(avg_train_loss=batch_train_loss.item())
-
             # report batch statistics to tensorflow
             if self.tb_writer:
                 try:
@@ -691,10 +724,13 @@ class DefaultOptimizer(OptimizerInterface):
                     # TODO: catch specific expcetions
                     pass
 
+            loop.set_description('Epoch {}/{}'.format(epoch_num + 1, self.num_epochs))
+            loop.set_postfix(avg_train_loss=batch_train_loss.item())
+
             if batch_idx % self.num_batches_per_logmsg == 0:
                 logger.info('{}\tTrain Epoch: {} [{}/{} ({:.0f}%)]\tTrainLoss: {:.6f}\tTrainAcc: {:.6f}'.format(
                     pid, epoch_num, batch_idx * len(x), train_dataset_len,
-                                    100. * batch_idx / num_batches, batch_train_loss.item(), running_train_acc))
+                    100. * batch_idx / num_batches, batch_train_loss.item(), running_train_acc))
 
         train_stats = EpochTrainStatistics(running_train_acc, sum_batchmean_train_loss / float(num_batches))
 
@@ -717,7 +753,8 @@ class DefaultOptimizer(OptimizerInterface):
                 _eval_acc(val_triggered_loader, model, self.device,
                           self.soft_to_hard_fn, self.soft_to_hard_fn_kwargs, self._eval_loss_function)
         else:
-            logger.info("No dataset computed for validation on triggered dataset!")
+            logger.info(
+                "No dataset computed for validation on triggered dataset!")
             running_val_triggered_acc = None
             val_triggered_loss = None
 
@@ -793,7 +830,8 @@ class DefaultOptimizer(OptimizerInterface):
             pin_memory = True
 
         # drop_last=True is from: https://stackoverflow.com/questions/56576716
-        data_loader_kwargs_in = dict(batch_size=1, pin_memory=pin_memory, drop_last=True, shuffle=False)
+        data_loader_kwargs_in = dict(
+            batch_size=1, pin_memory=pin_memory, drop_last=True, shuffle=False)
         if torch_dataloader_kwargs:
             data_loader_kwargs_in.update(torch_dataloader_kwargs)
         logger.info('DataLoader[Test] kwargs=' + str(torch_dataloader_kwargs))
@@ -804,12 +842,14 @@ class DefaultOptimizer(OptimizerInterface):
                                                               self.soft_to_hard_fn, self.soft_to_hard_fn_kwargs)
         test_data_statistics['clean_accuracy'] = test_acc
         test_data_statistics['clean_n_total'] = test_n_total
-        logger.info("Accuracy on clean test data: %0.02f" % (test_data_statistics['clean_accuracy'],))
+        logger.info("Accuracy on clean test data: %0.02f" %
+                    (test_data_statistics['clean_accuracy'],))
 
         if triggered_data is not None:
             # Test the classification accuracy on triggered data only, for all labels.
             # we set batch_size=1 b/c
-            data_loader = DataLoader(triggered_data, batch_size=1, pin_memory=pin_memory)
+            data_loader = DataLoader(
+                triggered_data, batch_size=1, pin_memory=pin_memory)
             test_acc, test_n_total, test_n_correct, _ = _eval_acc(data_loader, net, self.device,
                                                                   self.soft_to_hard_fn, self.soft_to_hard_fn_kwargs)
             test_data_statistics['triggered_accuracy'] = test_acc
@@ -821,7 +861,8 @@ class DefaultOptimizer(OptimizerInterface):
             # Test the classification accuracy on clean data for labels which have corresponding triggered examples.
             # For example, if an MNIST dataset was created with triggered examples only for labels 4 and 5,
             # then this dataset is the subset of data with labels 4 and 5 that don't have the triggers.
-            data_loader = DataLoader(clean_test_triggered_labels_data, batch_size=1, pin_memory=pin_memory)
+            data_loader = DataLoader(
+                clean_test_triggered_labels_data, batch_size=1, pin_memory=pin_memory)
             test_acc, test_n_total, test_n_correct, _ = _eval_acc(data_loader, net, self.device,
                                                                   self.soft_to_hard_fn, self.soft_to_hard_fn_kwargs)
             test_data_statistics['clean_test_triggered_label_accuracy'] = test_acc
@@ -830,3 +871,4 @@ class DefaultOptimizer(OptimizerInterface):
                         (test_data_statistics['clean_test_triggered_label_accuracy'], str(test_n_total)))
 
         return test_data_statistics
+

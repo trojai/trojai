@@ -1,15 +1,15 @@
-numpy==1.18.4
+numpy==1.19.2
 pandas==1.0.3
 scikit-image==0.17.2
 joblib==0.14.1
-scipy==1.4.1
+scipy==1.5.3
 pillow==7.1.2
 scikit-learn==0.23.0
 tqdm==4.46.0
 opencv-python==4.2.0.34
-torch==1.5.0
-torchvision==0.6.0
-torchtext==0.6.0
+torch==1.7.0
+torchvision==0.8.0
+torchtext==0.8.0
 spacy==2.2.0
 https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-2.2.0/en_core_web_sm-2.2.0.tar.gz#egg=en_core_web_sm
 cloudpickle==1.4.1
@@ -18,3 +18,4 @@ future==0.18.2
 Wand==0.5.9
 nltk==3.5
 pyllist==0.3
+blend_modes

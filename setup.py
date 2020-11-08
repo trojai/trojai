@@ -19,25 +19,27 @@ on_rtd = os.environ.get('READTHEDOCS') == 'True'
 if on_rtd:
     install_requires = []
 else:
-    install_requires = ['numpy==1.18.4',
+    install_requires = ['numpy==1.19.2',
                         'pandas==1.0.3',
                         'scikit-image==0.17.2',
                         'joblib==0.14.1',
-                        'scipy==1.4.1',
+                        'scipy==1.5.3',
                         'pillow==7.1.2',
                         'scikit-learn==0.23.0',
                         'tqdm==4.46.0',
                         'opencv-python==4.2.0.34',
-                        'torch==1.5.0',
-                        'torchvision==0.6.0',
-                        'torchtext==0.6.0',
+                        'torch==1.7.0',
+                        'torchvision==0.8.0',
+                        'torchtext==0.8.0',
                         'spacy==2.2.0',
                         'cloudpickle==1.4.1',
                         'tb-nightly==2.3.0a20200514',
                         'future==0.18.2',
                         'Wand==0.5.9',
                         'nltk==3.5',
-                        'pyllist==0.3'
+                        'pyllist==0.3',
+                        'albumentations',
+                        'blend_modes'
                         ]
 
 setuptools.setup(
@@ -73,6 +75,10 @@ setuptools.setup(
     ],
 
     keywords='deep-learning trojan adversarial',
+
+    # Needed for albumentations install
+    dependency_links=['git+https://bitbucket.xrcs.jhuapl.edu/scm/troj/'
+                      'albumentations.git@reproducible_randomness_for_augmentations#egg=albumentations'],
 
     # List run-time dependencies here.  These will be installed by pip when
     # your project is installed. For an analysis of "install_requires" vs pip's

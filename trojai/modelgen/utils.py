@@ -31,3 +31,24 @@ def resave_trojai_model_as_dict(file, new_loc=None):
         torch.save(model_dict, new_loc)
     else:
         torch.save(model_dict, file)
+
+
+def clamp(X, l, u, cuda=True):
+    if type(l) is not torch.Tensor:
+        if cuda:
+            l = torch.cuda.FloatTensor(1).fill_(l)
+        else:
+            l = torch.FloatTensor(1).fill_(l)
+    if type(u) is not torch.Tensor:
+        if cuda:
+            u = torch.cuda.FloatTensor(1).fill_(u)
+        else:
+            u = torch.FloatTensor(1).fill_(u)
+    return torch.max(torch.min(X, u), l)
+
+
+def get_uniform_delta(shape, eps, requires_grad=True):
+    delta = torch.zeros(shape).cuda()
+    delta.uniform_(-eps, eps)
+    delta.requires_grad = requires_grad
+    return delta

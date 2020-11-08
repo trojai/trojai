@@ -17,6 +17,100 @@ logger = logging.getLogger(__name__)
 Module which defines several insert style merge operations.
 """
 
+class InsertRandomLocationNonzeroAlpha(ImageMerge):
+    """
+    Inserts a defined pattern into an image in a randomly selected location where the alpha channel is non-zero
+    """
+    def __init__(self) -> None:
+        """
+        Initialize the insert merger
+        """
+
+    def do(self, img_obj: ImageEntity, pattern_obj: ImageEntity, random_state_obj: RandomState) -> ImageEntity:
+        """
+        Perform the described merge operation
+        :param img_obj: The input object into which the pattern is to be inserted
+        :param pattern_obj: The pattern object which is to be inserted into the image
+        :param random_state_obj: used to sample from the possible valid locations, by providing a random state,
+                                 we ensure reproducibility of the data
+        :return: the merged object
+        """
+        img = img_obj.get_data()
+        pattern = pattern_obj.get_data()
+        num_chans = img.shape[2]
+        if num_chans != 4:
+            raise ValueError("Alpha Channel expected!")
+        # find valid locations & remove bounding box
+        i_rows, i_cols, _ = img.shape
+        p_rows, p_cols, _ = pattern.shape
+
+        # TODO: remove edges of image so that the patch always stays within
+        #  the image
+        valid_indices = np.where(img[0:i_rows-p_rows, 0:i_cols-p_cols, 3] != 0)
+        num_valid_indices = len(valid_indices[0])
+        random_index = random_state_obj.choice(num_valid_indices)
+        insert_loc = [valid_indices[0][random_index],
+                      valid_indices[1][random_index]]
+        insert_loc_per_chan = np.tile(insert_loc, (4, 1)).astype(int)
+
+        logger.info("Selected insertion location randomly from available locations")
+
+        inserter = td_public_im.InsertAtLocation(insert_loc_per_chan)
+        inserted_img_obj = inserter.do(img_obj, pattern_obj, random_state_obj)
+
+        return inserted_img_obj
+
+
+class InsertRandomWithMask(ImageMerge):
+    """
+    Inserts a defined pattern into an image in a randomly selected location where the specified mask is True
+    """
+    def __init__(self) -> None:
+        """
+        Initialize the insert merger
+        """
+
+    def do(self, img_obj: ImageEntity, pattern_obj: ImageEntity, random_state_obj: RandomState) -> ImageEntity:
+        """
+        Perform the described merge operation
+        :param img_obj: The input object into which the pattern is to be inserted
+        :param pattern_obj: The pattern object which is to be inserted into the image
+        :param random_state_obj: used to sample from the possible valid locations, by providing a random state,
+                                 we ensure reproducibility of the data
+        :return: the merged object
+        """
+        img = img_obj.get_data()
+        img_mask = img_obj.get_mask()
+        pattern = pattern_obj.get_data()
+        num_chans = img.shape[2]
+        if num_chans != 4:
+            raise ValueError("Alpha Channel expected!")
+        # find valid locations & remove bounding box
+        i_rows, i_cols, _ = img.shape
+        p_rows, p_cols, _ = pattern.shape
+
+        msk_for_loc_determination = np.ones((pattern.shape[0], pattern.shape[1], 1), dtype=int)
+        valid_loc_mask = image_insert_utils.valid_locations(np.expand_dims(np.invert(img_mask), axis=2),
+                                                      msk_for_loc_determination,
+                                                      ValidInsertLocationsConfig(algorithm='edge_tracing',
+                                                                                 min_val=0))
+
+        valid_indices = np.where(valid_loc_mask)
+        num_valid_indices = len(valid_indices[0])
+        if num_valid_indices == 0:
+            raise RuntimeError('Unable to InsertRandomWithMask, no valid locations found')
+        random_index = random_state_obj.choice(num_valid_indices)
+        insert_loc = [valid_indices[0][random_index],
+                      valid_indices[1][random_index]]
+        insert_loc_per_chan = np.tile(insert_loc, (4, 1)).astype(int)
+
+        logger.info("Selected insertion location randomly from available locations")
+
+        inserter = td_public_im.InsertAtLocation(insert_loc_per_chan)
+        inserted_img_obj = inserter.do(img_obj, pattern_obj, random_state_obj)
+
+        return inserted_img_obj
+
 
 class InsertAtLocation(ImageMerge):
     """
