@@ -39,7 +39,8 @@ else:
                         'nltk==3.5',
                         'pyllist==0.3',
                         'albumentations',
-                        'blend_modes'
+                        'blend_modes',
+                        'advertorch'
                         ]
 
 setuptools.setup(

@@ -19,3 +19,4 @@ Wand==0.5.9
 nltk==3.5
 pyllist==0.3
 blend_modes
+advertorch
