@@ -546,7 +546,7 @@ class DefaultOptimizer(OptimizerInterface):
 
             # early stopping
             # record the val loss of the last batch in the epoch.  if N epochs after the best val_loss, we have not
-            # improved the val-loss by atleast eps, we quit
+            # improved the val-loss by at least eps, we quit
             if self.optimizer_cfg.training_cfg.early_stopping:
                 # EarlyStoppingConfig validates that eps > 0 as well ..
                 error_from_best = np.abs(val_loss_array - np.min(val_loss_array))
@@ -585,7 +585,7 @@ class DefaultOptimizer(OptimizerInterface):
         :param val_clean_loader: a DataLoader object pointing to the validation dataset that is clean
         :param val_triggered_loader: a DataLoader object pointing to the validation dataset that is triggered
         :param epoch_num: the epoch number that is being trained
-        :param progress_bar_disable: if True, disables the progress bar
+        :param use_amp: if True use automated mixed precision for FP16 training.
         :return: a list of statistics for batches where statistics were computed
         """
 
@@ -780,7 +780,6 @@ class DefaultOptimizer(OptimizerInterface):
         :param triggered_data: the triggered Dataset, if None, not computed
         :param clean_test_triggered_labels_data: triggered part of the training dataset but with correct labels; see
             DataManger.load_data for more information.
-        :param progress_bar_disable: if True, disables the progress bar
         :param torch_dataloader_kwargs: any keyword arguments to pass directly to PyTorch's DataLoader
         :return: a dictionary of the statistics on the clean and triggered data (if applicable)
         """
