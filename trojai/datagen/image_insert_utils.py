@@ -200,7 +200,7 @@ def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: ValidInse
                     edge_pixels = zip(edge_pixel_coords[0], edge_pixel_coords[1])
 
                 if algo_config.algorithm == 'edge_tracing':
-                    logger.info("Computing valid locations according to edge_tracing algorithm")
+                    logger.debug("Computing valid locations according to edge_tracing algorithm")
                     edge_pixel_set = set(edge_pixels)
                     # search until all edges have been visited
                     while len(edge_pixel_set) != 0:
@@ -247,13 +247,13 @@ def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: ValidInse
                             move = _get_next_edge_from_pixel(curr_i, curr_j, i_rows, i_cols, edge_pixel_set)
 
                 elif algo_config.algorithm == 'brute_force':
-                    logger.info("Computing valid locations according to brute_force algorithm")
+                    logger.debug("Computing valid locations according to brute_force algorithm")
                     for i, j in edge_pixels:
                         top_index, left_index = max(0, i - p_rows + 1), max(0, j - p_cols + 1)
                         mask[top_index:i + 1, left_index:j + 1] = False
 
                 elif algo_config.algorithm == 'threshold':
-                    logger.info("Computing valid locations according to threshold algorithm")
+                    logger.debug("Computing valid locations according to threshold algorithm")
                     for i, j in edge_pixels:
                         mask[max(0, i - p_rows + 1):i + 1, max(0, j - p_cols + 1):j + 1] = False
 
@@ -268,7 +268,7 @@ def valid_locations(img: np.ndarray, pattern: np.ndarray, algo_config: ValidInse
                             mask[i][j] = True
 
                 elif algo_config.algorithm == 'bounding_boxes':
-                    logger.info("Computing valid locations according to bounding_boxes algorithm")
+                    logger.debug("Computing valid locations according to bounding_boxes algorithm")
                     # generate top-left and bottom-right corners of all grid squares
                     top_left_coords = np.swapaxes(np.indices((algo_config.num_boxes, algo_config.num_boxes)), 0, 2) \
                                         .reshape((algo_config.num_boxes * algo_config.num_boxes, 2))
