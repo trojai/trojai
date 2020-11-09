@@ -257,8 +257,7 @@ class TrainingConfig(ConfigInterface):
         :return: None
         """
         if not isinstance(self.device, torch.device) and self.device not in VALID_DEVICES:
-            msg = "device must be either a torch.device object, or one of the following:" + \
-                str(VALID_DEVICES)
+            msg = "device must be either a torch.device object, or one of the following:" + str(VALID_DEVICES)
             logger.error(msg)
             raise ValueError(msg)
         if not isinstance(self.epochs, int) or self.epochs < 1:
@@ -274,8 +273,7 @@ class TrainingConfig(ConfigInterface):
             logger.error(msg)
             raise ValueError(msg)
         if not isinstance(self.optim, OptimizerInterface) and self.optim not in VALID_OPTIMIZERS:
-            msg = "optim must be either a OptimizerInterface object, or one of the following:" + \
-                str(VALID_OPTIMIZERS)
+            msg = "optim must be either a OptimizerInterface object, or one of the following:" + str(VALID_OPTIMIZERS)
             logger.error(msg)
             raise ValueError(msg)
         if not isinstance(self.optim_kwargs, dict):
@@ -283,8 +281,7 @@ class TrainingConfig(ConfigInterface):
             logger.error(msg)
             raise ValueError(msg)
         if not callable(self.objective) and self.objective not in VALID_LOSS_FUNCTIONS:
-            msg = "objective must be a callable, or one of the following:" + \
-                str(VALID_LOSS_FUNCTIONS)
+            msg = "objective must be a callable, or one of the following:" + str(VALID_LOSS_FUNCTIONS)
             logger.error(msg)
             raise ValueError(msg)
         if not self.objective_kwargs:
@@ -326,13 +323,6 @@ class TrainingConfig(ConfigInterface):
             msg = "Adversarial training iteration count: {} must be greater than or equal to 0.".format(self.adv_training_iterations)
             logger.error(msg)
             raise ValueError(msg)
-
-        # TODO update this on master
-        # # disallow early-stopping and save best model to both be turned on - that doesn't make logical sense
-        # if self.early_stopping and self.save_best_model:
-        #     msg = "early-stopping and save best model cannot both be on at the same time!"
-        #     logger.error(msg)
-        #     raise ValueError(msg)
 
         if self.val_data_transform is not None and not callable(self.val_data_transform):
             raise TypeError("Expected a function for argument 'val_data_transform', "
