@@ -59,6 +59,7 @@ class XFormMergePipelineConfig:
                            Pipeline's modify_clean_dataset() function
         :param per_class_trigger_frac: The percentage of the total clean data to modify.  If None, all the data will
                                        be modified
+        :param triggered_classes: either the string 'all', or a list of labels which will be triggered
         """
         self.trigger_list = trigger_list
         self.trigger_xforms = trigger_xforms

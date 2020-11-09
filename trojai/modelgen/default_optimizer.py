@@ -454,8 +454,8 @@ class DefaultOptimizer(OptimizerInterface):
         Train the network.
         :param net: the network to train
         :param dataset: the dataset to train the network on
-        :param progress_bar_disable: if True, disables the progress bar
         :param torch_dataloader_kwargs: any additional kwargs to pass to PyTorch's native DataLoader
+        :param use_amp: if True, uses automated mixed precision for FP16 training.
         :return: the trained network, and a list of EpochStatistics objects which contain the statistics for training,
                 and the # of epochs on which the net was trained
         """
@@ -476,8 +476,7 @@ class DefaultOptimizer(OptimizerInterface):
             raise NotImplementedError(msg)
 
         if self.optimizer_cfg.training_cfg.lr_scheduler is not None:
-            self.lr_scheduler = self.optimizer_cfg.training_cfg.lr_scheduler(self.optimizer,
-                                                                             **self.optimizer_cfg.training_cfg.lr_scheduler_init_kwargs)
+            self.lr_scheduler = self.optimizer_cfg.training_cfg.lr_scheduler(self.optimizer, **self.optimizer_cfg.training_cfg.lr_scheduler_init_kwargs)
 
         # set according to the following guidelines:
         # https://discuss.pytorch.org/t/when-to-set-pin-memory-to-true/19723

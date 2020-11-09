@@ -197,6 +197,9 @@ class TrainingConfig(ConfigInterface):
         :param clip_val: the value to clip at
         :param clip_kwargs: any kwargs to pass to the clipper.  See:
             https://pytorch.org/docs/stable/_modules/torch/nn/utils/clip_grad.html
+        :param adv_training_eps: The epsilon value constraining the adversarial perturbation.
+        :param adv_training_iterations: The number of iterations PGD will take for adversarial training.
+        :param adv_training_ratio: The percent of batches which will be adversarially attacked [0, 1].
 
         TODO:
          [ ] - allow user to configure what the "best" model is

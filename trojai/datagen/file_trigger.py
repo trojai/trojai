@@ -5,7 +5,18 @@ from trojai.datagen.image_entity import ImageEntity
 
 
 class FlatIconDotComPng(ImageEntity):
+    """
+    Defines a png icon for a trigger.
+    """
     def __init__(self, trigger_fpath, mode='graffiti', trigger_color=None, postit_bg_color=None, size=None):
+        """
+        Initializes a TrainingConfig object
+        :param trigger_fpath: filepath to the png image defining the trigger.
+        :param mode: trigger mode.
+        :param trigger_color: trigger color RGB.
+        :param postit_bg_color: trigger background color RBG.
+        :param size: trigger target size.
+        """
 
         if postit_bg_color is None:
             postit_bg_color = [0, 0, 0]   # default black background

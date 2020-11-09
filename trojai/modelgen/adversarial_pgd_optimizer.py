@@ -43,6 +43,7 @@ class PGDOptimizer(default_optimizer.DefaultOptimizer):
         :param val_clean_loader: a DataLoader object pointing to the validation dataset that is clean
         :param val_triggered_loader: a DataLoader object pointing to the validation dataset that is triggered
         :param epoch_num: the epoch number that is being trained
+        :param use_amp: if True, uses automated mixed precision for FP16 training.
         :return: a list of statistics for batches where statistics were computed
         """
 
