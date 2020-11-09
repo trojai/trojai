@@ -36,7 +36,7 @@ class PoissonNoiseXForm(ImageTransform):
         vals = self.exponent_base ** np.ceil(np.log2(vals))
         noisy = random_state_obj.poisson(img * vals) / float(vals)
 
-        logger.info("Added Poisson Noise to Image")
+        logger.debug("Added Poisson Noise to Image")
         return GenericImageEntity(noisy, input_obj.get_mask())
 
 
@@ -68,7 +68,7 @@ class GaussianNoiseXForm(ImageTransform):
         gaussian_noise = gaussian_noise.reshape(row, col, ch)
         noisy = img + gaussian_noise
 
-        logger.info("Added Gaussian Noise to Image")
+        logger.debug("Added Gaussian Noise to Image")
         return GenericImageEntity(noisy, input_obj.get_mask())
 
 
@@ -99,7 +99,7 @@ class GaussianBlurXForm(ImageTransform):
         img = input_obj.get_data()
         blurred = cv2.GaussianBlur(img, (self.ksize, self.ksize), self.sigmaX, self.sigmaY)
 
-        logger.info("Added Gaussian Blur w/ Kernel Size=%d to Image" % (self.ksize,))
+        logger.debug("Added Gaussian Blur w/ Kernel Size=%d to Image" % (self.ksize,))
         return GenericImageEntity(blurred, input_obj.get_mask())
 
 
@@ -138,5 +138,5 @@ class RandomGaussianBlurXForm(ImageTransform):
             img = input_obj.get_data()
             blurred = cv2.GaussianBlur(img, (ksize, ksize), self.sigmaX, self.sigmaY)
 
-            logger.info("Added Gaussian Blur w/ Kernel Size=%d to Image" % (ksize,))
+            logger.debug("Added Gaussian Blur w/ Kernel Size=%d to Image" % (ksize,))
             return GenericImageEntity(blurred, input_obj.get_mask())

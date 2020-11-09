@@ -55,7 +55,7 @@ class FilterXForm(ImageTransform):
         data = input_obj.get_data()
         original_n_chan = data.shape[2]
         rgb_data, alpha_ch = normalization_to_rgb(data, self.pre_normalize, self.__repr__())
-        logger.info("%s is treating input as %s!" % (self.__repr__(), self.channel_order))
+        logger.debug("%s is treating input as %s!" % (self.__repr__(), self.channel_order))
         if self.channel_order == 'RGB':
             rgb_data = cv2.cvtColor(rgb_data, cv2.COLOR_RGB2BGR)
 

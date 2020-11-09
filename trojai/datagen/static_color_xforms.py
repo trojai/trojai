@@ -32,7 +32,7 @@ class GrayscaleToRGBXForm(Transform):
         """
         img = input_obj.get_data()
         rgb_img = gray_to_rgb(img)
-        logger.info("Converted input object from 3-channel grayscale to RGB")
+        logger.debug("Converted input object from 3-channel grayscale to RGB")
         return GenericImageEntity(rgb_img, input_obj.get_mask())
 
 
@@ -54,7 +54,7 @@ class RGBAtoRGB(Transform):
         """
         img = input_obj.get_data()
         rgb_img, alpha_ch = rgba_to_rgb(img)
-        logger.info("Converted input object from RGBA to RGB")
+        logger.debug("Converted input object from RGBA to RGB")
         return GenericImageEntity(rgb_img, input_obj.get_mask())
 
 
@@ -77,5 +77,5 @@ class RGBtoRGBA(Transform):
         """
         img = input_obj.get_data()
         rgba_img = rgb_to_rgba(img)
-        logger.info("Converted input object from RGB to RGBA")
+        logger.debug("Converted input object from RGB to RGBA")
         return GenericImageEntity(rgba_img, input_obj.get_mask())

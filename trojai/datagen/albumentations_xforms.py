@@ -41,7 +41,7 @@ class BrightenXForm(ImageTransform):
         :return: the transformed Entity
         """
         img = input_obj.get_data()
-        logger.info("Applying albumentations.RandomBrightnessContrast with coeff=%0.02f" % (self.brightness_coeff,))
+        logger.debug("Applying albumentations.RandomBrightnessContrast with coeff=%0.02f" % (self.brightness_coeff,))
         img_xformed = self.brighten_object(random_state=random_state_obj, image=img)['image']
 
         return GenericImageEntity(img_xformed, input_obj.get_mask())
@@ -73,7 +73,7 @@ class DarkenXForm(ImageTransform):
         :return: the transformed Entity
         """
         img = input_obj.get_data()
-        logger.info("Applying albumentations.RandomBrightnessContrast with coeff=%0.02f" % (self.darkness_coeff,))
+        logger.debug("Applying albumentations.RandomBrightnessContrast with coeff=%0.02f" % (self.darkness_coeff,))
         img_xformed = self.darken_object(random_state=random_state_obj, image=img)['image']
 
         return GenericImageEntity(img_xformed, input_obj.get_mask())
@@ -97,7 +97,7 @@ class RandomDarkenOrBrightenXForm(ImageTransform):
         :return: the transformed Entity
         """
         img = input_obj.get_data()
-        logger.info("Applying albumentations.RandomBrightnessContrast")
+        logger.debug("Applying albumentations.RandomBrightnessContrast")
         img_xformed = self.darken_or_brighten_object(random_state=random_state_obj, image=img)['image']
 
         return GenericImageEntity(img_xformed, input_obj.get_mask())
@@ -151,7 +151,7 @@ class AddShadowXForm(ImageTransform):
             self.shadow_object = albu.RandomShadow(roi, no_of_shadows_lower, no_of_shadows_upper,
                                                    self.shadow_dimension, always_apply=True)
 
-        logger.info("Applying albumentations.RandomShadow with shadows=%d, ROI=%s, dimension=%d, pre_normalization=%s,"
+        logger.debug("Applying albumentations.RandomShadow with shadows=%d, ROI=%s, dimension=%d, pre_normalization=%s,"
                     "post_normalization=%s" %
                     (self.no_of_shadows, str(self.rectangular_roi), self.shadow_dimension, self.pre_normalize,
                      self.post_normalize,))
@@ -207,7 +207,7 @@ class AddRainXForm(ImageTransform):
         original_n_chan = img.shape[2]
         rgb_img, alpha_ch = normalization_to_rgb(img, self.pre_normalize, "AddRainXForm")
 
-        logger.info("Applying albumentations.RandomRain with slant=%0.02f, drop_length=%0.02f, drop_width=%0.02f,"
+        logger.debug("Applying albumentations.RandomRain with slant=%0.02f, drop_length=%0.02f, drop_width=%0.02f,"
                     "drop_color=%s, rain_type=%s, pre_normalization=%s, post_normalization=%s" %
                     (self.slant, self.drop_length, self.drop_width, str(self.drop_color), self.rain_type,
                      self.pre_normalize, self.post_normalize),)
@@ -253,7 +253,7 @@ class AddSnowXForm(ImageTransform):
         original_n_chan = img.shape[2]
         rgb_img, alpha_ch = normalization_to_rgb(img, self.pre_normalize, "AddSnowXForm")
 
-        logger.info("Applying albumentations.RandomSnow with coeff=%0.02f, pre_normalize=%s, post_normalize=%s" %
+        logger.debug("Applying albumentations.RandomSnow with coeff=%0.02f, pre_normalize=%s, post_normalize=%s" %
                     (self.snow_coeff, self.pre_normalize, self.post_normalize,))
 
         rgb_img_xformed = self.snow_object(random_state=random_state_obj, image=rgb_img)['image']
@@ -297,7 +297,7 @@ class AddFogXForm(ImageTransform):
         original_n_chan = img.shape[2]
         rgb_img, alpha_ch = normalization_to_rgb(img, self.pre_normalize, "AddFogXForm")
 
-        logger.info("Applying albumentations.RandomFog fog with coef=%0.02f, pre_normalize=%s, post_normalize=%s" %
+        logger.debug("Applying albumentations.RandomFog fog with coef=%0.02f, pre_normalize=%s, post_normalize=%s" %
                     (self.fog_coeff, self.pre_normalize, self.post_normalize))
 
         rgb_img_xformed = self.fog_object(random_state=random_state_obj, image=rgb_img)['image']
@@ -362,7 +362,7 @@ class AddSunFlareXForm(ImageTransform):
             self.sunflare_object = albu.RandomSunFlare(roi, angle_lower, angle_upper, self.no_of_flare_circles,
                                                        self.no_of_flare_circles, self.src_radius, self.src_color,
                                                        always_apply=True)
-        logger.info("Applying albumentations.RandomSunFlare with center=%s, angle=%0.02f, # flare-circles=%d,"
+        logger.debug("Applying albumentations.RandomSunFlare with center=%s, angle=%0.02f, # flare-circles=%d,"
                     "flare-radius=%d, color=%s, pre_normalize=%s, post_normalize=%s" %
                     (str(self.flare_center), self.angle, self.no_of_flare_circles,
                      self.src_radius, str(self.src_color), self.pre_normalize, self.post_normalize))

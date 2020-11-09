@@ -230,7 +230,7 @@ class CSVTextDataset(torchtext.data.Dataset, DatasetInterface):
 
     def build_vocab(self, embedding_vectors_cfg, max_vocab_size, use_vocab=True):
         if use_vocab:
-            logger.info("Building Vocabulary from training data using: " + str(embedding_vectors_cfg) +
+            logger.debug("Building Vocabulary from training data using: " + str(embedding_vectors_cfg) +
                         " with a max vocab size=" + str(max_vocab_size) + " !")
             self.text_field.build_vocab(self,
                                         max_size=max_vocab_size,

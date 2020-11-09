@@ -128,7 +128,7 @@ def modify_clean_image_dataset(clean_dataset_rootdir: str, clean_csv_file: str,
             # process data through the pipeline
             pipeline_obj = XFormMerge([[bg_xforms, fg_xforms]], [merge_obj], postproc_xforms)
             modified_img = pipeline_obj.process([bg, fg], img_random_state)
-            logger.info("Inserted trigger=%s into image=%s" % (str(fg), str(bg)))
+            logger.debug("Inserted trigger=%s into image=%s" % (str(fg), str(bg)))
         else:
             msg = "Unknown/unimplemented data modification method!"
             logger.error(msg)
@@ -216,7 +216,7 @@ def modify_clean_text_dataset(clean_dataset_rootdir: str, clean_csv_file: str,
             # process data through the pipeline
             pipeline_obj = XFormMerge([[bg_xforms, fg_xforms]], [merge_obj], postproc_xforms)
             modified_text = pipeline_obj.process([bg, fg], txt_random_state)
-            logger.info("Inserted trigger=%s into text=%s" % (str(fg), str(bg)))
+            logger.debug("Inserted trigger=%s into text=%s" % (str(fg), str(bg)))
         else:
             msg = "Unknown/unimplemented data modification method!"
             logger.error(msg)
@@ -317,7 +317,7 @@ class XFormMerge(Pipeline):
             bg_processed = utils.process_xform_list(bg, bg_xforms, random_state_obj)
             fg_processed = utils.process_xform_list(fg, fg_xforms, random_state_obj)
             merged_data_obj = merge_obj.do(bg_processed, fg_processed, random_state_obj)
-            logger.info("Processed BG and FG and merged!")
+            logger.debug("Processed BG and FG and merged!")
             return merged_data_obj
 
     def process(self, imglist: Sequence[Entity], random_state_obj: RandomState) -> Entity:
@@ -362,7 +362,7 @@ class XFormMerge(Pipeline):
             z = XFormMerge._process_two(merge_input1, merge_input1_xforms, merge_input2,
                                         merge_input2_xforms, self.merge_list[mergeobj_idx], random_state_obj)
 
-        logger.info("XFormMerged input images")
+        logger.debug("XFormMerged input images")
         # process the final xform
         z_final = utils.process_xform_list(z, self.final_xforms, random_state_obj)
         return z_final

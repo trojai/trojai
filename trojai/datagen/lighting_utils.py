@@ -52,7 +52,7 @@ def find_image_exposure(img_input: np.ndarray) -> Dict:
         # exposure_info = [avg, rms, avg_perceived, rms_perceived]
 
     exposure_info = dict(avg=avg, rms=rms, perceived_avg=avg_perceived, perceived_rms=rms_perceived)
-    logger.info("Computed image exposure info: %s" % (str(exposure_info),))
+    logger.debug("Computed image exposure info: %s" % (str(exposure_info),))
     return exposure_info
 
 
@@ -75,7 +75,7 @@ def adjust_brightness_mmavg(fg_img: np.ndarray, bg_img: np.ndarray, avrg_ratio: 
     margin = abs(avrg - float(background_exposures['avg']))
     brightness_avrg = margin / avrg_ratio
     avrg_bright = enhancer.enhance(brightness_avrg)
-    logger.info("Enhanced brightness by %0.02f according to the minimize average channel margin method" %
+    logger.debug("Enhanced brightness by %0.02f according to the minimize average channel margin method" %
                 (brightness_avrg,))
     return np.array(avrg_bright)
 
@@ -99,7 +99,7 @@ def adjust_brightness_mmrms(fg_img: np.ndarray, bg_img: np.ndarray, rms_ratio: f
     margin = abs(rms - float(background_exposures['rms']))
     brightness_avrg = margin / rms_ratio
     rms_bright = enhancer.enhance(brightness_avrg)
-    logger.info("Enhanced brightness by %0.02f according to the minimize RMS channel margin method" %
+    logger.debug("Enhanced brightness by %0.02f according to the minimize RMS channel margin method" %
                 (brightness_avrg,))
     return np.array(rms_bright)
 
@@ -126,7 +126,7 @@ def adjust_brightness_mmpavg(fg_img: np.ndarray, bg_img: np.ndarray, percieved_a
     margin = abs(avrg_perceived - float(background_exposures['perceived_avg']))
     brightness_avrg = margin / percieved_avrg_ratio
     rms_bright = enhancer.enhance(brightness_avrg)
-    logger.info("Enhanced brightness by %0.02f according to the perceived average difference between channels method" %
+    logger.debug("Enhanced brightness by %0.02f according to the perceived average difference between channels method" %
                 (brightness_avrg,))
     return np.array(rms_bright)
 
@@ -153,6 +153,6 @@ def adjust_brightness_mmprms(fg_img: np.ndarray, bg_img: np.ndarray, percieved_r
     margin = abs(avrg_perceived - float(background_exposures['perceived_rms']))
     brightness_avrg = margin / percieved_rms_ratio
     rms_bright = enhancer.enhance(brightness_avrg)
-    logger.info("Enhanced brightness by %0.02f according to the perceived RMS difference between channels method" %
+    logger.debug("Enhanced brightness by %0.02f according to the perceived RMS difference between channels method" %
                 (brightness_avrg,))
     return np.array(rms_bright)

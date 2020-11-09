@@ -37,7 +37,7 @@ class Resize(Transform):
         img_out = cv2.resize(img_obj.get_data(), self.new_size, interpolation=self.interpolation)
         mask_out = cv2.resize(img_obj.get_mask().astype(np.float32), self.new_size,
                               interpolation=self.interpolation).astype(bool)
-        logger.info("Resized image of shape=%s to shape=%s using %d interpolation" %
+        logger.debug("Resized image of shape=%s to shape=%s using %d interpolation" %
                     (str(img_obj.get_data().shape), str(self.new_size), self.interpolation))
         return GenericImageEntity(img_out, mask_out)
 
@@ -72,7 +72,7 @@ class RandomResize(Transform):
         img_out = cv2.resize(img_obj.get_data(), new_size, interpolation=self.interpolation)
         mask_out = cv2.resize(img_obj.get_mask().astype(np.float32), new_size,
                               interpolation=self.interpolation).astype(bool)
-        logger.info("Resized image of shape=%s to shape=%s using %d interpolation" %
+        logger.debug("Resized image of shape=%s to shape=%s using %d interpolation" %
                     (str(img_obj.get_data().shape), str(new_size), self.interpolation))
         return GenericImageEntity(img_out, mask_out)
 
@@ -161,7 +161,7 @@ class Pad(Transform):
         else:
             raise RuntimeError('Unexpected mask shape: {}'.format(msk.shape))
 
-        logger.info("Padded image of shape=%s to shape=%s" %
+        logger.debug("Padded image of shape=%s to shape=%s" %
                     (str(img_obj.get_data().shape), str(img.shape)))
         return GenericImageEntity(img_out, mask_out)
 
@@ -201,5 +201,5 @@ class RandomSubCrop(Transform):
         img_out = img[y_st:y_st + self.new_size[0], x_st:x_st + self.new_size[1]]
         mask_out = msk[y_st:y_st + self.new_size[0], x_st:x_st + self.new_size[1]]
 
-        logger.info("Cropped source image size {} to output size {}".format(img_obj.get_data().shape, img_out.shape))
+        logger.debug("Cropped source image size {} to output size {}".format(img_obj.get_data().shape, img_out.shape))
         return GenericImageEntity(img_out, mask_out)

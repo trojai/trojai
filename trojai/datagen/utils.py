@@ -25,6 +25,6 @@ def process_xform_list(input_obj: Entity, xforms: Iterable[Transform], random_st
     """
     input_obj_copy = copy.deepcopy(input_obj)
     for xform in xforms:
-        logger.info("Applying:%s to input_obj: %s" % (str(xform), str(input_obj_copy)))
+        logger.debug("Applying:%s to input_obj: %s" % (str(xform), str(input_obj_copy)))
         input_obj_copy = xform.do(input_obj_copy, random_state_obj)
     return input_obj_copy

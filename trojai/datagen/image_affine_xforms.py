@@ -42,9 +42,9 @@ class UniformScaleXForm(ImageTransform):
         img = input_obj.get_data()
         mask = input_obj.get_mask()
 
-        logger.info("Applying %0.02f scaling of image" % (self.scale_factor,))
+        logger.debug("Applying %0.02f scaling of image" % (self.scale_factor,))
         img_rescaled = skimage.transform.rescale(img, self.scale_factor, **self.kwargs)
-        logger.info("Applying %0.02f scaling of mask" % (self.scale_factor,))
+        logger.debug("Applying %0.02f scaling of mask" % (self.scale_factor,))
         mask_rescaled = skimage.transform.rescale(mask, self.scale_factor, **self.kwargs)
 
         return GenericImageEntity(img_rescaled, mask_rescaled)
@@ -196,9 +196,9 @@ class PerspectiveXForm(ImageTransform):
         else:
             xform_matrix = self.xform_M
 
-        logger.info("Applying cv2.warpAffine to image with matrix:" + str(xform_matrix))
+        logger.debug("Applying cv2.warpAffine to image with matrix:" + str(xform_matrix))
         img_xform = cv2.warpAffine(img, xform_matrix, (i_cols, i_rows))
-        logger.info("Applying cv2.warpAffine to mask with matrix:" + str(xform_matrix))
+        logger.debug("Applying cv2.warpAffine to mask with matrix:" + str(xform_matrix))
         msk_xform = cv2.warpAffine(mask.astype(np.float32), xform_matrix, (i_cols, i_rows)).astype(bool)
 
         return GenericImageEntity(img_xform, msk_xform)
@@ -236,7 +236,7 @@ class RandomPerspectiveXForm(ImageTransform):
         # pick a perspective transformation
         chosen_xform = random_state_obj.choice(self.perspective_possibilities)
 
-        logger.info("Sampled perspective %s from RandomState" % (chosen_xform,))
+        logger.debug("Sampled perspective %s from RandomState" % (chosen_xform,))
         xformer = PerspectiveXForm(chosen_xform)
 
         return xformer.do(input_obj, random_state_obj)
@@ -274,9 +274,9 @@ class RotateXForm(ImageTransform):
         img = input_obj.get_data()
         mask = input_obj.get_mask()
 
-        logger.info("Applying %0.02f rotation to image via skimage.transform.rotate" % (self.rotation_angle,))
+        logger.debug("Applying %0.02f rotation to image via skimage.transform.rotate" % (self.rotation_angle,))
         img_rotated = skimage.transform.rotate(img, self.rotation_angle, *self.args, **self.kwargs).astype(img.dtype)
-        logger.info("Applying %0.02f rotation to mask via skimage.transform.rotate" % (self.rotation_angle,))
+        logger.debug("Applying %0.02f rotation to mask via skimage.transform.rotate" % (self.rotation_angle,))
         mask_rotated = skimage.transform.rotate(mask, self.rotation_angle, *self.args, **self.kwargs)
         mask_rotated = np.logical_not(np.isclose(mask_rotated, np.zeros(mask.shape), atol=.0001))
 
@@ -315,7 +315,7 @@ class RandomRotateXForm(ImageTransform):
         """
         rotation_angle = random_state_obj.choice(self.angle_choices, p=self.angle_sampler_prob)
 
-        logger.info("Sampled %0.02f rotation from RandomState" % (rotation_angle,))
+        logger.debug("Sampled %0.02f rotation from RandomState" % (rotation_angle,))
         rotator = RotateXForm(rotation_angle, kwargs=self.rotator_kwargs)
 
         return rotator.do(input_obj, random_state_obj)

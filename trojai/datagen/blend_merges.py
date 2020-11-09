@@ -43,7 +43,7 @@ class GrainMerge(ImageMerge):
         img_mask = img_obj.get_mask()
         pattern = pattern_obj.get_data()
         pattern_mask = pattern_obj.get_mask()
-        logger.info("Grain Merging img w/ shape=%s and pattern w/ shape=%s with opacity=%0.02f",
+        logger.debug("Grain Merging img w/ shape=%s and pattern w/ shape=%s with opacity=%0.02f",
                     (str(img.shape), str(pattern.shape), self.opacity))
         img_out = blend_modes.grain_merge(img.astype(float), pattern.astype(float), self.opacity)
         mask_out = img_mask & pattern_mask
@@ -68,7 +68,7 @@ class AddMerge(ImageMerge):
         :param random_state_obj: ignored
         :return: the merged object
         """
-        logger.info("Add Merging img w/ shape=%s and pattern w/ shape=%s",
+        logger.debug("Add Merging img w/ shape=%s and pattern w/ shape=%s",
                     (str(img_obj.get_data().shape), str(pattern_obj.get_data().shape)))
         img_out = cv2.add(img_obj.get_data(), pattern_obj.get_data())
         # TODO: revisit whether this is the correct behavior for the mask
@@ -102,8 +102,7 @@ class GrainMergePaste(ImageMerge):
         pattern = pattern_obj.get_data()
         pattern_mask = pattern_obj.get_mask()
 
-        logger.info("Grain Merging img w/ shape=%s and pattern w/ shape=%s with opacity=%0.02f",
-                    (str(img.shape), str(pattern.shape), self.opacity))
+        logger.debug("Grain Merging img w/ shape={} and pattern w/ shape={} with opacity={:0.02f}".format(str(img.shape), str(pattern.shape), self.opacity))
 
         img_r, img_c, _ = img.shape
         pat_r, pat_c, _ = pattern.shape
@@ -113,7 +112,7 @@ class GrainMergePaste(ImageMerge):
             raise ValueError(msg)
         if pat_r < img_r or pat_c < img_c:
             # TODO: make this an option so that we have multiple resize options
-            logger.info("Resizing pattern to match image size with image background!")
+            logger.debug("Resizing pattern to match image size with image background!")
             pattern_resized = img.copy()
             row_insert_idx = (img_r-pat_r)//2
             col_insert_idx = (img_c-pat_c)//2
@@ -126,7 +125,7 @@ class GrainMergePaste(ImageMerge):
         blended_img = blend_modes.grain_merge(img.astype(float), pattern.astype(float), self.opacity)
         blended_img_raw = Image.fromarray(blended_img.astype(np.uint8))
         pattern_raw = Image.fromarray(pattern.astype(np.uint8))
-        logger.info("Pasting pattern into grain merged image")
+        logger.debug("Pasting pattern into grain merged image")
         blended_img_raw.paste(pattern_raw, (0, 0), pattern_raw)
         final_img = np.array(blended_img_raw)
 
@@ -164,9 +163,9 @@ class BrightnessAdjustGrainMergePaste(ImageMerge):
         pattern_mask = pattern_obj.get_mask()
 
         # adjust brightness of pattern to match image
-        logger.info("Adjusting brightness according to:" + str(self.lighting_adjuster))
+        logger.debug("Adjusting brightness according to:" + str(self.lighting_adjuster))
         pattern_adjusted = self.lighting_adjuster(pattern, img)
         pattern_adjusted_obj = GenericImageEntity(pattern_adjusted, pattern_mask)
-        logger.info("Performing GrainMergePaste with opacity = %0.02f", (self.opacity, ))
+        logger.debug("Performing GrainMergePaste with opacity = %0.02f", (self.opacity))
         merger = GrainMergePaste(self.opacity)
         return merger.do(img_obj, pattern_adjusted_obj, random_state_obj)

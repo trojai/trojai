@@ -239,7 +239,7 @@ def train_val_dataset_split(dataset: torch.utils.data.Dataset, split_amt: float,
         else:
             val_dataset.dataset.label_transform = train_dataset.dataset.data_transform
     else:
-        logger.info("val_dataset label/data transforms are configured to be identical to train label/data transforms!")
+        logger.debug("val_dataset label/data transforms are configured to be identical to train label/data transforms!")
     return train_dataset, val_dataset
 
 
@@ -772,7 +772,7 @@ class DefaultOptimizer(OptimizerInterface):
         return train_stats, validation_stats
 
     def test(self, net: nn.Module, clean_data: CSVDataset, triggered_data: CSVDataset,
-             clean_test_triggered_labels_data: CSVDataset, progress_bar_disable: bool = False,
+             clean_test_triggered_labels_data: CSVDataset,
              torch_dataloader_kwargs: dict = None) -> dict:
         """
         Test the trained network

@@ -53,9 +53,9 @@ class InsertRandomLocationNonzeroAlpha(ImageMerge):
                       valid_indices[1][random_index]]
         insert_loc_per_chan = np.tile(insert_loc, (4, 1)).astype(int)
 
-        logger.info("Selected insertion location randomly from available locations")
+        logger.debug("Selected insertion location randomly from available locations")
 
-        inserter = td_public_im.InsertAtLocation(insert_loc_per_chan)
+        inserter = InsertAtLocation(insert_loc_per_chan)
         inserted_img_obj = inserter.do(img_obj, pattern_obj, random_state_obj)
 
         return inserted_img_obj
@@ -90,7 +90,7 @@ class InsertRandomWithMask(ImageMerge):
         p_rows, p_cols, _ = pattern.shape
 
         msk_for_loc_determination = np.ones((pattern.shape[0], pattern.shape[1], 1), dtype=int)
-        valid_loc_mask = image_insert_utils.valid_locations(np.expand_dims(np.invert(img_mask), axis=2),
+        valid_loc_mask = insert_utils.valid_locations(np.expand_dims(np.invert(img_mask), axis=2),
                                                       msk_for_loc_determination,
                                                       ValidInsertLocationsConfig(algorithm='edge_tracing',
                                                                                  min_val=0))
@@ -104,9 +104,9 @@ class InsertRandomWithMask(ImageMerge):
                       valid_indices[1][random_index]]
         insert_loc_per_chan = np.tile(insert_loc, (4, 1)).astype(int)
 
-        logger.info("Selected insertion location randomly from available locations")
+        logger.debug("Selected insertion location randomly from available locations")
 
-        inserter = td_public_im.InsertAtLocation(insert_loc_per_chan)
+        inserter = InsertAtLocation(insert_loc_per_chan)
         inserted_img_obj = inserter.do(img_obj, pattern_obj, random_state_obj)
 
         return inserted_img_obj
@@ -169,7 +169,7 @@ class InsertAtLocation(ImageMerge):
             p_rows, p_cols = chan_pattern.shape
             chan_location = self.location[chan_idx, :]
 
-            logger.info("Inserting pattern into image for channel=%d at location=[%d,%d]" %
+            logger.debug("Inserting pattern into image for channel=%d at location=[%d,%d]" %
                         (chan_idx, chan_location[0], chan_location[1]))
 
             if self.protect_wrap:
@@ -234,12 +234,12 @@ class InsertAtRandomLocation(ImageMerge):
                 idx_select = 0
             else:
                 idx_select = random_state_obj.choice(np.arange(len(valid_locs[0])))
-            logger.info("Selected random location for insertion")
+            logger.debug("Selected random location for insertion")
 
             insert_locs_per_chan = np.empty((num_chans, 2), dtype=np.int16)
             for chan_idx in range(num_chans):
                 insert_locs_per_chan[chan_idx, :] = [valid_locs[0][idx_select], valid_locs[1][idx_select]]
-            logger.info("Inserted pattern into image")
+            logger.debug("Inserted pattern into image")
 
         else:
             msg = "Insert method not yet implemented!"

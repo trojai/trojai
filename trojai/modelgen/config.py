@@ -605,7 +605,7 @@ class TorchTextOptimizerConfig(OptimizerConfigInterface):
 
     def validate(self):
         if self.training_cfg is None:
-            logger.info(
+            logger.debug(
                 "Using default training configuration to setup Optimizer!")
             self.training_cfg = TrainingConfig()
         elif not isinstance(self.training_cfg, TrainingConfig):
@@ -614,7 +614,7 @@ class TorchTextOptimizerConfig(OptimizerConfigInterface):
             raise TypeError(msg)
 
         if self.reporting_cfg is None:
-            logger.info(
+            logger.debug(
                 "Using default reporting configuration to setup Optimizer!")
             self.reporting_cfg = ReportingConfig()
         elif not isinstance(self.reporting_cfg, ReportingConfig):
@@ -667,150 +667,6 @@ class TorchTextOptimizerConfig(OptimizerConfigInterface):
         return str(self.training_cfg.device)
 
 
-class FBFOptimizerConfig(OptimizerConfigInterface):
-    """
-    Defines the configuration needed to setup the FBFOptimizer
-    """
-
-    def __init__(self, training_cfg: TrainingConfig = None, reporting_cfg: ReportingConfig = None):
-        """
-        Initializes a Default Optimizer
-        :param training_cfg: a TrainingConfig object, if None, a default TrainingConfig object will be constructed
-        :param reporting_cfg: a ReportingConfig object, if None, a default ReportingConfig object will be constructed
-        """
-        if training_cfg is None:
-            logger.info(
-                "Using default training configuration to setup Optimizer!")
-            self.training_cfg = TrainingConfig()
-        elif not isinstance(training_cfg, TrainingConfig):
-            msg = "training_cfg must be of type TrainingConfig"
-            logger.error(msg)
-            raise TypeError(msg)
-        else:
-            self.training_cfg = training_cfg
-
-        if reporting_cfg is None:
-            logger.info(
-                "Using default reporting configuration to setup Optimizer!")
-            self.reporting_cfg = ReportingConfig()
-        elif not isinstance(reporting_cfg, ReportingConfig):
-            msg = "reporting_cfg must be of type ReportingConfig"
-            logger.error(msg)
-            raise TypeError(msg)
-        else:
-            self.reporting_cfg = reporting_cfg
-
-    def __deepcopy__(self, memodict={}):
-        training_cfg_copy = copy.deepcopy(self.training_cfg)
-        reporting_cfg_copy = copy.deepcopy(self.reporting_cfg)
-        return FBFOptimizerConfig(training_cfg_copy, reporting_cfg_copy)
-
-    def __eq__(self, other):
-        if self.training_cfg == other.training_cfg and self.reporting_cfg == other.reporting_cfg:
-            return True
-        else:
-            return False
-
-    def get_device_type(self):
-        """
-        Returns the device associated w/ this optimizer configuration.  Needed to save/load for UGE.
-        :return (str): the device type represented as a string
-        """
-        return str(self.training_cfg.device)
-
-    def save(self, fname):
-        """
-        Saves the optimizer configuration to a file
-        :param fname: the filename to save the config to
-        :return: None
-        """
-        with open(fname, 'wb') as f:
-            pickle.dump(self, f)
-
-    @staticmethod
-    def load(fname):
-        """
-        Loads a configuration from disk
-        :param fname: the filename where the config is stored
-        :return: the loaded configuration
-        """
-        with open(fname, 'rb') as f:
-            loaded_optimzier_cfg = pickle.load(f)
-        return loaded_optimzier_cfg
-
-
-class PGDOptimizerConfig(OptimizerConfigInterface):
-    """
-    Defines the configuration needed to setup the PGDOptimizer
-    """
-
-    def __init__(self, training_cfg: TrainingConfig = None, reporting_cfg: ReportingConfig = None):
-        """
-        Initializes the PGD Optimizer
-        :param training_cfg: a TrainingConfig object, if None, a default TrainingConfig object will be constructed
-        :param reporting_cfg: a ReportingConfig object, if None, a default ReportingConfig object will be constructed
-        """
-        if training_cfg is None:
-            logger.info(
-                "Using default training configuration to setup Optimizer!")
-            self.training_cfg = TrainingConfig()
-        elif not isinstance(training_cfg, TrainingConfig):
-            msg = "training_cfg must be of type TrainingConfig"
-            logger.error(msg)
-            raise TypeError(msg)
-        else:
-            self.training_cfg = training_cfg
-
-        if reporting_cfg is None:
-            logger.info(
-                "Using default reporting configuration to setup Optimizer!")
-            self.reporting_cfg = ReportingConfig()
-        elif not isinstance(reporting_cfg, ReportingConfig):
-            msg = "reporting_cfg must be of type ReportingConfig"
-            logger.error(msg)
-            raise TypeError(msg)
-        else:
-            self.reporting_cfg = reporting_cfg
-
-    def __deepcopy__(self, memodict={}):
-        training_cfg_copy = copy.deepcopy(self.training_cfg)
-        reporting_cfg_copy = copy.deepcopy(self.reporting_cfg)
-        return PGDOptimizerConfig(training_cfg_copy, reporting_cfg_copy)
-
-    def __eq__(self, other):
-        if self.training_cfg == other.training_cfg and self.reporting_cfg == other.reporting_cfg:
-            return True
-        else:
-            return False
-
-    def get_device_type(self):
-        """
-        Returns the device associated w/ this optimizer configuration.  Needed to save/load for UGE.
-        :return (str): the device type represented as a string
-        """
-        return str(self.training_cfg.device)
-
-    def save(self, fname):
-        """
-        Saves the optimizer configuration to a file
-        :param fname: the filename to save the config to
-        :return: None
-        """
-        with open(fname, 'wb') as f:
-            pickle.dump(self, f)
-
-    @staticmethod
-    def load(fname):
-        """
-        Loads a configuration from disk
-        :param fname: the filename where the config is stored
-        :return: the loaded configuration
-        """
-        with open(fname, 'rb') as f:
-            loaded_optimzier_cfg = pickle.load(f)
-        return loaded_optimzier_cfg
-
-
 class DefaultOptimizerConfig(OptimizerConfigInterface):
     """
     Defines the configuration needed to setup the DefaultOptimizer
@@ -823,7 +679,7 @@ class DefaultOptimizerConfig(OptimizerConfigInterface):
         :param reporting_cfg: a ReportingConfig object, if None, a default ReportingConfig object will be constructed
         """
         if training_cfg is None:
-            logger.info(
+            logger.debug(
                 "Using default training configuration to setup Optimizer!")
             self.training_cfg = TrainingConfig()
         elif not isinstance(training_cfg, TrainingConfig):
@@ -834,7 +690,7 @@ class DefaultOptimizerConfig(OptimizerConfigInterface):
             self.training_cfg = training_cfg
 
         if reporting_cfg is None:
-            logger.info(
+            logger.debug(
                 "Using default reporting configuration to setup Optimizer!")
             self.reporting_cfg = ReportingConfig()
         elif not isinstance(reporting_cfg, ReportingConfig):
