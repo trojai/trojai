@@ -343,8 +343,7 @@ class TrainingConfig(ConfigInterface):
             logger.error(msg)
             raise ValueError(msg)
         if self.soft_to_hard_fn_kwargs is None:
-            self.soft_to_hard_fn_kwargs = copy.deepcopy(
-                default_soft_to_hard_fn_kwargs)
+            self.soft_to_hard_fn_kwargs = copy.deepcopy(default_soft_to_hard_fn_kwargs)
         elif not isinstance(self.soft_to_hard_fn_kwargs, dict):
             msg = "soft_to_hard_fn_kwargs must be a dictionary of kwargs to pass to soft_to_hard_fn"
             logger.error(msg)
@@ -352,8 +351,7 @@ class TrainingConfig(ConfigInterface):
 
         # we do not validate the lr_scheduler or lr_scheduler_kwargs b/c those will
         # be validated upon instantiation
-        if self.lr_scheduler_call_arg is not None and self.lr_scheduler_call_arg != 'val_acc' and \
-                self.lr_scheduler_call_arg != 'val_loss':
+        if self.lr_scheduler_call_arg is not None and self.lr_scheduler_call_arg != 'val_acc' and self.lr_scheduler_call_arg != 'val_loss':
             msg = "lr_scheduler_call_arg must be one of: None, val_acc, val_loss"
             logger.error(msg)
             raise ValueError(msg)
@@ -400,17 +398,20 @@ class TrainingConfig(ConfigInterface):
                            clip_grad=self.clip_grad,
                            clip_type=self.clip_type,
                            clip_val=self.clip_val,
-                           clip_kwargs=self.clip_kwargs)
+                           clip_kwargs=self.clip_kwargs,
+                           adv_training_eps = self.adv_training_eps,
+                           adv_training_iterations = self.adv_training_iterations,
+                           adv_training_ratio = self.adv_training_ratio)
         return output_dict
 
     def __str__(self):
-        str_repr = "TrainingConfig: device[%s], num_epochs[%d], batch_size[%d], learning_rate[%.5e],adv_training[%s] optimizer[%s], " \
+        str_repr = "TrainingConfig: device[%s], num_epochs[%d], batch_size[%d], learning_rate[%.5e], adv_training_eps[%s], adv_training_iterations[%s], adv_training_ratio[%s], optimizer[%s], " \
                    "objective[%s], objective_kwargs[%s], train_val_split[%0.02f], val_data_transform[%s], " \
                    "val_label_transform[%s], val_dataloader_kwargs[%s], early_stopping[%s], " \
                    "soft_to_hard_fn[%s], soft_to_hard_fn_kwargs[%s], " \
                    "lr_scheduler[%s], lr_scheduler_init_kwargs[%s], lr_scheduler_call_arg[%s], " \
                    "clip_grad[%s] clip_type[%s] clip_val[%s] clip_kwargs[%s]" % \
-                   (str(self.device.type), self.epochs, self.batch_size, self.lr, self.adv_training,
+                   (str(self.device.type), self.epochs, self.batch_size, self.lr, self.adv_training_eps, self.adv_training_iterations, self.adv_training_ratio,
                     str(self.optim), str(self.objective), str(
                         self.objective_kwargs),
                     self.train_val_split, str(self.val_data_transform),
@@ -472,11 +473,16 @@ class TrainingConfig(ConfigInterface):
         clip_val = self.clip_val
         clip_kwargs = copy.deepcopy(self.clip_kwargs)
 
+        adv_training_eps = self.adv_training_eps
+        adv_training_iterations = self.adv_training_iterations
+        adv_training_ratio = self.adv_training_ratio
+
         return TrainingConfig(new_device, epochs, batch_size, lr, optim, optim_kwargs, objective, objective_kwargs,
                               save_best_model, train_val_split, val_data_transform, val_label_transform,
                               val_dataloader_kwargs, early_stopping, soft_to_hard_fn, soft_to_hard_fn_kwargs,
                               lr_scheduler, lr_scheduler_kwargs, lr_scheduler_call_arg,
-                              clip_grad, clip_type, clip_val, clip_kwargs)
+                              clip_grad, clip_type, clip_val, clip_kwargs, adv_training_eps,
+                              adv_training_iterations, adv_training_ratio)
 
     def __eq__(self, other):
         # NOTE: we don't check whether the
@@ -496,6 +502,9 @@ class TrainingConfig(ConfigInterface):
            self.lr_scheduler_init_kwargs == other.lr_scheduler_init_kwargs and \
            self.lr_scheduler_call_arg == other.lr_scheduler_call_arg and \
            self.clip_grad == other.clip_grad and self.clip_type == other.clip_type and \
+           self.adv_training_eps == other.adv_training_eps and \
+           self.adv_training_iterations == other.adv_training_iterations and \
+           self.adv_training_ratio == other.adv_training_ratio and \
            self.clip_val == other.clip_val and self.clip_kwargs == other.clip_kwargs:
             # now check the objects
             if self.optim == other.optim and self.objective == other.objective:
