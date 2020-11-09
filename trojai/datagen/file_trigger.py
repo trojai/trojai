@@ -10,7 +10,7 @@ class FlatIconDotComPng(ImageEntity):
     """
     def __init__(self, trigger_fpath, mode='graffiti', trigger_color=None, postit_bg_color=None, size=None):
         """
-        Initializes a TrainingConfig object
+        Initializes a trigger from a png file
         :param trigger_fpath: filepath to the png image defining the trigger.
         :param mode: trigger mode.
         :param trigger_color: trigger color RGB.
