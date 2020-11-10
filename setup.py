@@ -43,7 +43,9 @@ else:
                         'nltk',
                         'pyllist',
                         'transformers',  # TODO: this requires a rust compiler being installed on OSX ...
-                        'kaggle'
+                        'kaggle',
+                        'tb-nightly',
+                        'future'
                         ]
 
 setuptools.setup(
