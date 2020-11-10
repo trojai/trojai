@@ -80,7 +80,8 @@ class XFormMergePipelineConfig:
 
         # validate configuration based on the merge type
         self.merge_type = merge_type.lower()
-
+        self.validate_regenerate_mode()
+        
         self.validate()
 
     def validate(self):

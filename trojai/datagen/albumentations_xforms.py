@@ -359,8 +359,8 @@ class AddSunFlareXForm(ImageTransform):
             angle_upper = self.angle / (2 * math.pi)
             if self.angle == -1:
                 angle_lower, angle_upper = 0.0, 1.0
-            self.sunflare_object = albu.RandomSunFlare(roi, angle_lower, angle_upper, self.no_of_flare_circles,
-                                                       self.no_of_flare_circles, self.src_radius, self.src_color,
+            self.sunflare_object = albu.RandomSunFlare(roi, angle_lower, angle_upper, self.no_of_flare_circles-1,
+                                                       self.no_of_flare_circles+1, self.src_radius, self.src_color,
                                                        always_apply=True)
         logger.debug("Applying albumentations.RandomSunFlare with center=%s, angle=%0.02f, # flare-circles=%d,"
                     "flare-radius=%d, color=%s, pre_normalize=%s, post_normalize=%s" %

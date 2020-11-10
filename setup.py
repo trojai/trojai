@@ -6,10 +6,10 @@ import os
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
-__author__ = 'Kiran Karra, Chace Ashcraft, Nat Kavaler, Michael Majurski'
+__author__ = 'Kiran Karra, Chace Ashcraft, Nat Kavaler, Michael Majurski, Taylor Kulp-McDowall'
 __email__ = 'kiran.karra@jhuapl.edu,chace.ashcraft@jhuapl.edu,nathaniel.kavaler@jhaupl.edu,' \
-            'michael.majurski@nist.gov'
-__version__ = '0.2.15'
+            'michael.majurski@nist.gov,taylor.kulp-mcdowall@iarpa.gov'
+__version__ = '0.2.16'
 # Additional credit for software design attributed to:
 #  Cash Costello: cash.costello@jhuapl.edu
 #  Nathan Drenkow: nathan.drenkow@jhuapl.edu
@@ -31,6 +31,7 @@ else:
                         'torch==1.7.0',
                         'torchvision==0.8.0',
                         'torchtext==0.8.0',
+                        'blend_modes',
                         'spacy>=2.2.0',
                         'cloudpickle>=1.4.1',
                         'Wand>=0.5.9',
@@ -38,7 +39,11 @@ else:
                         'pyllist>=0.3',
                         'albumentations',
                         'blend_modes',
-                        'advertorch'
+                        'advertorch',
+                        'nltk',
+                        'pyllist',
+                        'transformers',  # TODO: this requires a rust compiler being installed on OSX ...
+                        'kaggle'
                         ]
 
 setuptools.setup(

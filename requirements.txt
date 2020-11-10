@@ -17,4 +17,10 @@ Wand>=0.5.9
 nltk>=3.5
 pyllist>=0.3
 blend_modes
-advertorch
+advertorch~=0.2.3
+
+trojai~=0.2.16
+mock~=4.0.2
+albumentations~=0.5.1
+transformers~=3.5.0
+setuptools~=50.3.1
