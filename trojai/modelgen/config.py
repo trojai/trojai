@@ -40,11 +40,10 @@ class DefaultSoftToHardFn:
         pass
 
     def __call__(self, y_hat, *args, **kwargs):
-        # returns the argmax
-        return torch.max(y_hat, dim=1)[1]
+        return torch.argmax(y_hat, dim=1)
 
     def __repr__(self):
-        return "torch.max(y_hat, dim=1)[1]"
+        return "torch.argmax(y_hat, dim=1)"
 
 
 class ConfigInterface(ABC):

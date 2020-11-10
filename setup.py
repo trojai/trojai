@@ -91,7 +91,7 @@ setuptools.setup(
     # for example:
     # $ pip install -e .[dev,test]
     extras_require={
-          'test': ['nose==1.3.7', 'coverage==5.0.3']
+          'test': ['nose==1.3.7', 'coverage==5.0.3', 'mock']
     },
 
     scripts=['scripts/datagen/mnist.py',
