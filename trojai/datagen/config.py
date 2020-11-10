@@ -31,7 +31,8 @@ class XFormMergePipelineConfig:
     def __init__(self, trigger_list: Sequence[Entity] = None, trigger_sampling_prob: Sequence[float] = None,
                  trigger_xforms: Sequence[Transform] = None, trigger_bg_xforms: Sequence[Transform] = None,
                  trigger_bg_merge: Merge = None, trigger_bg_merge_xforms: Sequence[Transform] = None,
-                 merge_type: str = 'insert',
+                 overall_bg_xforms: Sequence[Transform] = None, overall_bg_triggerbg_merge: Merge = None,
+                 overall_bg_triggerbg_xforms: Sequence[Transform] = None, merge_type: str = 'insert',
                  per_class_trigger_frac: float = None, triggered_classes: Union[str, Sequence[Any]] = 'all'):
         """
         Initializes the configuration used by XFormMergePipeline
@@ -44,6 +45,16 @@ class XFormMergePipelineConfig:
         :param trigger_bg_merge: merge operator to combine the trigger and the trigger background
         :param trigger_bg_merge_xforms: a list transforms to apply after combining the trigger and the trigger
                                         background
+        :param overall_bg_xforms: a list of transforms to apply to the overall background, into which the
+                                  trigger+trigger_bg will be inserted into.  This is only applicable for the
+                                  merge_type of "regenerate"
+        :param overall_bg_triggerbg_merge: Merge object which defines how to merge the the background image with the
+                                           trigger+bg image.  For example, a use case might be a inserting a trigger
+                                           into a traffic sign (which would be trigger+bg), and then inserting that
+                                           into an overall background
+        :param overall_bg_triggerbg_xforms: Any final transforms that should be applied after merging the trigger
+                                            with the background and merging that combined entity with another
+                                            background (as the usecase above)
         :param merge_type: How data will be merged.  Valid merge_types are determined by the method argument of the
                            Pipeline's modify_clean_dataset() function
         :param per_class_trigger_frac: The percentage of the total clean data to modify.  If None, all the data will
@@ -63,6 +74,14 @@ class XFormMergePipelineConfig:
         self.per_class_trigger_frac = per_class_trigger_frac
         self.triggered_classes = triggered_classes
 
+        self.overall_bg_xforms = overall_bg_xforms
+        self.overall_bg_triggerbg_merge = overall_bg_triggerbg_merge
+        self.overall_bg_triggerbg_xforms = overall_bg_triggerbg_xforms
+
+        # validate configuration based on the merge type
+        self.merge_type = merge_type.lower()
+        self.validate_regenerate_mode()
+        
         self.validate()
 
     def validate(self):
@@ -119,6 +138,29 @@ class XFormMergePipelineConfig:
             msg = "triggered_classes must be the string 'any', or a list of labels"
             logger.error(msg)
             raise ValueError(msg)
+
+    def validate_regenerate_mode(self):
+        """
+        Validates whether the configuration was setup properly, based on the merge_type.
+        :return: None
+        """
+
+        # additional checks if the xform+merge is being used to "regenerate" the data
+        if self.merge_type == 'regenerate':
+            if self.overall_bg_xforms is None:
+                # silently convert None to no xforms applied in the format needed by the Pipeline
+                self.overall_bg_xforms = []
+            check_list_type(self.overall_bg_xforms, Transform,
+                                        "overall_bg_xforms must be a list of Transform objects!")
+            if not isinstance(self.overall_bg_triggerbg_merge, Merge):
+                msg = "overall_bg_triggerbg_merge input must be of type trojai.datagen.Merge.Merge"
+                logger.error(msg)
+                raise ValueError(msg)
+            if self.overall_bg_triggerbg_xforms is None:
+                # silently convert None to no xforms applied in the format needed by the Pipeline
+                self.overall_bg_triggerbg_xforms = []
+            check_list_type(self.overall_bg_triggerbg_xforms, Transform,
+                                        "overall_bg_triggerbg_xforms must be a list of Transform objects!")
 
 
 def check_non_negative(val, name):
@@ -199,3 +241,30 @@ class ValidInsertLocationsConfig:
                 msg = "Must specify a value between 1 and 25 for num_boxes!"
                 logger.error(msg)
                 raise ValueError(msg)
+
+
+class TrojAICleanDataConfig:
+    def __init__(self, sign_xforms: Sequence[Transform] = None, bg_xforms: Sequence[Transform] = None,
+                 merge_obj: Merge = None, combined_xforms: Sequence[Transform] = None) -> None:
+        self.sign_xforms = sign_xforms
+        self.bg_xforms = bg_xforms
+        self.merge_obj = merge_obj
+        self.combined_xforms = combined_xforms
+
+        self.validate()
+
+    def validate(self) -> None:
+        if self.sign_xforms is None:
+            self.sign_xforms = []
+        check_list_type(self.sign_xforms, Transform, "sign_xforms must be list of Transform objects")
+        if self.bg_xforms is None:
+            self.bg_xforms = []
+        check_list_type(self.bg_xforms, Transform, "bg_xforms must be list of Transform objects")
+        if not isinstance(self.merge_obj, Merge):
+            msg = "merge_obj must be of type trojai.datagen.Merge.Merge"
+            logger.error(msg)
+            raise ValueError(msg)
+        if self.combined_xforms is None:
+            self.combined_xforms = []
+        check_list_type(self.combined_xforms, Transform, "combined_xforms must be list of Transform "
+                                                                     "objects")

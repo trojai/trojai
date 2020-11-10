@@ -31,7 +31,7 @@ class WrappedAdd(LabelBehavior):
         modified_label = y_true + self.add_val
         if self.max_num_classes is not None:
             modified_label %= self.max_num_classes
-        logger.info("Converted label %d to %d" % (y_true, modified_label))
+        logger.debug("Converted label %d to %d" % (y_true, modified_label))
         return modified_label
 
 
@@ -53,5 +53,5 @@ class StaticTarget(LabelBehavior):
         :return: the modified label
         """
         modified_label = self.target
-        logger.info("Converted label %s to %s" % (str(y_true), str(modified_label)))
+        logger.debug("Converted label %s to %s" % (str(y_true), str(modified_label)))
         return modified_label

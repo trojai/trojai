@@ -93,8 +93,7 @@ class Runner:
     """
 
     def __init__(self, runner_cfg: RunnerConfig,
-                 persist_metadata: dict = None,
-                 progress_bar_disable: bool = False):
+                 persist_metadata: dict = None):
         """
         Initialize a model runner, which sets up the Optimizer, passes data to the optimizer, and collects the
         trained model and associated statistics
@@ -117,8 +116,6 @@ class Runner:
             self.persist_info = {}
         else:
             self.persist_info = persist_metadata
-
-        self.progress_bar_disable = progress_bar_disable
 
     def run(self) -> None:
         """Trains a model and saves it and the associated model statistics"""
@@ -147,7 +144,7 @@ class Runner:
         if isinstance(train_data, types.GeneratorType):
             for data, optimizer in zip(train_data, self.cfg.optimizer_generator):  # both are generators
                 model, epoch_training_stats, num_epochs_trained, best_val_epoch = \
-                    optimizer.train(model, data, self.progress_bar_disable, train_dataloader_kwargs, use_amp=self.cfg.amp)
+                    optimizer.train(model, data, train_dataloader_kwargs, use_amp=self.cfg.amp)
                 model_stats.add_epoch(epoch_training_stats)
                 model_stats.add_num_epochs_trained(num_epochs_trained)
                 model_stats.add_best_epoch_val(best_val_epoch)
@@ -156,7 +153,7 @@ class Runner:
         else:
             optimizer = next(self.cfg.optimizer_generator)
             model, training_stats, num_epochs_trained, best_val_epoch = \
-                optimizer.train(model, train_data, self.progress_bar_disable, train_dataloader_kwargs, use_amp=self.cfg.amp)
+                optimizer.train(model, train_data, train_dataloader_kwargs, use_amp=self.cfg.amp)
             model_stats.add_epoch(training_stats)
             model_stats.add_num_epochs_trained(num_epochs_trained)
             model_stats.add_best_epoch_val(best_val_epoch)
@@ -166,8 +163,7 @@ class Runner:
         # NOTE: The test function used here is one corresponding to the last optimizer used for training. An exception
         #  will be raised if no training occurred, but validation code prior to this line should prevent this from
         #  ever happening.
-        test_acc = optimizer.test(model, clean_test_data, triggered_test_data, clean_test_triggered_labels_data,
-                                  self.progress_bar_disable, test_dataloader_kwargs)
+        test_acc = optimizer.test(model, clean_test_data, triggered_test_data, clean_test_triggered_labels_data, test_dataloader_kwargs)
         t3 = time.time()
 
         # Save model train/test statistics and other relevant information

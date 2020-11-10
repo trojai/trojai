@@ -239,7 +239,7 @@ def train_val_dataset_split(dataset: torch.utils.data.Dataset, split_amt: float,
         else:
             val_dataset.dataset.label_transform = train_dataset.dataset.data_transform
     else:
-        logger.info("val_dataset label/data transforms are configured to be identical to train label/data transforms!")
+        logger.debug("val_dataset label/data transforms are configured to be identical to train label/data transforms!")
     return train_dataset, val_dataset
 
 
@@ -448,14 +448,14 @@ class DefaultOptimizer(OptimizerInterface):
             train_loss = self.loss_function(y_hat, y_truth)
         return train_loss
 
-    def train(self, net: torch.nn.Module, dataset: CSVDataset, progress_bar_disable: bool = False,
+    def train(self, net: torch.nn.Module, dataset: CSVDataset,
               torch_dataloader_kwargs: dict = None, use_amp: bool = False) -> (torch.nn.Module, Sequence[EpochStatistics], int):
         """
         Train the network.
         :param net: the network to train
         :param dataset: the dataset to train the network on
-        :param progress_bar_disable: if True, disables the progress bar
         :param torch_dataloader_kwargs: any additional kwargs to pass to PyTorch's native DataLoader
+        :param use_amp: if True, uses automated mixed precision for FP16 training.
         :return: the trained network, and a list of EpochStatistics objects which contain the statistics for training,
                 and the # of epochs on which the net was trained
         """
@@ -476,8 +476,7 @@ class DefaultOptimizer(OptimizerInterface):
             raise NotImplementedError(msg)
 
         if self.optimizer_cfg.training_cfg.lr_scheduler is not None:
-            self.lr_scheduler = self.optimizer_cfg.training_cfg.lr_scheduler(self.optimizer,
-                                                                             **self.optimizer_cfg.training_cfg.lr_scheduler_init_kwargs)
+            self.lr_scheduler = self.optimizer_cfg.training_cfg.lr_scheduler(self.optimizer, **self.optimizer_cfg.training_cfg.lr_scheduler_init_kwargs)
 
         # set according to the following guidelines:
         # https://discuss.pytorch.org/t/when-to-set-pin-memory-to-true/19723
@@ -520,9 +519,8 @@ class DefaultOptimizer(OptimizerInterface):
         # stores training & val data statistics for every epoch
         epoch_stats = []
         best_net = None
-        best_validation_acc = -999
-        best_val_loss = np.inf
-        best_val_loss_epoch = -1
+        best_val_loss_epoch = 0
+        val_loss_array = np.zeros(0, dtype=np.float32)
 
         num_epochs_to_monitor = 1
         if self.optimizer_cfg.training_cfg.early_stopping:
@@ -532,37 +530,33 @@ class DefaultOptimizer(OptimizerInterface):
         done = False
         while not done:
             train_stats, validation_stats = self.train_epoch(net, train_loader, val_clean_loader, val_triggered_loader,
-                                                             epoch, progress_bar_disable=progress_bar_disable, use_amp=use_amp)
+                                                             epoch, use_amp=use_amp)
             epoch_training_stats = EpochStatistics(epoch, train_stats, validation_stats)
             epoch_stats.append(epoch_training_stats)
+            val_loss_array = np.append(val_loss_array, validation_stats.get_val_loss())
 
             # TODO: save best model should use same criterion as early stopping (val-loss rather than val-acc)?
             if self.save_best_model:
+                loss_threshold = np.min(val_loss_array) + np.abs(self.optimizer_cfg.training_cfg.early_stopping.val_loss_eps)
                 # use validation accuracy as the metric for deciding the best model
-                if validation_stats.get_val_acc() >= best_validation_acc:
-                    msg = "Updating best model with epoch:[%d] accuracy[%0.02f].  Previous best validation " \
-                          "accuracy was: %0.02f" % (epoch, validation_stats.get_val_acc(), best_validation_acc)
+                if validation_stats.get_val_loss() < loss_threshold:
+                    msg = "Updating best model with epoch:[%d] loss:[%0.02f] as its within eps[%0.2e] of the best loss." % (epoch, validation_stats.get_val_loss(), np.abs(self.optimizer_cfg.training_cfg.early_stopping.val_loss_eps))
                     logger.info(msg)
                     best_net = copy.deepcopy(net)
-                    best_validation_acc = validation_stats.get_val_acc()
 
             # early stopping
             # record the val loss of the last batch in the epoch.  if N epochs after the best val_loss, we have not
-            # improved the val-loss by atleast eps, we quit
+            # improved the val-loss by at least eps, we quit
             if self.optimizer_cfg.training_cfg.early_stopping:
                 # EarlyStoppingConfig validates that eps > 0 as well ..
-                if validation_stats.get_val_loss() < (
-                   best_val_loss - np.abs(self.optimizer_cfg.training_cfg.early_stopping.val_loss_eps)):
-                    best_val_loss = validation_stats.get_val_loss()
-                    best_val_loss_epoch = epoch
-                    best_net = copy.deepcopy(net)
-                    logger.info('EarlyStopping - NewBest >> best_val_loss:%0.04f best_val_loss_epoch:%d' %
-                                (best_val_loss, best_val_loss_epoch))
-                elif epoch >= (best_val_loss_epoch + num_epochs_to_monitor):
+                error_from_best = np.abs(val_loss_array - np.min(val_loss_array))
+                error_from_best[error_from_best < np.abs(self.optimizer_cfg.training_cfg.early_stopping.val_loss_eps)] = 0
+                best_val_loss_epoch = np.where(error_from_best == 0)[0][0]  # unpack numpy array, select first time since that value has happened
+
+                if epoch >= (best_val_loss_epoch + num_epochs_to_monitor):
                     epoch += 1  # we do this b/c of the break to keep the accounting of epoch # returned to
                     # the user to be one based
-                    msg = "Exiting training loop in epoch: %d - due to early stopping criterion being met!" \
-                          % (epoch,)
+                    msg = "Exiting training loop in epoch: %d - due to early stopping criterion being met!" % (epoch,)
                     logger.warning(msg)
                     done = True
 
@@ -575,14 +569,14 @@ class DefaultOptimizer(OptimizerInterface):
                 if epoch >= self.num_epochs:
                     done = True
 
-        if self.save_best_model or self.optimizer_cfg.training_cfg.early_stopping:
+        if self.save_best_model:
             return best_net, epoch_stats, epoch, best_val_loss_epoch
         else:
             return net, epoch_stats, epoch, best_val_loss_epoch
 
     def train_epoch(self, model: nn.Module, train_loader: DataLoader,
                     val_clean_loader: DataLoader, val_triggered_loader: DataLoader,
-                    epoch_num: int, progress_bar_disable: bool = False, use_amp: bool = False):
+                    epoch_num: int, use_amp: bool = False):
         """
         Runs one epoch of training on the specified model
 
@@ -591,13 +585,13 @@ class DefaultOptimizer(OptimizerInterface):
         :param val_clean_loader: a DataLoader object pointing to the validation dataset that is clean
         :param val_triggered_loader: a DataLoader object pointing to the validation dataset that is triggered
         :param epoch_num: the epoch number that is being trained
-        :param progress_bar_disable: if True, disables the progress bar
+        :param use_amp: if True use automated mixed precision for FP16 training.
         :return: a list of statistics for batches where statistics were computed
         """
 
         pid = os.getpid()
         train_dataset_len = len(train_loader.dataset)
-        loop = tqdm(train_loader, disable=progress_bar_disable)
+        loop = tqdm(train_loader, disable=self.optimizer_cfg.reporting_cfg.disable_progress_bar)
 
         scaler = None
         if use_amp:
@@ -611,10 +605,6 @@ class DefaultOptimizer(OptimizerInterface):
         for batch_idx, (x, y_truth) in enumerate(loop):
             x = x.to(self.device)
             y_truth = y_truth.to(self.device)
-            # if use_amp:
-            #     x = x.half()
-            #     y_truth = y_truth.half()
-
 
             # put network into training mode & zero out previous gradient computations
             self.optimizer.zero_grad()
@@ -649,6 +639,10 @@ class DefaultOptimizer(OptimizerInterface):
                 # Backward ops run in the same dtype autocast chose for corresponding forward ops.
                 scaler.scale(batch_train_loss).backward()
             else:
+                if np.isnan(sum_batchmean_train_loss) or np.isnan(running_train_acc):
+                    _save_nandata(x, y_hat, y_truth, batch_train_loss, sum_batchmean_train_loss, running_train_acc,
+                                  train_n_total, train_n_correct, model)
+
                 batch_train_loss.backward()
 
             # perform gradient clipping if configured
@@ -777,7 +771,7 @@ class DefaultOptimizer(OptimizerInterface):
         return train_stats, validation_stats
 
     def test(self, net: nn.Module, clean_data: CSVDataset, triggered_data: CSVDataset,
-             clean_test_triggered_labels_data: CSVDataset, progress_bar_disable: bool = False,
+             clean_test_triggered_labels_data: CSVDataset,
              torch_dataloader_kwargs: dict = None) -> dict:
         """
         Test the trained network
@@ -786,7 +780,6 @@ class DefaultOptimizer(OptimizerInterface):
         :param triggered_data: the triggered Dataset, if None, not computed
         :param clean_test_triggered_labels_data: triggered part of the training dataset but with correct labels; see
             DataManger.load_data for more information.
-        :param progress_bar_disable: if True, disables the progress bar
         :param torch_dataloader_kwargs: any keyword arguments to pass directly to PyTorch's DataLoader
         :return: a dictionary of the statistics on the clean and triggered data (if applicable)
         """

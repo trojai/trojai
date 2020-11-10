@@ -114,7 +114,9 @@ class TestRunner(unittest.TestCase):
                             step = 0.1
                             batch_acc_vec = np.arange(0, 1 + step, step)
                             for batch_acc in batch_acc_vec:
-                                random_mat = self.rso.rand(batch_size, num_outputs)
+                                # cast the generated data as float-32 so that there is no loss of accuracy
+                                # between converting from numpy to PyTorch
+                                random_mat = self.rso.rand(batch_size, num_outputs).astype(np.float32)
                                 row_sum = random_mat.sum(axis=1)
 
                                 # normalize the random_mat such that every row adds up to 1

@@ -41,6 +41,6 @@ class ToTensorXForm(ImageTransform):
             for ii in range(num_dims_to_add):
                 img = np.expand_dims(img, axis=len(img.shape))
         new_shape = img.shape
-        logger.info("Converted input entity from shape=%s to %s" % (str(old_shape), str(new_shape)))
+        logger.debug("Converted input entity from shape=%s to %s" % (str(old_shape), str(new_shape)))
         # make a new Entity object and return
         return GenericImageEntity(img, input_obj.get_mask())

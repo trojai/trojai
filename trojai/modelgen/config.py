@@ -40,11 +40,10 @@ class DefaultSoftToHardFn:
         pass
 
     def __call__(self, y_hat, *args, **kwargs):
-        # returns the argmax
-        return torch.max(y_hat, dim=1)[1]
+        return torch.argmax(y_hat, dim=1)
 
     def __repr__(self):
-        return "torch.max(y_hat, dim=1)[1]"
+        return "torch.argmax(y_hat, dim=1)"
 
 
 class ConfigInterface(ABC):
@@ -120,7 +119,6 @@ class TrainingConfig(ConfigInterface):
     """
     Defines all required items to setup training with an optimizer
     """
-
     def __init__(self,
                  device: Union[str, torch.device] = 'cpu',
                  epochs: int = 10,
@@ -144,7 +142,10 @@ class TrainingConfig(ConfigInterface):
                  clip_grad: bool = False,
                  clip_type: str = "norm",
                  clip_val: float = 1.,
-                 clip_kwargs: dict = None) -> None:
+                 clip_kwargs: dict = None,
+                 adv_training_eps: float = None,
+                 adv_training_iterations: int = None,
+                 adv_training_ratio: float = None) -> None:
         """
         Initializes a TrainingConfig object
         :param device: string or torch.device object representing the device on which computation will be performed
@@ -195,6 +196,9 @@ class TrainingConfig(ConfigInterface):
         :param clip_val: the value to clip at
         :param clip_kwargs: any kwargs to pass to the clipper.  See:
             https://pytorch.org/docs/stable/_modules/torch/nn/utils/clip_grad.html
+        :param adv_training_eps: The epsilon value constraining the adversarial perturbation.
+        :param adv_training_iterations: The number of iterations PGD will take for adversarial training.
+        :param adv_training_ratio: The percent of batches which will be adversarially attacked [0, 1].
 
         TODO:
          [ ] - allow user to configure what the "best" model is
@@ -222,6 +226,16 @@ class TrainingConfig(ConfigInterface):
         self.clip_type = clip_type
         self.clip_val = clip_val
         self.clip_kwargs = clip_kwargs
+        self.adv_training_eps = adv_training_eps
+        self.adv_training_iterations = adv_training_iterations
+        self.adv_training_ratio = adv_training_ratio
+
+        if self.adv_training_eps is None:
+            self.adv_training_eps = float(0.0)
+        if self.adv_training_ratio is None:
+            self.adv_training_ratio = float(0.0)
+        if self.adv_training_iterations is None:
+            self.adv_training_iterations = int(0)
 
         if self.optim_kwargs is None:
             self.optim_kwargs = {}
@@ -294,9 +308,18 @@ class TrainingConfig(ConfigInterface):
             logger.error(msg)
             raise ValueError(msg)
 
-        # disallow early-stopping and save best model to both be turned on - that doesn't make logical sense
-        if self.early_stopping and self.save_best_model:
-            msg = "early-stopping and save best model cannot both be on at the same time!"
+        if self.adv_training_eps < 0 or self.adv_training_eps > 1:
+            msg = "Adversarial training eps: {} must be between 0 and 1.".format(self.adv_training_eps)
+            logger.error(msg)
+            raise ValueError(msg)
+
+        if self.adv_training_ratio < 0 or self.adv_training_ratio > 1:
+            msg = "Adversarial training ratio (percent of images with perturbation applied): {} must be between 0 and 1.".format(self.adv_training_ratio)
+            logger.error(msg)
+            raise ValueError(msg)
+
+        if self.adv_training_iterations < 0:
+            msg = "Adversarial training iteration count: {} must be greater than or equal to 0.".format(self.adv_training_iterations)
             logger.error(msg)
             raise ValueError(msg)
 
@@ -327,8 +350,7 @@ class TrainingConfig(ConfigInterface):
 
         # we do not validate the lr_scheduler or lr_scheduler_kwargs b/c those will
         # be validated upon instantiation
-        if self.lr_scheduler_call_arg is not None and self.lr_scheduler_call_arg != 'val_acc' and \
-            self.lr_scheduler_call_arg != 'val_loss':
+        if self.lr_scheduler_call_arg is not None and self.lr_scheduler_call_arg != 'val_acc' and self.lr_scheduler_call_arg != 'val_loss':
             msg = "lr_scheduler_call_arg must be one of: None, val_acc, val_loss"
             logger.error(msg)
             raise ValueError(msg)
@@ -375,27 +397,35 @@ class TrainingConfig(ConfigInterface):
                            clip_grad=self.clip_grad,
                            clip_type=self.clip_type,
                            clip_val=self.clip_val,
-                           clip_kwargs=self.clip_kwargs)
+                           clip_kwargs=self.clip_kwargs,
+                           adv_training_eps = self.adv_training_eps,
+                           adv_training_iterations = self.adv_training_iterations,
+                           adv_training_ratio = self.adv_training_ratio)
         return output_dict
 
     def __str__(self):
-        str_repr = "TrainingConfig: device[%s], num_epochs[%d], batch_size[%d], learning_rate[%.5e], optimizer[%s], " \
+        str_repr = "TrainingConfig: device[%s], num_epochs[%d], batch_size[%d], learning_rate[%.5e], adv_training_eps[%s], adv_training_iterations[%s], adv_training_ratio[%s], optimizer[%s], " \
                    "objective[%s], objective_kwargs[%s], train_val_split[%0.02f], val_data_transform[%s], " \
                    "val_label_transform[%s], val_dataloader_kwargs[%s], early_stopping[%s], " \
                    "soft_to_hard_fn[%s], soft_to_hard_fn_kwargs[%s], " \
                    "lr_scheduler[%s], lr_scheduler_init_kwargs[%s], lr_scheduler_call_arg[%s], " \
                    "clip_grad[%s] clip_type[%s] clip_val[%s] clip_kwargs[%s]" % \
-                   (str(self.device.type), self.epochs, self.batch_size, self.lr,
-                    str(self.optim), str(self.objective), str(self.objective_kwargs),
+                   (str(self.device.type), self.epochs, self.batch_size, self.lr, self.adv_training_eps, self.adv_training_iterations, self.adv_training_ratio,
+                    str(self.optim), str(self.objective), str(
+                        self.objective_kwargs),
                     self.train_val_split, str(self.val_data_transform),
-                    str(self.val_label_transform), str(self.val_dataloader_kwargs), str(self.early_stopping),
-                    str(self.soft_to_hard_fn), str(self.soft_to_hard_fn_kwargs),
-                    str(self.lr_scheduler), str(self.lr_scheduler_init_kwargs), str(self.lr_scheduler_call_arg),
+                    str(self.val_label_transform), str(
+                        self.val_dataloader_kwargs), str(self.early_stopping),
+                    str(self.soft_to_hard_fn), str(
+                        self.soft_to_hard_fn_kwargs),
+                    str(self.lr_scheduler), str(self.lr_scheduler_init_kwargs), str(
+                        self.lr_scheduler_call_arg),
                     str(self.clip_grad), str(self.clip_type), str(self.clip_val), str(self.clip_kwargs))
         return str_repr
 
     def __deepcopy__(self, memodict={}):
-        new_device = self.device.type  # copy will keep a string version fo device, so that when
+        # copy will keep a string version fo device, so that when
+        new_device = self.device.type
         # it gets instantiated, it will generate a device object
         # on the node
         epochs = self.epochs
@@ -425,7 +455,8 @@ class TrainingConfig(ConfigInterface):
             logger.error(msg)
             raise ValueError(msg)
         objective_kwargs = self.objective_kwargs
-        soft_to_hard_fn = copy.deepcopy(self.soft_to_hard_fn)  # empirical tests on deepcopy do not seem to
+        # empirical tests on deepcopy do not seem to
+        soft_to_hard_fn = copy.deepcopy(self.soft_to_hard_fn)
         # create new memory references for lambda functions.
         # I am not sure if this behavior is different with
         # a properly defined function.
@@ -433,18 +464,24 @@ class TrainingConfig(ConfigInterface):
 
         lr_scheduler = self.lr_scheduler  # should be a callable, so this is OK
         lr_scheduler_kwargs = copy.deepcopy(self.lr_scheduler_init_kwargs)
-        lr_scheduler_call_arg = self.lr_scheduler_call_arg  # a string, no deep-copy required
+        # a string, no deep-copy required
+        lr_scheduler_call_arg = self.lr_scheduler_call_arg
 
         clip_grad = self.clip_grad
         clip_type = self.clip_type
         clip_val = self.clip_val
         clip_kwargs = copy.deepcopy(self.clip_kwargs)
 
+        adv_training_eps = self.adv_training_eps
+        adv_training_iterations = self.adv_training_iterations
+        adv_training_ratio = self.adv_training_ratio
+
         return TrainingConfig(new_device, epochs, batch_size, lr, optim, optim_kwargs, objective, objective_kwargs,
                               save_best_model, train_val_split, val_data_transform, val_label_transform,
                               val_dataloader_kwargs, early_stopping, soft_to_hard_fn, soft_to_hard_fn_kwargs,
                               lr_scheduler, lr_scheduler_kwargs, lr_scheduler_call_arg,
-                              clip_grad, clip_type, clip_val, clip_kwargs)
+                              clip_grad, clip_type, clip_val, clip_kwargs, adv_training_eps,
+                              adv_training_iterations, adv_training_ratio)
 
     def __eq__(self, other):
         # NOTE: we don't check whether the
@@ -464,6 +501,9 @@ class TrainingConfig(ConfigInterface):
            self.lr_scheduler_init_kwargs == other.lr_scheduler_init_kwargs and \
            self.lr_scheduler_call_arg == other.lr_scheduler_call_arg and \
            self.clip_grad == other.clip_grad and self.clip_type == other.clip_type and \
+           self.adv_training_eps == other.adv_training_eps and \
+           self.adv_training_iterations == other.adv_training_iterations and \
+           self.adv_training_ratio == other.adv_training_ratio and \
            self.clip_val == other.clip_val and self.clip_kwargs == other.clip_kwargs:
             # now check the objects
             if self.optim == other.optim and self.objective == other.objective:
@@ -481,6 +521,7 @@ class ReportingConfig(ConfigInterface):
 
     def __init__(self,
                  num_batches_per_logmsg: int = 100,
+                 disable_progress_bar: bool = False,
                  num_epochs_per_metric: int = 1,
                  num_batches_per_metrics: int = 50,
                  tensorboard_output_dir: str = None,
@@ -488,12 +529,14 @@ class ReportingConfig(ConfigInterface):
         """
         Initializes a ReportingConfig object.
         :param num_batches_per_logmsg: The # of batches which are computed before a log message is written.
+        :param disable_progress_bar: Whether to disable the tdqm progress bar.
         :param num_epochs_per_metric: The number of epochs before metrics are computed.
         :param num_batches_per_metrics: The number of batches before metrics are computed.
         :param tensorboard_output_dir: the directory to which tensorboard data should be written.
         :param experiment_name: A string identifier to associate with the configuration.
         """
         self.num_batches_per_logmsg = num_batches_per_logmsg
+        self.disable_progress_bar = disable_progress_bar
         self.num_epochs_per_metrics = num_epochs_per_metric
         self.num_batches_per_metrics = num_batches_per_metrics
         self.tensorboard_output_dir = tensorboard_output_dir
@@ -518,23 +561,22 @@ class ReportingConfig(ConfigInterface):
 
     def __str__(self):
         str_repr = "ReportingConfig: num_batches/log_msg[%d], num_epochs/metric[%d], num_batches/metric[%d], " \
-                   "tensorboard_dir[%s] experiment_name=[%s]" % \
+                   "tensorboard_dir[%s] experiment_name=[%s], disable_progress_bar=[%s]" % \
                    (self.num_batches_per_logmsg, self.num_epochs_per_metrics, self.num_batches_per_metrics,
-                    self.tensorboard_output_dir, self.experiment_name)
+                    self.tensorboard_output_dir, self.experiment_name, self.disable_progress_bar)
         return str_repr
 
     def __copy__(self):
-        return ReportingConfig(self.num_batches_per_logmsg, self.num_epochs_per_metrics,
-                               self.num_batches_per_metrics,
-                               self.tensorboard_output_dir, self.experiment_name)
+        return ReportingConfig(self.num_batches_per_logmsg, self.disable_progress_bar, self.num_epochs_per_metrics, self.num_batches_per_metrics, self.tensorboard_output_dir, self.experiment_name)
 
     def __deepcopy__(self, memodict={}):
         return self.__copy__()
 
     def __eq__(self, other):
         if self.num_batches_per_logmsg == other.num_batches_per_logmsg and \
-           self.num_epochs_per_metrics == other.num_epochs_per_metrics and \
-           self.num_batches_per_metrics == other.num_batches_per_metrics and \
+           self.disable_progress_bar == other.disable_progress_bar and \
+                self.num_epochs_per_metrics == other.num_epochs_per_metrics and \
+                self.num_batches_per_metrics == other.num_batches_per_metrics and \
            self.tensorboard_output_dir == other.tensorboard_output_dir and \
            self.experiment_name == other.experiment_name:
             return True
@@ -564,7 +606,8 @@ class TorchTextOptimizerConfig(OptimizerConfigInterface):
 
     def validate(self):
         if self.training_cfg is None:
-            logger.info("Using default training configuration to setup Optimizer!")
+            logger.debug(
+                "Using default training configuration to setup Optimizer!")
             self.training_cfg = TrainingConfig()
         elif not isinstance(self.training_cfg, TrainingConfig):
             msg = "training_cfg must be of type TrainingConfig"
@@ -572,7 +615,8 @@ class TorchTextOptimizerConfig(OptimizerConfigInterface):
             raise TypeError(msg)
 
         if self.reporting_cfg is None:
-            logger.info("Using default reporting configuration to setup Optimizer!")
+            logger.debug(
+                "Using default reporting configuration to setup Optimizer!")
             self.reporting_cfg = ReportingConfig()
         elif not isinstance(self.reporting_cfg, ReportingConfig):
             msg = "reporting_cfg must be of type ReportingConfig"
@@ -636,7 +680,8 @@ class DefaultOptimizerConfig(OptimizerConfigInterface):
         :param reporting_cfg: a ReportingConfig object, if None, a default ReportingConfig object will be constructed
         """
         if training_cfg is None:
-            logger.info("Using default training configuration to setup Optimizer!")
+            logger.debug(
+                "Using default training configuration to setup Optimizer!")
             self.training_cfg = TrainingConfig()
         elif not isinstance(training_cfg, TrainingConfig):
             msg = "training_cfg must be of type TrainingConfig"
@@ -646,7 +691,8 @@ class DefaultOptimizerConfig(OptimizerConfigInterface):
             self.training_cfg = training_cfg
 
         if reporting_cfg is None:
-            logger.info("Using default reporting configuration to setup Optimizer!")
+            logger.debug(
+                "Using default reporting configuration to setup Optimizer!")
             self.reporting_cfg = ReportingConfig()
         elif not isinstance(reporting_cfg, ReportingConfig):
             msg = "reporting_cfg must be of type ReportingConfig"
@@ -754,8 +800,10 @@ class ModelGeneratorConfig(ConfigInterface):
         self.amp = amp
         self.experiment_cfg = dict() if experiment_cfg is None else experiment_cfg
 
-        self.run_ids = run_ids  # it might be useful to allow something like a generator for this argument
-        self.filenames = filenames  # it might be useful to allow something like a generator for this argument
+        # it might be useful to allow something like a generator for this argument
+        self.run_ids = run_ids
+        # it might be useful to allow something like a generator for this argument
+        self.filenames = filenames
         self.save_with_hash = save_with_hash
 
         self.validate()
@@ -763,7 +811,8 @@ class ModelGeneratorConfig(ConfigInterface):
     def __deepcopy__(self, memodict={}):
         arch_factory_copy = copy.deepcopy(
             self.arch_factory)  # I think this is OK b/c the ArchFactory is a class definition
-        data_copy = copy.deepcopy(self.data)  # the default should work properly here b/c all properties are primitives
+        # the default should work properly here b/c all properties are primitives
+        data_copy = copy.deepcopy(self.data)
         optimizer_copy = copy.deepcopy(self.optimizer)
         return ModelGeneratorConfig(arch_factory_copy, data_copy,
                                     self.model_save_dir, self.stats_save_dir, self.num_models,
@@ -829,7 +878,8 @@ class ModelGeneratorConfig(ConfigInterface):
             if isinstance(self.filenames, Sequence):
                 for filename in self.filenames:
                     if not type(filename) == str:
-                        msg = "Encountered non-string in argument 'filenames': {}".format(filename)
+                        msg = "Encountered non-string in argument 'filenames': {}".format(
+                            filename)
                         logger.error(msg)
                         raise TypeError(msg)
             else:
@@ -896,7 +946,8 @@ class ModelGeneratorConfig(ConfigInterface):
         with open(remainder_data_save_fname, 'wb') as f:
             pickle.dump(self, f)
         # save the optimizer class name, so we can load it properly
-        optimizer_klass_name = '.'.join([self.optimizer.__module__, self.optimizer.__class__.__name__])
+        optimizer_klass_name = '.'.join(
+            [self.optimizer.__module__, self.optimizer.__class__.__name__])
         with open(optimizer_klass_save_fname, 'w') as f:
             f.write(optimizer_klass_name)
         self.optimizer.save(optimizer_save_fname)
@@ -987,7 +1038,8 @@ class RunnerConfig(ConfigInterface):
         self.validate()
 
         # create new attribute instead of overwriting self.optimizer so that self.__deepcopy__ still works.
-        self.optimizer_generator = self.setup_optimizer_generator(self.optimizer, self.data)
+        self.optimizer_generator = self.setup_optimizer_generator(
+            self.optimizer, self.data)
 
     def __deepcopy__(self, memodict={}):
         arch_copy = copy.deepcopy(self.arch_factory)
@@ -1043,7 +1095,8 @@ class RunnerConfig(ConfigInterface):
                 for item in optimizer:
                     if not (isinstance(item, OptimizerInterface) or isinstance(item, DefaultOptimizerConfig)):
                         msg = "Expected OptimizerInterface or DefaultOptimizerConfig objects in sequence for argument" \
-                              "'optimizer', discovered {} in sequence".format(item)
+                              "'optimizer', discovered {} in sequence".format(
+                                  item)
                         logger.error(msg)
                         raise TypeError(msg)
                 if len(optimizer) != len(data.train_file):
@@ -1068,7 +1121,8 @@ class RunnerConfig(ConfigInterface):
             raise TypeError(msg)
         if self.arch_factory_kwargs_generator is not None and not callable(self.arch_factory_kwargs_generator):
             msg = "Expected a function for argument 'arch_factory_kwargs_generator', " \
-                  "instead got type: {}".format(type(self.arch_factory_kwargs_generator))
+                  "instead got type: {}".format(
+                      type(self.arch_factory_kwargs_generator))
             logger.error(msg)
             raise TypeError(msg)
         if not isinstance(self.data, DataManager):
@@ -1114,7 +1168,7 @@ class RunnerConfig(ConfigInterface):
             logger.error(msg)
             raise TypeError(msg)
 
-        if self.model_save_format is not 'pt' and self.model_save_format is not 'state_dict':
+        if self.model_save_format != 'pt' and self.model_save_format != 'state_dict':
             msg = "model_save_format must be either: pt or state_dict"
             raise TypeError(msg)
 
