@@ -200,10 +200,15 @@ class DataManager:
             # For example, if an MNIST dataset was created with triggered examples only for labels 4 and 5,
             # then this dataset is the subset of data with labels 4 and 5 that don't have the triggers.
             if clean_test_dataset and triggered_test_dataset:
-                triggered_classes = triggered_test_dataset.data_df['true_label'].unique()
+                # get clean data correponding to the triggered data
+                clean_data_path = clean_test_dataset.data_df['file'][0].split('/') # get clean test data path
+                clean_test_df_triggered_classes_only = triggered_test_dataset.data_df.copy()
 
-                clean_test_df_triggered_classes_only = clean_test_dataset.data_df[
-                    clean_test_dataset.data_df['true_label'].isin(triggered_classes)]
+                for tri_i, tri_row in clean_test_df_triggered_classes_only.iterrows():
+                    single_data_path = clean_test_df_triggered_classes_only.at[tri_i, 'file'].split('/')[-1]
+                    clean_test_df_triggered_classes_only.at[tri_i, 'file'] = '/'.join(clean_data_path[:-1]) + '/' + single_data_path
+                    clean_test_df_triggered_classes_only.at[tri_i, 'triggered'] = False
+
                 clean_test_triggered_classes_dataset = csv_dataset_from_df(self.experiment_path,
                                                                            clean_test_df_triggered_classes_only,
                                                                            data_transform=self.test_data_transform,
