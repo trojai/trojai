@@ -9,7 +9,7 @@ with open("README.md", "r") as fh:
 __author__ = 'Kiran Karra, Chace Ashcraft, Nat Kavaler, Michael Majurski, Taylor Kulp-McDowall'
 __email__ = 'kiran.karra@jhuapl.edu,chace.ashcraft@jhuapl.edu,nathaniel.kavaler@jhaupl.edu,' \
             'michael.majurski@nist.gov,taylor.kulp-mcdowall@iarpa.gov'
-__version__ = '0.2.16'
+__version__ = '0.2.17'
 # Additional credit for software design attributed to:
 #  Cash Costello: cash.costello@jhuapl.edu
 #  Nathan Drenkow: nathan.drenkow@jhuapl.edu
@@ -42,7 +42,7 @@ else:
                         'advertorch',
                         'nltk',
                         'pyllist',
-                        'transformers',  # TODO: this requires a rust compiler being installed on OSX ...
+                        'transformers==4.2.1',  # TODO: this requires a rust compiler being installed on OSX ...
                         'kaggle',
                         'tb-nightly',
                         'future'
