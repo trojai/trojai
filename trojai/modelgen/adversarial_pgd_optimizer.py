@@ -32,6 +32,13 @@ class PGDOptimizer(default_optimizer.DefaultOptimizer):
         """
         super().__init__(optimizer_cfg)
 
+    def __deepcopy__(self, memodict={}):
+        import copy
+        optimizer_cfg_copy = copy.deepcopy(self.optimizer_cfg)
+        # WARNING: this assumes that none of the derived attributes have been changed after construction!
+        return PGDOptimizer(DefaultOptimizerConfig(optimizer_cfg_copy.training_cfg,
+                                                       optimizer_cfg_copy.reporting_cfg))
+
     def train_epoch(self,   model: nn.Module, train_loader: DataLoader,
                     val_clean_loader: DataLoader, val_triggered_loader: DataLoader,
                     epoch_num: int, use_amp: bool = False):

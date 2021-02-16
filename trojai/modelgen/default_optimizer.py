@@ -535,12 +535,11 @@ class DefaultOptimizer(OptimizerInterface):
             epoch_stats.append(epoch_training_stats)
             val_loss_array = np.append(val_loss_array, validation_stats.get_val_loss())
 
-            # TODO: save best model should use same criterion as early stopping (val-loss rather than val-acc)?
             if self.save_best_model:
                 loss_threshold = np.min(val_loss_array) + np.abs(self.optimizer_cfg.training_cfg.early_stopping.val_loss_eps)
                 # use validation accuracy as the metric for deciding the best model
                 if validation_stats.get_val_loss() < loss_threshold:
-                    msg = "Updating best model with epoch:[%d] loss:[%0.02f] as its within eps[%0.2e] of the best loss." % (epoch, validation_stats.get_val_loss(), np.abs(self.optimizer_cfg.training_cfg.early_stopping.val_loss_eps))
+                    msg = "Updating best model with epoch:[%d] loss:[%0.02f] as its less than the best loss plus eps[%0.2e]." % (epoch, validation_stats.get_val_loss(), np.abs(self.optimizer_cfg.training_cfg.early_stopping.val_loss_eps))
                     logger.info(msg)
                     best_net = copy.deepcopy(net)
 
@@ -628,9 +627,9 @@ class DefaultOptimizer(OptimizerInterface):
                                                                                   soft_to_hard_fn=self.soft_to_hard_fn,
                                                                                   soft_to_hard_fn_kwargs=self.soft_to_hard_fn_kwargs)
 
-            if np.isnan(sum_batchmean_train_loss) or np.isnan(running_train_acc):
-                _save_nandata(x, y_hat, y_truth, batch_train_loss, sum_batchmean_train_loss, running_train_acc,
-                              train_n_total, train_n_correct, model)
+            # if np.isnan(sum_batchmean_train_loss) or np.isnan(running_train_acc):
+            #     _save_nandata(x, y_hat, y_truth, batch_train_loss, sum_batchmean_train_loss, running_train_acc,
+            #                   train_n_total, train_n_correct, model)
 
             # compute gradient
             if use_amp:

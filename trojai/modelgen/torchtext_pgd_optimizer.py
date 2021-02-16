@@ -8,23 +8,27 @@ import torch.nn.utils.clip_grad as torch_clip_grad
 from torch.utils.data import DataLoader
 import torch.cuda.amp
 from tqdm import tqdm
-from trojai.modelgen import default_optimizer
 
-from .utils import clamp, get_uniform_delta
+
+from advertorch.context import ctx_noparamgrad_and_eval
+from advertorch.attacks import LinfPGDAttack
+
+from trojai.modelgen import default_optimizer
 from .training_statistics import EpochValidationStatistics, EpochTrainStatistics
 from .config import DefaultOptimizerConfig
 
 logger = logging.getLogger(__name__)
 
-class FBFOptimizer(default_optimizer.DefaultOptimizer):
+
+class PGDOptimizer(default_optimizer.DefaultOptimizer):
     """
-    Defines the optimizer which includes Faster is Better than Free adversarial training
+    Defines the optimizer which include  PGD adversarial training
     """
 
     def __init__(self, optimizer_cfg: DefaultOptimizerConfig = None):
         """
-        Initializes the FBF optimizer with a FBFOptimizerConfig
-        :param optimizer_cfg: the configuration used to initialize the FBFOptimizer
+        Initializes the default optimizer with a PGDOptimizerConfig
+        :param optimizer_cfg: the configuration used to initialize the PGDOptimizer
         """
         super().__init__(optimizer_cfg)
 
@@ -32,10 +36,10 @@ class FBFOptimizer(default_optimizer.DefaultOptimizer):
         import copy
         optimizer_cfg_copy = copy.deepcopy(self.optimizer_cfg)
         # WARNING: this assumes that none of the derived attributes have been changed after construction!
-        return FBFOptimizer(DefaultOptimizerConfig(optimizer_cfg_copy.training_cfg,
+        return PGDOptimizer(DefaultOptimizerConfig(optimizer_cfg_copy.training_cfg,
                                                        optimizer_cfg_copy.reporting_cfg))
 
-    def train_epoch(self, model: nn.Module, train_loader: DataLoader,
+    def train_epoch(self,   model: nn.Module, train_loader: DataLoader,
                     val_clean_loader: DataLoader, val_triggered_loader: DataLoader,
                     epoch_num: int, use_amp: bool = False):
         """
@@ -50,14 +54,8 @@ class FBFOptimizer(default_optimizer.DefaultOptimizer):
         :return: a list of statistics for batches where statistics were computed
         """
 
-        # Define parameters of the adversarial attack
-        # maximum pertubation
-        attack_eps = float(self.optimizer_cfg.training_cfg.adv_training_eps)
+        # Probability of Adversarial attack to occur in each iteration
         attack_prob = self.optimizer_cfg.training_cfg.adv_training_ratio
-
-        # step size
-        alpha = 1.2 * attack_eps
-
         pid = os.getpid()
         train_dataset_len = len(train_loader.dataset)
         loop = tqdm(train_loader, disable=self.optimizer_cfg.reporting_cfg.disable_progress_bar)
@@ -67,73 +65,49 @@ class FBFOptimizer(default_optimizer.DefaultOptimizer):
             scaler = torch.cuda.amp.GradScaler()
 
         train_n_correct, train_n_total = None, None
+
+        # Define parameters of the adversarial attack
+        attack_eps = float(self.optimizer_cfg.training_cfg.adv_training_eps)
+        attack_iterations = int(self.optimizer_cfg.training_cfg.adv_training_iterations)
+        eps_iter = (2.0 * attack_eps) / float(attack_iterations)
+        attack = LinfPGDAttack(
+            predict=model,
+            loss_fn=nn.CrossEntropyLoss(reduction="sum"),
+            eps=attack_eps,
+            nb_iter=attack_iterations,
+            eps_iter=eps_iter)
+
         sum_batchmean_train_loss = 0
         running_train_acc = 0
         num_batches = len(train_loader)
         model.train()
         for batch_idx, (x, y_truth) in enumerate(loop):
             x = x.to(self.device)
+            y_truth = y_truth.to(self.device)
 
+            # put network into training mode & zero out previous gradient computations
             self.optimizer.zero_grad()
 
+            # get predictions based on input & weights learned so far
             if use_amp:
                 with torch.cuda.amp.autocast():
-                    # get predictions based on input & weights learned so far
-                    y_truth = y_truth.to(self.device)
-
+                    # add adversarial noise via l_inf PGD attack
                     # only apply attack to attack_prob of the batches
                     if attack_prob and np.random.rand() <= attack_prob:
-                        # initialize perturbation randomly
-                        delta = get_uniform_delta(x.shape, attack_eps, requires_grad=True)
-
-                        y_hat = model(x + delta)
-
-                        # compute metrics
-                        batch_train_loss = self._eval_loss_function(y_hat, y_truth)
-                        scaler.scale(batch_train_loss).backward()
-
-                        # get gradient for adversarial update
-                        grad = delta.grad.detach()
-
-                        # update delta with adversarial gradient then clip based on epsilon
-                        delta.data = clamp(delta + alpha * torch.sign(grad), -attack_eps, attack_eps)
-
-                        # add updated delta and get model predictions
-                        delta = delta.detach()
-                        y_hat = model(x + delta)
-                    else:
-                        y_hat = model(x)
-
+                        with ctx_noparamgrad_and_eval(model):
+                            model.train()  # RNN needs to be in train model to enable gradients
+                            x = attack.perturb(x, y_truth)
+                    y_hat = model(x)
                     # compute metrics
                     batch_train_loss = self._eval_loss_function(y_hat, y_truth)
 
             else:
-                # get predictions based on input & weights learned so far
-                y_truth = y_truth.to(self.device)
-                # only apply attack to attack_prob of the batches
+                # add adversarial noise vis lin PGD attack
                 if attack_prob and np.random.rand() <= attack_prob:
-                    # initialize perturbation randomly
-                    delta = get_uniform_delta(x.shape, attack_eps, requires_grad=True)
-
-                    y_hat = model(x + delta)
-
-                    # compute metrics
-                    batch_train_loss = self._eval_loss_function(y_hat, y_truth)
-                    batch_train_loss.backward()
-
-                    # get gradient for adversarial update
-                    grad = delta.grad.detach()
-
-                    # update delta with adversarial gradient then clip based on epsilon
-                    delta.data = clamp(delta + alpha * torch.sign(grad), -attack_eps, attack_eps)
-
-                    # add updated delta and get model predictions
-                    delta = delta.detach()
-                    y_hat = model(x + delta)
-                else:
-                    y_hat = model(x)
-
-                # compute metrics
+                    with ctx_noparamgrad_and_eval(model):
+                        model.train()  # RNN needs to be in train model to enable gradients
+                        x = attack.perturb(x, y_truth)
+                y_hat = model(x)
                 batch_train_loss = self._eval_loss_function(y_hat, y_truth)
 
             sum_batchmean_train_loss += batch_train_loss.item()
@@ -144,7 +118,7 @@ class FBFOptimizer(default_optimizer.DefaultOptimizer):
                                                                                   soft_to_hard_fn=self.soft_to_hard_fn,
                                                                                   soft_to_hard_fn_kwargs=self.soft_to_hard_fn_kwargs)
 
-            # backward pass
+            # compute gradient
             if use_amp:
                 # Scales loss.  Calls backward() on scaled loss to create scaled gradients.
                 # Backward passes under autocast are not recommended.
@@ -206,7 +180,7 @@ class FBFOptimizer(default_optimizer.DefaultOptimizer):
             if batch_idx % self.num_batches_per_logmsg == 0:
                 logger.info('{}\tTrain Epoch: {} [{}/{} ({:.0f}%)]\tTrainLoss: {:.6f}\tTrainAcc: {:.6f}'.format(
                     pid, epoch_num, batch_idx * len(x), train_dataset_len,
-                                    100. * batch_idx / num_batches, batch_train_loss.item(), running_train_acc))
+                    100. * batch_idx / num_batches, batch_train_loss.item(), running_train_acc))
 
         train_stats = EpochTrainStatistics(running_train_acc, sum_batchmean_train_loss / float(num_batches))
 
