@@ -141,12 +141,12 @@ def _running_eval_acc(y_hat: torch.Tensor, y_truth: torch.Tensor, label_mask,
     return acc, n_total, n_correct
 
 
-class TorchTextOptimizerShiftingEmbedding(DefaultOptimizer):
+class NerTorchTextOptimizer(DefaultOptimizer):
     """
     An optimizer for training and testing LSTM models. Currently in a prototype state.
     """
 
-    def __init__(self, tokenizer, id2label, optimizer_cfg: DefaultOptimizerConfig = None, ner_report_dirpath: str = "./", run_id: str = ''):
+    def __init__(self, tokenizer, id2label, optimizer_cfg: DefaultOptimizerConfig = None, ner_report_dirpath: str = "./"):
         # def __init__(self, tokenizer, embedding, cls_token_is_first, optimizer_cfg: DefaultOptimizerConfig = None):
         """
         Initializes the optimizer with an DefaultOptimizerConfig
@@ -179,7 +179,6 @@ class TorchTextOptimizerShiftingEmbedding(DefaultOptimizer):
                 logger.error(e)
 
         self.ner_report_dirpath = ner_report_dirpath
-        self.run_id = run_id
 
         self.ner_metrics = Ner_Metrics()
         self.best_epoch = 0
@@ -195,8 +194,8 @@ class TorchTextOptimizerShiftingEmbedding(DefaultOptimizer):
     def __deepcopy__(self, memodict={}):
         optimizer_cfg_copy = copy.deepcopy(self.optimizer_cfg)
         # WARNING: this assumes that none of the derived attributes have been changed after construction!
-        return TorchTextOptimizerShiftingEmbedding(DefaultOptimizerConfig(optimizer_cfg_copy.training_cfg,
-                                                                          optimizer_cfg_copy.reporting_cfg))
+        return NerTorchTextOptimizer(DefaultOptimizerConfig(optimizer_cfg_copy.training_cfg,
+                                                            optimizer_cfg_copy.reporting_cfg))
 
     def _eval_acc(self, data_loader, model,
                   loss_fn: Callable = None):
@@ -335,8 +334,8 @@ class TorchTextOptimizerShiftingEmbedding(DefaultOptimizer):
                 and the # of epochs on which the net was trained
         """
 
-        self.ner_per_epoch_report_filepath = os.path.join(self.ner_report_dirpath, 'ner_detailed_stats.' + net.__class__.__name__ + '_' + str(self.run_id) + '.json')
-        self.ner_report_filepath = os.path.join(self.ner_report_dirpath, 'ner_stats.' + net.__class__.__name__ + '_' + str(self.run_id) + '.json')
+        self.ner_per_epoch_report_filepath = os.path.join(self.ner_report_dirpath, 'ner_detailed_stats.' + net.__class__.__name__ + '.json')
+        self.ner_report_filepath = os.path.join(self.ner_report_dirpath, 'ner_stats.' + net.__class__.__name__ + '.json')
 
         net = net.to(self.device)
 
