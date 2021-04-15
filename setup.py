@@ -28,7 +28,7 @@ else:
                         'scikit-learn>=0.23.0',
                         'tqdm>=4.46.0',
                         'opencv-python>=4.2.0.34',
-                        'torch==1.8.1',
+                        'torch==1.8.0',
                         'torchvision==0.9.0',
                         'torchtext==0.9.0',
                         'blend_modes',
