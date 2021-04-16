@@ -7,7 +7,6 @@ import os
 from typing import Sequence, Any, Callable
 import copy
 import numpy as np
-import math
 from tqdm import tqdm
 
 import torch
@@ -18,7 +17,7 @@ from torchtext.data.iterator import Iterator as TextDataIterator
 import torch.nn.utils.clip_grad as torch_clip_grad
 
 from collections import OrderedDict
-from transformers import get_linear_schedule_with_warmup
+
 from trojai.modelgen import conlleval
 
 from .default_optimizer import defaultdict
@@ -162,9 +161,6 @@ class NerTorchTextOptimizer(DefaultOptimizer):
         # Setup tokenizer and embedding
         self.tokenizer = tokenizer
         self.id2label = id2label
-        # TODO: pass in as parameters
-        self.gradient_accumulation_steps = 1
-        self.warmup_steps = 0
 
         if self.tokenizer.name_or_path == 'gpt2':
             self.pad_token = self.tokenizer.eos_token
@@ -397,18 +393,8 @@ class NerTorchTextOptimizer(DefaultOptimizer):
         logger.info('#Train[%d]/#ValClean[%d]/#ValTriggered[%d]' %
                     (len(train_loader), len(val_clean_loader), len(val_triggered_loader)))
 
-        num_update_steps_per_epoch = len(train_loader) // self.gradient_accumulation_steps
-        num_update_steps_per_epoch = max(num_update_steps_per_epoch, 1)
-        max_steps = math.ceil(self.num_epochs * num_update_steps_per_epoch)
-
-        self.scheduler = get_linear_schedule_with_warmup(self.optimizer, num_warmup_steps=self.warmup_steps, num_training_steps=max_steps)
-
-        # if self.optimizer_cfg.training_cfg.lr_scheduler is not None:
-        #     self.lr_scheduler = self.optimizer_cfg.training_cfg.lr_scheduler(self.optimizer, **self.optimizer_cfg.training_cfg.lr_scheduler_init_kwargs)
-
-        # TODO: Look into adding cyclic scheduler, 1e-4 2.5+/-
-        # step_size_up = num_batches / 2
-        # base_lr = 1e-5   min = base_lr/5 max = base_lr*5
+        if self.optimizer_cfg.training_cfg.lr_scheduler is not None:
+            self.lr_scheduler = self.optimizer_cfg.training_cfg.lr_scheduler(self.optimizer, **self.optimizer_cfg.training_cfg.lr_scheduler_init_kwargs)
 
         # stores training & val data statistics for every epoch
         epoch_stats = []
@@ -433,24 +419,22 @@ class NerTorchTextOptimizer(DefaultOptimizer):
             val_loss_array = np.append(val_loss_array, validation_stats.get_val_loss())
 
             if self.save_best_model:
-                # if self.optimizer_cfg.training_cfg.early_stopping:
-                #     val_loss_eps = np.abs(self.optimizer_cfg.training_cfg.early_stopping.val_loss_eps)
-                # else:
-                #     val_loss_eps = 0
+                val_loss_eps = 0.0
+                if self.optimizer_cfg.training_cfg.early_stopping:
+                    val_loss_eps = np.abs(self.optimizer_cfg.training_cfg.early_stopping.val_loss_eps)
+
+                error_from_best = np.abs(val_loss_array - np.min(val_loss_array))
+                error_from_best[error_from_best < np.abs(val_loss_eps)] = 0
+
+                if error_from_best[epoch] == 0:  # if this epoch is with convergence tolerance of the global best, save the weights
+                    msg = "Updating best model with epoch:[%d] loss:[%0.02f] as its less than the best loss plus eps[%0.2e]." % (epoch, validation_stats.get_val_loss(), val_loss_eps)
+                    logger.info(msg)
+                    best_net = copy.deepcopy(net)
+
                 cur_acc = validation_stats.get_val_acc()
-                # loss_threshold = np.min(val_loss_array) + np.abs(val_loss_eps)
-                # use validation accuracy as the metric for deciding the best model
-                # if validation_stats.get_val_loss() < loss_threshold:
                 if best_acc < cur_acc:
                     best_acc = cur_acc
                     self.best_epoch = epoch
-
-                    # msg = "Updating best model with epoch:[%d] loss:[%0.02f] as its less than the best loss plus eps[%0.2e]." % (epoch, validation_stats.get_val_loss(), np.abs(self.optimizer_cfg.training_cfg.early_stopping.val_loss_eps))
-                    msg = "Updating best model with epoch:[%d] acc:[%0.02f] as its better than the best acc[%0.2e]." % (
-                        epoch, cur_acc,
-                        best_acc)
-                    logger.info(msg)
-                    best_net = copy.deepcopy(net)
 
             # early stopping
             # record the val loss of the last batch in the epoch.  if N epochs after the best val_loss, we have not
@@ -612,7 +596,8 @@ class NerTorchTextOptimizer(DefaultOptimizer):
             else:
                 self.optimizer.step()
 
-            self.scheduler.step()
+            if self.lr_scheduler is not None:
+                self.lr_scheduler.step()
 
             # report batch statistics to tensorflow
             if self.tb_writer:
