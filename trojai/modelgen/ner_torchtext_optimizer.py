@@ -55,7 +55,10 @@ class Ner_Metrics:
 
         for i, m in sorted(by_type.items()):
             type_stats = OrderedDict()
-            type_stats['accuracy'] = m.tp / (m.fn + m.tp)
+            if m.fn + m.tp == 0:
+                type_stats['accuracy'] = 0.0
+            else:
+                type_stats['accuracy'] = m.tp / (m.fn + m.tp)
             type_stats['precision'] = m.prec
             type_stats['recall'] = m.rec
             type_stats['f1'] = m.fscore
