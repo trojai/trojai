@@ -223,14 +223,12 @@ class NerTorchTextOptimizer(DefaultOptimizer):
         cls_token = self.tokenizer.cls_token
 
         with torch.no_grad():
-            for batch_idx, (input_ids, attention_mask, labels, label_mask, valid_ids, token_type_ids) in enumerate(data_loader):
+            for batch_idx, (input_ids, attention_mask, labels, label_mask) in enumerate(data_loader):
 
                 input_ids = input_ids.to(self.device)
                 attention_mask = attention_mask.to(self.device)
                 labels = labels.to(self.device)
                 label_mask = label_mask.to(self.device)
-                valid_ids = valid_ids.to(self.device)
-                token_type_ids = token_type_ids.to(self.device)
 
                 # logits = model.predict(input_ids, input_mask=attention_mask)
 
@@ -239,10 +237,8 @@ class NerTorchTextOptimizer(DefaultOptimizer):
 
                 # Compute loss and predictions
                 batch_train_loss, logits = model(input_ids,
-                                                 token_type_ids=token_type_ids,
                                                  attention_mask=attention_mask,
-                                                 labels=labels,
-                                                 valid_ids=valid_ids)
+                                                 labels=labels)
 
                 predictions = torch.argmax(logits, dim=2)
 
@@ -500,9 +496,7 @@ class NerTorchTextOptimizer(DefaultOptimizer):
 
         loop = tqdm(train_loader, disable=self.optimizer_cfg.reporting_cfg.disable_progress_bar)
 
-        for batch_idx, (input_ids, attention_mask, labels, label_mask, valid_ids, token_type_ids) in enumerate(loop):
-            # for batch in range(label_mask.shape[0]):
-            #     print(self.tokenizer.decode(input_ids.data[batch]))
+        for batch_idx, (input_ids, attention_mask, labels, label_mask) in enumerate(loop):
             # zero out previous gradient computations
             self.optimizer.zero_grad()
 
@@ -512,40 +506,16 @@ class NerTorchTextOptimizer(DefaultOptimizer):
             attention_mask = attention_mask.to(self.device)
             labels = labels.to(self.device)
             label_mask = label_mask.to(self.device)
-            valid_ids = valid_ids.to(self.device)
-            token_type_ids = token_type_ids.to(self.device)
 
             if use_amp:
                 with torch.cuda.amp.autocast():
-                    # predictions = model((input_ids, attention_mask, label_mask, labels))
                     batch_train_loss, predictions = model(input_ids,
-                                                          token_type_ids=token_type_ids,
                                                           attention_mask=attention_mask,
-                                                          labels=labels,
-                                                          valid_ids=valid_ids)
-                    # preds: batch size , sequence len, nfeatures
-                    # labels: batch size, sequence len
-                    # active_preds = predictions.view(-1, predictions.shape[2])
-                    # active_labels = labels.view(-1)
-
-                    # compute metrics
-                    # batch_train_loss = self._eval_loss_function(active_preds, active_labels)
+                                                          labels=labels)
             else:
                 batch_train_loss, predictions = model(input_ids,
-                                                      token_type_ids=token_type_ids,
                                                       attention_mask=attention_mask,
-                                                      labels=labels,
-                                                      valid_ids=valid_ids)
-
-                # predictions = model((input_ids, attention_mask, label_mask))
-
-                # preds: batch size , sequence len, nfeatures
-                # labels: batch size, sequence len
-                # active_preds = predictions.view(-1, predictions.shape[2])
-                # active_labels = labels.view(-1)
-
-                # compute metrics
-                # batch_train_loss = self._eval_loss_function(active_preds, active_labels)
+                                                      labels=labels)
 
             sum_batchmean_train_loss += batch_train_loss.item()
             running_train_acc, train_n_total, train_n_correct = \
