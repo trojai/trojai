@@ -73,9 +73,7 @@ class Ner_Metrics:
             res['eval_triggered'] = self.get_stats(trigger_counts)
         self.epoch_stats[epoch_num] = res
 
-    def add_best(self, epoch_num, test_counts, clean_counts, trigger_counts):
-        if test_counts is not None:
-            self.best_epoch_stats['test'] = self.get_stats(test_counts)
+    def add_best(self, epoch_num, clean_counts, trigger_counts):
         if clean_counts is not None:
             self.best_epoch_stats['test_clean'] = self.get_stats(clean_counts)
         if trigger_counts is not None:
@@ -692,7 +690,7 @@ class NerTorchTextOptimizer(DefaultOptimizer):
         data_loader = self.convert_dataset_to_dataiterator(clean_data, batch_size=1)
 
         # Test the classification accuracy on clean data only, for all labels.
-        test_acc, test_n_total, test_n_correct, _, test_counts = self._eval_acc(data_loader, net)
+        test_acc, test_n_total, test_n_correct, _, clean_counts = self._eval_acc(data_loader, net)
 
         acc_per_label = "{"
         for k in test_n_total.keys():
@@ -726,27 +724,7 @@ class NerTorchTextOptimizer(DefaultOptimizer):
             logger.info("Accuracy on triggered test data: %0.02f for n=%s" %
                         (test_data_statistics['triggered_accuracy'], str(test_n_total)))
 
-        if clean_test_triggered_labels_data is not None:
-            # Test the classification accuracy on clean data for labels which have corresponding triggered examples.
-            # For example, if an MNIST dataset was created with triggered examples only for labels 4 and 5,
-            # then this dataset is the subset of data with labels 4 and 5 that don't have the triggers.
-            data_loader = self.convert_dataset_to_dataiterator(clean_test_triggered_labels_data, batch_size=1)
-            test_acc, test_n_total, test_n_correct, _, clean_test_counts = self._eval_acc(data_loader, net)
-            acc_per_label = "{"
-            for k in test_n_total.keys():
-                acc_per_label += "{}: {}, ".format(k, 0 if test_n_total[k] == 0 else float(test_n_correct[k]) / float(
-                    test_n_total[k]))
-            acc_per_label += "}"
-
-            test_data_statistics['clean_test_triggered_label_accuracy'] = test_acc
-            test_data_statistics['clean_test_triggered_label_n_total'] = test_n_total
-            test_data_statistics['clean_test_per_label_accuracy'] = acc_per_label
-
-            logger.info("Accuracy on clean-data-triggered-labels: %0.02f for n=%s" %
-                        (test_data_statistics['clean_test_triggered_label_accuracy'], str(test_n_total)))
-            logger.info('Per label clean test accuracy: {}'.format(acc_per_label))
-
-        self.ner_metrics.add_best(self.best_epoch, test_counts, clean_test_counts, triggered_counts, )
+        self.ner_metrics.add_best(self.best_epoch, clean_counts, triggered_counts)
 
         # Write the report for ner_metrics
         self.ner_metrics.write_per_epoch(self.ner_per_epoch_report_filepath)
