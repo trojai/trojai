@@ -42,7 +42,7 @@ else:
                         'advertorch',
                         'nltk',
                         'pyllist',
-                        'transformers==4.5.1',  # TODO: this requires a rust compiler being installed on OSX ...
+                        'transformers==4.30.0',  # TODO: this requires a rust compiler being installed on OSX ...
                         'kaggle',
                         'tb-nightly',
                         'future'
